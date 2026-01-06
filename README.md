@@ -1,2 +1,89 @@
-# vmix-volley-scoreboard
-VolleyScore Master: An Electron-based application designed for volleyball tournament graphics management. It integrates seamlessly with vMix for live broadcasts, providing real-time control over on-screen titles, scoreboards, and match infographics.
+# VolleyScore Master
+
+Приложение на Electron для управления счетом волейбольных матчей и интеграции с vMix.
+
+## Требования
+
+- Node.js 18+ 
+- npm или yarn
+
+## Установка
+
+```bash
+npm install
+```
+
+## Запуск в режиме разработки
+
+```bash
+npm run dev
+```
+
+Эта команда запустит:
+- Vite dev server (на порту 5173, или на другом, если 5173 занят)
+- Electron приложение (автоматически найдет правильный порт)
+
+**Важно:** 
+- Окно Electron появится автоматически после того, как Vite dev server будет готов
+- Если порт 5173 занят, Vite автоматически переключится на другой порт (5174, 5175 и т.д.)
+- Electron автоматически найдет правильный порт и подключится
+
+## Другие команды
+
+```bash
+# Только Vite dev server (без Electron)
+npm run vite
+
+# Только Electron (требует собранного приложения)
+npm run electron
+
+# Сборка для production
+npm run build
+
+# Предпросмотр собранного приложения
+npm run preview
+
+# Сборка Electron приложения
+npm run build:electron
+```
+
+## Структура проекта
+
+```
+├── src/
+│   ├── main/          # Electron main process
+│   │   ├── settingsManager.js  # Менеджер глобальных настроек
+│   │   ├── vmix-config.js      # Конфигурация vMix
+│   │   ├── server.js           # HTTP сервер для мобильного доступа
+│   │   └── ...
+│   ├── renderer/      # React приложение
+│   └── shared/        # Общие утилиты
+├── docs/              # Документация
+├── matches/           # Сохраненные матчи
+├── logos/             # Логотипы команд (logo_a.png, logo_b.png)
+├── settings.json      # Глобальные настройки приложения (не в git)
+└── CHANGELOG.md       # История изменений
+```
+
+## Решение проблем
+
+### Окно Electron не появляется
+
+1. Убедитесь, что используется команда `npm run dev` (не `npm run vite`)
+2. Проверьте, что порт 5173 не занят другим приложением
+3. Проверьте консоль на наличие ошибок
+4. Убедитесь, что все зависимости установлены: `npm install`
+
+### Ошибки при запуске
+
+- Проверьте версию Node.js: `node --version` (должна быть 18+)
+- Удалите `node_modules` и `package-lock.json`, затем выполните `npm install` заново
+- Проверьте логи в консоли
+
+## Разработка
+
+См. документацию в папке `docs/`:
+- `app-description.md` - описание приложения
+- `development-plan.md` - план разработки
+- `ui-structure.md` - структура интерфейса
+- `TESTING.md` - руководство по тестированию

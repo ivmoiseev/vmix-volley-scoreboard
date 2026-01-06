@@ -1,0 +1,56 @@
+{
+  "name": "vmix-volley-scoreboard",
+  "version": "1.0.0",
+  "description": "VolleyScore Master: An Electron-based application designed for volleyball tournament graphics management. It integrates seamlessly with vMix for live broadcasts, providing real-time control over on-screen titles, scoreboards, and match infographics.",
+  "main": "src/main/main.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "concurrently -k -s first \"vite\" \"node scripts/wait-for-vite.js && electron .\"",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build:electron": "vite build && electron-builder",
+    "lint": "echo 'Linting...'",
+    "test": "echo 'Tests will be added later'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ivmoiseev/vmix-volley-scoreboard.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ivmoiseev/vmix-volley-scoreboard/issues"
+  },
+  "homepage": "https://github.com/ivmoiseev/vmix-volley-scoreboard#readme",
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.0.3",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^5.1.2",
+    "concurrently": "^9.2.1",
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.0",
+    "wait-on": "^9.0.3"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "electron-store": "^11.0.2",
+    "express": "^5.2.1",
+    "qrcode": "^1.5.4",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-router-dom": "^7.11.0",
+    "uuid": "^13.0.0"
+  }
+}
