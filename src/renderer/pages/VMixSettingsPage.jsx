@@ -428,12 +428,14 @@ function VMixSettingsPage() {
                             borderRadius: '4px',
                             backgroundColor: field.type === 'text' ? '#e3f2fd' : 
                                            field.type === 'color' ? '#fff3e0' :
-                                           field.type === 'visibility' ? '#f3e5f5' : '#e8f5e9',
+                                           field.type === 'visibility' ? '#f3e5f5' :
+                                           field.type === 'image' ? '#e8f5e9' : '#e0e0e0',
                             color: '#555',
                           }}>
                             {field.type === 'text' ? 'Текст' :
                              field.type === 'color' ? 'Цвет' :
-                             field.type === 'visibility' ? 'Видимость' : field.type}
+                             field.type === 'visibility' ? 'Видимость' :
+                             field.type === 'image' ? 'Изображение' : field.type}
                           </span>
                         </div>
                         <div>

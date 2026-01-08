@@ -226,17 +226,30 @@ GET http://localhost:8088/api?Function=SetTextVisibleOff&Input=Input5&SelectedNa
 
 **Примечание**: В нашем проекте для полей типа `visibility` (pointA, pointB) автоматически устанавливается символ ● и управляется видимость в зависимости от того, у какой команды подача (значение `match.currentSet.servingTeam`: 'A' или 'B').
 
-### Поля логотипов (`type: "text"` с URL)
+### Поля изображений (`type: "image"`)
 
-**Формат значения**: URL изображения
+**Формат значения**: Путь к файлу или URL изображения
+
+**Команда**: Для установки изображения используется команда `SetImage`, а не `SetText`.
 
 **Пример**:
 
 ```
-GET http://localhost:8088/api?Function=SetText&Input=Input1&SelectedName=TeamALogo&Value=http%3A%2F%2F192.168.1.100%3A3000%2Flogos%2Flogo_a.png
+GET http://localhost:8088/api?Function=SetImage&Input=Input1&SelectedName=TeamALogo&Value=http%3A%2F%2F192.168.1.100%3A3000%2Flogos%2Flogo_a.png
 ```
 
+**Параметры команды SetImage**:
+
+| Параметр        | Тип    | Обязательный | Описание                                    |
+| --------------- | ------ | ------------ | ------------------------------------------- |
+| `Function`      | string | Да           | Всегда должно быть `SetImage`               |
+| `Input`         | string | Да           | Имя или номер инпута                        |
+| `SelectedName`  | string | Да           | Имя поля изображения (fieldIdentifier)      |
+| `Value`         | string | Да           | Путь к файлу или URL изображения            |
+
 **Примечание**: Символы `:`, `/` должны быть закодированы в URL (`%3A`, `%2F`).
+
+**Использование в проекте**: Поля логотипов команд (`teamALogo`, `teamBLogo`) имеют тип `image` и используют команду `SetImage` для установки изображений.
 
 ## Формирование URL для логотипов
 
@@ -789,10 +802,10 @@ fetch(
   )}`
 );
 
-// Обновление логотипа команды
+// Обновление логотипа команды (если это поле типа image)
 const logoURL = `http://192.168.1.100:3000/logos/logo_a.png`;
 fetch(
-  `${baseURL}?Function=SetText&Input=Input3&SelectedName=TeamLogo&Value=${encodeURIComponent(
+  `${baseURL}?Function=SetImage&Input=Input3&SelectedName=TeamLogo&Value=${encodeURIComponent(
     logoURL
   )}`
 );
@@ -830,7 +843,7 @@ fetch(
 // Обновление логотипа команды А
 const logoAURL = `http://192.168.1.100:3000/logos/logo_a.png`;
 fetch(
-  `${baseURL}?Function=SetText&Input=Input1&SelectedName=TeamALogo&Value=${encodeURIComponent(
+  `${baseURL}?Function=SetImage&Input=Input1&SelectedName=TeamALogo&Value=${encodeURIComponent(
     logoAURL
   )}`
 );

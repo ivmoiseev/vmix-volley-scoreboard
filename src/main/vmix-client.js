@@ -51,13 +51,25 @@ class VMixClient {
         queryParams.append(key, params[key]);
       });
 
-      const response = await axios.get(`${this.baseURL}?${queryParams.toString()}`, {
+      // vMix API работает с /api/ и /api, используем /api/ для совместимости с рабочей ссылкой
+      const url = `${this.baseURL}/?${queryParams.toString()}`;
+      
+      if (functionName === 'SetImage') {
+        console.log('[SetImage] Полная строка HTTP запроса:', url);
+      }
+
+      const response = await axios.get(url, {
         timeout: 5000,
       });
       
       return { success: true, data: response.data };
     } catch (error) {
       const friendlyError = errorHandler.handleError(error, `vMix sendCommand: ${functionName}`);
+      
+      if (functionName === 'SetImage') {
+        console.error('[SetImage] Ошибка запроса:', error.config?.url || 'URL не определен');
+      }
+      
       return {
         success: false,
         error: friendlyError,
@@ -120,14 +132,33 @@ class VMixClient {
   }
 
   /**
+   * Устанавливает изображение для поля
+   * @param {string} inputName - Название инпута
+   * @param {string} fieldName - Имя поля изображения (fieldIdentifier)
+   * @param {string} imagePath - Путь или URL к изображению
+   */
+  async setImage(inputName, fieldName, imagePath) {
+    // fieldName уже содержит полное имя поля из настроек (fieldIdentifier),
+    // включая суффикс .Source если он указан пользователем в настройках
+    const params = {
+      Input: inputName,
+      SelectedName: fieldName,
+      Value: imagePath,
+    };
+    
+    return this.sendCommand('SetImage', params);
+  }
+
+  /**
    * Обновляет несколько полей в инпуте
    * @param {string} inputName - Название инпута
    * @param {Object} fields - Объект с текстовыми полями { fieldName: value }
    * @param {Object} colorFields - Объект с полями цвета { fieldName: colorValue }
    * @param {Object} visibilityFields - Объект с полями видимости { fieldName: { visible: boolean, fieldConfig: object } }
+   * @param {Object} imageFields - Объект с полями изображений { fieldName: imagePath }
    * @returns {Promise<Array>} - Массив результатов для каждого поля
    */
-  async updateInputFields(inputName, fields, colorFields = {}, visibilityFields = {}) {
+  async updateInputFields(inputName, fields, colorFields = {}, visibilityFields = {}, imageFields = {}) {
     const results = [];
     
     // 1. Устанавливаем текстовые значения для обычных полей
@@ -142,7 +173,13 @@ class VMixClient {
       results.push(result);
     }
     
-    // 3. Для полей видимости: сначала устанавливаем символ ●, затем управляем видимостью
+    // 3. Устанавливаем изображения для полей типа image через команду SetImage
+    for (const [fieldName, imagePath] of Object.entries(imageFields)) {
+      const result = await this.setImage(inputName, fieldName, imagePath);
+      results.push(result);
+    }
+    
+    // 4. Для полей видимости: сначала устанавливаем символ ●, затем управляем видимостью
     for (const [fieldName, { visible, fieldConfig }] of Object.entries(visibilityFields)) {
       // Сначала устанавливаем символ ● в поле
       const setSymbolResult = await this.updateInputField(inputName, fieldName, '●');

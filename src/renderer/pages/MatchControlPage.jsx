@@ -75,7 +75,19 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
   // Автоматическое обновление vMix при изменении матча
   useEffect(() => {
     if (match && connectionStatus.connected) {
+      console.log('[MatchControlPage] Вызов updateMatchData для обновления vMix:', {
+        matchId: match.matchId,
+        teamA: match.teamA?.name,
+        teamB: match.teamB?.name,
+        hasLogoA: !!match.teamA?.logo,
+        hasLogoB: !!match.teamB?.logo,
+      });
       updateMatchData(match);
+    } else {
+      console.log('[MatchControlPage] updateMatchData не вызван:', {
+        hasMatch: !!match,
+        connected: connectionStatus.connected,
+      });
     }
   }, [match, connectionStatus.connected, updateMatchData]);
 

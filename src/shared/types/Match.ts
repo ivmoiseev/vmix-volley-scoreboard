@@ -57,8 +57,10 @@ export interface Statistics {
 
 export interface Match {
   matchId: string;
-  tournament?: string;
-  venue?: string;
+  tournament?: string; // Заголовок (название турнира)
+  tournamentSubtitle?: string; // Подзаголовок (название турнира)
+  location?: string; // Город, страна
+  venue?: string; // Место проведения
   date?: string; // ISO date
   time?: string; // ISO time
   teamA: Team;
@@ -80,6 +82,8 @@ export function createNewMatch(): Match {
   return {
     matchId: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : generateUUID(),
     tournament: '',
+    tournamentSubtitle: '',
+    location: '',
     venue: '',
     date: new Date().toISOString().split('T')[0],
     time: new Date().toTimeString().split(' ')[0].substring(0, 5),

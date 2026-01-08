@@ -7,6 +7,7 @@ const { getVMixClient } = require('./vmix-client');
 const vmixConfig = require('./vmix-config');
 const { getMobileServer } = require('./server');
 const settingsManager = require('./settingsManager');
+const logoManager = require('./logoManager');
 
 let mainWindow;
 let currentMatch = null;
@@ -449,7 +450,21 @@ ipcMain.handle('match:save-dialog', async (event, match) => {
 });
 
 // Отслеживание изменений матча
-ipcMain.handle('match:set-current', (event, match) => {
+ipcMain.handle('match:set-current', async (event, match) => {
+  // Сохраняем логотипы в файлы при обновлении матча
+  // Это необходимо для того, чтобы они были доступны по HTTP через мобильный сервер
+  try {
+    if (match && match.teamA) {
+      await logoManager.processTeamLogoForSave(match.teamA, 'A');
+    }
+    if (match && match.teamB) {
+      await logoManager.processTeamLogoForSave(match.teamB, 'B');
+    }
+  } catch (error) {
+    console.error('Ошибка при сохранении логотипов при обновлении матча:', error);
+    // Не прерываем выполнение, если ошибка сохранения логотипов
+  }
+  
   currentMatch = match;
   hasUnsavedChanges = true;
   return { success: true };
@@ -496,11 +511,11 @@ ipcMain.handle('vmix:update-input', async (event, inputName, data) => {
   }
 });
 
-ipcMain.handle('vmix:update-input-fields', async (event, inputName, fields, colorFields, visibilityFields) => {
+ipcMain.handle('vmix:update-input-fields', async (event, inputName, fields, colorFields, visibilityFields, imageFields) => {
   try {
     const config = await vmixConfig.getVMixConfig();
     const client = getVMixClient(config.host, config.port);
-    const results = await client.updateInputFields(inputName, fields || {}, colorFields || {}, visibilityFields || {});
+    const results = await client.updateInputFields(inputName, fields || {}, colorFields || {}, visibilityFields || {}, imageFields || {});
     // Проверяем, есть ли ошибки
     const hasErrors = results.some(r => !r.success);
     if (hasErrors) {
@@ -608,9 +623,37 @@ ipcMain.handle('mobile:stop-server', async () => {
   }
 });
 
-ipcMain.handle('mobile:get-server-info', () => {
+ipcMain.handle('mobile:get-server-info', async () => {
   const info = mobileServer.getServerInfo();
-  return info || { running: false };
+  if (info) {
+    console.log('[IPC mobile:get-server-info] Сервер запущен:', info);
+    return info;
+  }
+  
+  // Если сервер не запущен, пытаемся получить информацию из настроек
+  // чтобы использовать последние известные IP и порт
+  try {
+    const mobileSettings = await settingsManager.getMobileSettings();
+    if (mobileSettings && mobileSettings.port) {
+      // IP определяется динамически через getLocalIP, но можем вернуть порт из настроек
+      const fallbackInfo = {
+        running: false,
+        port: mobileSettings.port,
+        // IP будет определен при запуске, но можем попробовать получить через MobileServer
+        ip: mobileServer.getLocalIP ? mobileServer.getLocalIP() : null,
+      };
+      if (fallbackInfo.ip) {
+        fallbackInfo.url = `http://${fallbackInfo.ip}:${fallbackInfo.port}`;
+      }
+      console.log('[IPC mobile:get-server-info] Сервер не запущен, используем настройки:', fallbackInfo);
+      return fallbackInfo;
+    }
+  } catch (error) {
+    console.error('[IPC mobile:get-server-info] Ошибка при получении настроек:', error);
+  }
+  
+  console.log('[IPC mobile:get-server-info] Информация недоступна');
+  return { running: false };
 });
 
 ipcMain.handle('mobile:generate-session', async () => {
@@ -639,7 +682,21 @@ ipcMain.handle('mobile:get-saved-session', async () => {
   }
 });
 
-ipcMain.handle('mobile:set-match', (event, match) => {
+ipcMain.handle('mobile:set-match', async (event, match) => {
+  // Сохраняем логотипы в файлы при обновлении матча для мобильного сервера
+  // Это необходимо для того, чтобы они были доступны по HTTP через мобильный сервер
+  try {
+    if (match && match.teamA) {
+      await logoManager.processTeamLogoForSave(match.teamA, 'A');
+    }
+    if (match && match.teamB) {
+      await logoManager.processTeamLogoForSave(match.teamB, 'B');
+    }
+  } catch (error) {
+    console.error('Ошибка при сохранении логотипов для мобильного сервера:', error);
+    // Не прерываем выполнение, если ошибка сохранения логотипов
+  }
+  
   mobileServer.setMatch(match);
   return { success: true };
 });

@@ -11,6 +11,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   const [match, setMatch] = useState(propMatch || matchFromState || null);
   const [formData, setFormData] = useState({
     tournament: '',
+    tournamentSubtitle: '',
+    location: '',
     venue: '',
     date: '',
     time: '',
@@ -71,6 +73,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     // Заполняем форму данными из матча
     setFormData({
       tournament: match.tournament || '',
+      tournamentSubtitle: match.tournamentSubtitle || '',
+      location: match.location || '',
       venue: match.venue || '',
       date: match.date || '',
       time: match.time || '',
@@ -101,6 +105,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     const updatedMatch = {
       ...match,
       tournament: formData.tournament,
+      tournamentSubtitle: formData.tournamentSubtitle,
+      location: formData.location,
       venue: formData.venue,
       date: formData.date,
       time: formData.time,
@@ -172,7 +178,7 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
         <div style={{ display: 'grid', gap: '1rem' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-              Название турнира
+              Заголовок (название турнира)
             </label>
             <input
               type="text"
@@ -185,7 +191,43 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                 border: '1px solid #bdc3c7',
                 borderRadius: '4px',
               }}
-              placeholder="Введите название турнира"
+              placeholder="Введите заголовок турнира"
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+              Подзаголовок (название турнира)
+            </label>
+            <input
+              type="text"
+              value={formData.tournamentSubtitle}
+              onChange={(e) => handleInputChange('tournamentSubtitle', e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                fontSize: '1rem',
+                border: '1px solid #bdc3c7',
+                borderRadius: '4px',
+              }}
+              placeholder="Введите подзаголовок турнира"
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+              Город, страна
+            </label>
+            <input
+              type="text"
+              value={formData.location}
+              onChange={(e) => handleInputChange('location', e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                fontSize: '1rem',
+                border: '1px solid #bdc3c7',
+                borderRadius: '4px',
+              }}
+              placeholder="Введите город и страну"
             />
           </div>
           <div>

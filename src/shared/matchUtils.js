@@ -7,40 +7,42 @@
  */
 function createNewMatch() {
   const now = new Date().toISOString();
-  
+
   return {
     matchId: generateUUID(),
-    tournament: '',
-    venue: '',
-    date: new Date().toISOString().split('T')[0],
-    time: new Date().toTimeString().split(' ')[0].substring(0, 5),
+    tournament: "",
+    tournamentSubtitle: "",
+    location: "",
+    venue: "",
+    date: new Date().toISOString().split("T")[0],
+    time: new Date().toTimeString().split(" ")[0].substring(0, 5),
     teamA: {
-      name: 'Команда А',
-      color: '#3498db',
+      name: "Команда А",
+      color: "#3498db",
       logo: undefined,
-      coach: '',
+      coach: "",
       roster: [],
     },
     teamB: {
-      name: 'Команда Б',
-      color: '#e74c3c',
+      name: "Команда Б",
+      color: "#e74c3c",
       logo: undefined,
-      coach: '',
+      coach: "",
       roster: [],
     },
     officials: {
-      referee1: '',
-      referee2: '',
-      lineJudge1: '',
-      lineJudge2: '',
-      scorer: '',
+      referee1: "",
+      referee2: "",
+      lineJudge1: "",
+      lineJudge2: "",
+      scorer: "",
     },
     sets: [],
     currentSet: {
       setNumber: 1,
       scoreA: 0,
       scoreB: 0,
-      servingTeam: 'A',
+      servingTeam: "A",
     },
     statistics: {
       enabled: false,
@@ -66,11 +68,11 @@ function createNewMatch() {
  * Валидация данных матча
  */
 function validateMatch(match) {
-  if (!match || typeof match !== 'object') {
+  if (!match || typeof match !== "object") {
     return false;
   }
 
-  if (!match.matchId || typeof match.matchId !== 'string') {
+  if (!match.matchId || typeof match.matchId !== "string") {
     return false;
   }
 
@@ -101,13 +103,13 @@ function validateMatch(match) {
  * Простая генерация UUID
  */
 function generateUUID() {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
@@ -116,4 +118,3 @@ module.exports = {
   createNewMatch,
   validateMatch,
 };
-

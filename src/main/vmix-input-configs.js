@@ -60,11 +60,11 @@ function getDefaultFieldsForInput(inputKey) {
 
     lineup: {
       title: { enabled: true, type: 'text', fieldName: 'Заголовок (название турнира)', fieldIdentifier: 'Title' },
-      subtitle: { enabled: true, type: 'text', fieldName: 'Подзаголовок', fieldIdentifier: 'Subtitle' },
-      teamALogo: { enabled: true, type: 'text', fieldName: 'Лого команды А (URL)', fieldIdentifier: 'TeamALogo' },
+      subtitle: { enabled: true, type: 'text', fieldName: 'Подзаголовок (название турнира)', fieldIdentifier: 'Subtitle' },
+      teamALogo: { enabled: true, type: 'image', fieldName: 'Лого команды А', fieldIdentifier: 'TeamALogo' },
       teamAName: { enabled: true, type: 'text', fieldName: 'Название команды А', fieldIdentifier: 'TeamAName' },
       teamACity: { enabled: true, type: 'text', fieldName: 'Город команды А', fieldIdentifier: 'TeamACity' },
-      teamBLogo: { enabled: true, type: 'text', fieldName: 'Лого команды Б (URL)', fieldIdentifier: 'TeamBLogo' },
+      teamBLogo: { enabled: true, type: 'image', fieldName: 'Лого команды Б', fieldIdentifier: 'TeamBLogo' },
       teamBName: { enabled: true, type: 'text', fieldName: 'Название команды Б', fieldIdentifier: 'TeamBName' },
       teamBCity: { enabled: true, type: 'text', fieldName: 'Город команды Б', fieldIdentifier: 'TeamBCity' },
       matchDate: { enabled: true, type: 'text', fieldName: 'Дата проведения', fieldIdentifier: 'MatchDate' },
@@ -119,9 +119,12 @@ function migrateInputToNewFormat(inputValue, inputKey) {
   for (const [fieldKey, existingField] of Object.entries(existingFields)) {
     if (mergedFields[fieldKey]) {
       // Объединяем: сохраняем пользовательские значения, добавляем недостающие свойства
+      // ВАЖНО: тип поля всегда берется из defaults (для корректного обновления типов полей)
       mergedFields[fieldKey] = {
-        ...mergedFields[fieldKey],
+        ...mergedFields[fieldKey], // defaults имеют приоритет (особенно для type)
         ...existingField,
+        // Переопределяем тип из defaults (важно для обновления типов, например, text -> image)
+        type: mergedFields[fieldKey].type,
         // Убеждаемся, что fieldIdentifier есть (если нет, используем из defaults)
         fieldIdentifier: existingField.fieldIdentifier || mergedFields[fieldKey].fieldIdentifier,
       };

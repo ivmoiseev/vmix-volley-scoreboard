@@ -82,6 +82,27 @@ class MobileServer {
       res.json(this.currentMatch);
     });
 
+    // API: Проверка доступности логотипов (для отладки)
+    this.app.get('/api/logos/check', (req, res) => {
+      const fs = require('fs').promises;
+      const logosPath = path.join(__dirname, '../../logos');
+      
+      Promise.all([
+        fs.access(path.join(logosPath, 'logo_a.png')).then(() => true).catch(() => false),
+        fs.access(path.join(logosPath, 'logo_b.png')).then(() => true).catch(() => false),
+      ]).then(([logoA, logoB]) => {
+        res.json({
+          logosPath,
+          logoA: { exists: logoA, url: `${this.getLocalIP()}:${this.port}/logos/logo_a.png` },
+          logoB: { exists: logoB, url: `${this.getLocalIP()}:${this.port}/logos/logo_b.png` },
+          serverIP: this.getLocalIP(),
+          serverPort: this.port,
+        });
+      }).catch((error) => {
+        res.status(500).json({ error: error.message });
+      });
+    });
+
     // API: Обновление счета
     this.app.post('/api/match/:sessionId/score', (req, res) => {
       try {
@@ -1290,10 +1311,23 @@ class MobileServer {
       return null;
     }
 
+    const ip = this.getLocalIP();
+    const port = this.port;
+    const url = `http://${ip}:${port}`;
+    
+    console.log('[MobileServer.getServerInfo]', {
+      ip,
+      port,
+      url,
+      running: true,
+      sessionsCount: this.sessions.size,
+    });
+
     return {
-      port: this.port,
-      ip: this.getLocalIP(),
-      url: `http://${this.getLocalIP()}:${this.port}`,
+      running: true,
+      port,
+      ip,
+      url,
       sessionsCount: this.sessions.size,
     };
   }
