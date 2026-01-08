@@ -83,7 +83,9 @@ npm run build:electron
 ## Разработка
 
 См. документацию в папке `docs/`:
-- `app-description.md` - описание приложения
-- `development-plan.md` - план разработки
-- `ui-structure.md` - структура интерфейса
+- `app-description.md` - описание приложения и основных функций
+- `ARCHITECTURE.md` - архитектура проекта, структура кода, потоки данных
+- `ui-structure.md` - структура интерфейса и страниц приложения
+- `vmix-api-reference.md` - справочник HTTP API vMix
+- `vmix-settings-redesign-plan.md` - описание реализованной системы настроек vMix
 - `TESTING.md` - руководство по тестированию
