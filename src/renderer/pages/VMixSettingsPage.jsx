@@ -31,6 +31,14 @@ function VMixSettingsPage() {
     loadConfig();
   }, []);
 
+  useEffect(() => {
+    // Автоматически выбираем первый инпут при загрузке конфигурации
+    if (config.inputs && Object.keys(config.inputs).length > 0 && !selectedInput) {
+      const firstInputKey = Object.keys(config.inputs)[0];
+      setSelectedInput(firstInputKey);
+    }
+  }, [config.inputs]);
+
   const loadConfig = async () => {
     try {
       if (!window.electronAPI) {
@@ -38,27 +46,8 @@ function VMixSettingsPage() {
       }
       const savedConfig = await window.electronAPI.getVMixConfig();
       if (savedConfig) {
-        // Конвертируем старый формат в новый, если нужно
-        const convertedConfig = {
-          ...savedConfig,
-          inputs: Object.keys(savedConfig.inputs || {}).reduce((acc, key) => {
-            const value = savedConfig.inputs[key];
-            if (typeof value === 'string') {
-              // Старый формат: конвертируем в новый
-              acc[key] = {
-                name: value,
-                overlay: savedConfig.overlay || 1,
-              };
-            } else {
-              // Новый формат: используем как есть
-              acc[key] = value;
-            }
-            return acc;
-          }, {}),
-        };
-        // Удаляем старое поле overlay, если оно есть
-        delete convertedConfig.overlay;
-        setConfig(convertedConfig);
+        // Миграция происходит на серверной стороне в settingsManager.js
+        setConfig(savedConfig);
       }
     } catch (error) {
       console.error('Ошибка при загрузке настроек vMix:', error);
@@ -68,8 +57,18 @@ function VMixSettingsPage() {
   const handleInputChange = (field, value) => {
     if (field.includes('.')) {
       const parts = field.split('.');
-      if (parts.length === 3) {
-        // inputs.key.name или inputs.key.overlay
+      if (parts.length === 2) {
+        // Простые поля (host, port)
+        const [parent, child] = parts;
+        setConfig(prev => ({
+          ...prev,
+          [parent]: {
+            ...prev[parent],
+            [child]: child === 'port' ? (parseInt(value) || 8088) : value,
+          },
+        }));
+      } else if (parts.length === 3) {
+        // inputs.key.property (enabled, inputIdentifier, overlay)
         const [parent, key, property] = parts;
         setConfig(prev => ({
           ...prev,
@@ -77,18 +76,31 @@ function VMixSettingsPage() {
             ...prev[parent],
             [key]: {
               ...prev[parent][key],
-              [property]: property === 'overlay' ? parseInt(value) || 1 : value,
+              [property]: property === 'overlay' || property === 'enabled' 
+                ? (property === 'overlay' ? parseInt(value) || 1 : value === true || value === 'true')
+                : value,
             },
           },
         }));
-      } else {
-        // Старый формат для обратной совместимости
-        const [parent, child] = parts;
+      } else if (parts.length === 5) {
+        // inputs.key.fields.fieldKey.property (enabled, fieldIdentifier)
+        const [parent, inputKey, fieldsKey, fieldKey2, property] = parts;
         setConfig(prev => ({
           ...prev,
           [parent]: {
             ...prev[parent],
-            [child]: value,
+            [inputKey]: {
+              ...prev[parent][inputKey],
+              [fieldsKey]: {
+                ...prev[parent][inputKey][fieldsKey],
+                [fieldKey2]: {
+                  ...prev[parent][inputKey][fieldsKey][fieldKey2],
+                  [property]: property === 'enabled' 
+                    ? (value === true || value === 'true')
+                    : value,
+                },
+              },
+            },
           },
         }));
       }
@@ -144,29 +156,8 @@ function VMixSettingsPage() {
         return;
       }
 
-      // Конвертируем старый формат в новый, если нужно
-      const configToSave = {
-        ...config,
-        inputs: Object.keys(config.inputs).reduce((acc, key) => {
-          const value = config.inputs[key];
-          if (typeof value === 'string') {
-            // Старый формат: конвертируем в новый
-            acc[key] = {
-              name: value,
-              overlay: config.overlay || 1,
-            };
-          } else {
-            // Новый формат: используем как есть
-            acc[key] = value;
-          }
-          return acc;
-        }, {}),
-      };
-      
-      // Удаляем старое поле overlay, если оно есть
-      delete configToSave.overlay;
-
-      await window.electronAPI.setVMixConfig(configToSave);
+      // Сохраняем конфигурацию (новая структура уже используется)
+      await window.electronAPI.setVMixConfig(config);
       alert('Настройки сохранены!');
       navigate('/match');
     } catch (error) {
@@ -186,9 +177,11 @@ function VMixSettingsPage() {
     set3Score: 'Счет после 3 партии',
     set4Score: 'Счет после 4 партии',
     set5Score: 'Счет после 5 партии',
-    referee1: 'Плашка 1 судья',
+    referee1: 'Плашка общая',
     referee2: 'Плашка 2 судьи',
   };
+
+  const [selectedInput, setSelectedInput] = useState(null);
 
   return (
     <div style={{ padding: '1rem', maxWidth: '1000px', margin: '0 auto' }}>
@@ -270,96 +263,229 @@ function VMixSettingsPage() {
         </div>
       </div>
 
-      {/* Настройка инпутов */}
+      {/* Настройка инпутов - новая структура с вкладками */}
       <div style={{
         backgroundColor: '#ecf0f1',
         padding: '1.5rem',
         borderRadius: '4px',
         marginBottom: '1.5rem',
       }}>
-        <h3 style={{ marginTop: 0 }}>Настройка инпутов</h3>
-        <div style={{ display: 'grid', gap: '1rem' }}>
-          {Object.keys(inputLabels).map((key) => {
-            // Поддержка старого формата для обратной совместимости
-            const inputValue = typeof config.inputs[key] === 'string' 
-              ? config.inputs[key] 
-              : (config.inputs[key]?.name || '');
-            const overlayValue = typeof config.inputs[key] === 'object' && config.inputs[key]?.overlay
-              ? config.inputs[key].overlay
-              : (config.overlay || 1);
-            
-            return (
-              <div key={key} style={{ 
-                display: 'grid', 
-                gridTemplateColumns: '250px 1fr 150px', 
-                gap: '1rem', 
-                alignItems: 'center' 
-              }}>
-                <label style={{ fontWeight: 'bold' }}>
-                  {inputLabels[key]}:
-                </label>
-                <input
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => {
-                    // Если старый формат, конвертируем в новый
-                    if (typeof config.inputs[key] === 'string') {
-                      setConfig(prev => ({
-                        ...prev,
-                        inputs: {
-                          ...prev.inputs,
-                          [key]: {
-                            name: e.target.value,
-                            overlay: overlayValue,
-                          },
-                        },
-                      }));
-                    } else {
-                      handleInputChange(`inputs.${key}.name`, e.target.value);
-                    }
-                  }}
+        <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>Настройка инпутов</h3>
+        <div style={{ display: 'flex', gap: '1rem', minHeight: '500px' }}>
+          {/* Левая панель - вкладки инпутов */}
+          <div style={{
+            width: '250px',
+            backgroundColor: 'white',
+            borderRadius: '4px',
+            padding: '0.5rem',
+            border: '1px solid #bdc3c7',
+            overflowY: 'auto',
+            maxHeight: '600px',
+          }}>
+            {Object.keys(inputLabels).map((key) => {
+              const input = config.inputs[key] || {};
+              const isEnabled = input.enabled !== false;
+              const isSelected = selectedInput === key;
+              
+              return (
+                <div
+                  key={key}
+                  onClick={() => setSelectedInput(key)}
                   style={{
-                    padding: '0.5rem',
-                    fontSize: '1rem',
-                    border: '1px solid #bdc3c7',
+                    padding: '0.75rem',
+                    marginBottom: '0.25rem',
                     borderRadius: '4px',
-                  }}
-                  placeholder={`Input${key === 'lineup' ? '1' : ''}`}
-                />
-                <select
-                  value={overlayValue}
-                  onChange={(e) => {
-                    const overlay = parseInt(e.target.value) || 1;
-                    // Если старый формат, конвертируем в новый
-                    if (typeof config.inputs[key] === 'string') {
-                      setConfig(prev => ({
-                        ...prev,
-                        inputs: {
-                          ...prev.inputs,
-                          [key]: {
-                            name: inputValue,
-                            overlay: overlay,
-                          },
-                        },
-                      }));
-                    } else {
-                      handleInputChange(`inputs.${key}.overlay`, overlay);
-                    }
-                  }}
-                  style={{
-                    padding: '0.5rem',
-                    fontSize: '1rem',
-                    border: '1px solid #bdc3c7',
-                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    backgroundColor: isSelected ? '#3498db' : (isEnabled ? 'white' : '#ecf0f1'),
+                    color: isSelected ? 'white' : '#2c3e50',
+                    border: `1px solid ${isSelected ? '#2980b9' : '#bdc3c7'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
                   }}
                 >
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
-                    <option key={num} value={num}>Оверлей {num}</option>
-                  ))}
-                </select>
+                  <input
+                    type="checkbox"
+                    checked={isEnabled}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      handleInputChange(`inputs.${key}.enabled`, e.target.checked);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <span style={{ fontWeight: isSelected ? 'bold' : 'normal', flex: 1 }}>
+                    {inputLabels[key]}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Правая панель - редактирование выбранного инпута */}
+          {selectedInput && config.inputs[selectedInput] && (
+            <div style={{
+              flex: 1,
+              backgroundColor: 'white',
+              borderRadius: '4px',
+              padding: '1.5rem',
+              border: '1px solid #bdc3c7',
+              overflowY: 'auto',
+              maxHeight: '600px',
+            }}>
+              <h4 style={{ marginTop: 0, marginBottom: '1rem' }}>
+                {inputLabels[selectedInput]}
+              </h4>
+              
+              {/* Общие настройки инпута */}
+              <div style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid #ecf0f1' }}>
+                <h5 style={{ marginTop: 0, marginBottom: '0.75rem' }}>Общие настройки</h5>
+                <div style={{ display: 'grid', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={config.inputs[selectedInput].enabled !== false}
+                        onChange={(e) => handleInputChange(`inputs.${selectedInput}.enabled`, e.target.checked)}
+                      />
+                      <span style={{ fontWeight: 'bold' }}>Включить инпут</span>
+                    </label>
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                      Имя или номер инпута
+                    </label>
+                    <input
+                      type="text"
+                      value={config.inputs[selectedInput].inputIdentifier || config.inputs[selectedInput].name || ''}
+                      onChange={(e) => handleInputChange(`inputs.${selectedInput}.inputIdentifier`, e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        fontSize: '1rem',
+                        border: '1px solid #bdc3c7',
+                        borderRadius: '4px',
+                      }}
+                      placeholder="Input5 или Название инпута"
+                    />
+                    <small style={{ color: '#7f8c8d', display: 'block', marginTop: '0.25rem' }}>
+                      Если число - обращение по номеру, если строка - поиск по имени
+                    </small>
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                      Номер оверлея
+                    </label>
+                    <select
+                      value={config.inputs[selectedInput].overlay || 1}
+                      onChange={(e) => handleInputChange(`inputs.${selectedInput}.overlay`, parseInt(e.target.value))}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        fontSize: '1rem',
+                        border: '1px solid #bdc3c7',
+                        borderRadius: '4px',
+                      }}
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
+                        <option key={num} value={num}>Оверлей {num}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
-            );
-          })}
+
+              {/* Поля инпута */}
+              {config.inputs[selectedInput].fields && Object.keys(config.inputs[selectedInput].fields).length > 0 && (
+                <div>
+                  <h5 style={{ marginTop: 0, marginBottom: '0.75rem' }}>Поля инпута</h5>
+                  <div style={{ display: 'grid', gap: '0.75rem' }}>
+                    {Object.entries(config.inputs[selectedInput].fields).map(([fieldKey, field]) => (
+                      <div
+                        key={fieldKey}
+                        style={{
+                          padding: '1rem',
+                          backgroundColor: '#f8f9fa',
+                          borderRadius: '4px',
+                          border: '1px solid #e9ecef',
+                          display: 'grid',
+                          gap: '0.75rem',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <input
+                            type="checkbox"
+                            checked={field.enabled !== false}
+                            onChange={(e) => handleInputChange(`inputs.${selectedInput}.fields.${fieldKey}.enabled`, e.target.checked)}
+                          />
+                          <span style={{ flex: 1, fontWeight: 'bold', opacity: field.enabled !== false ? 1 : 0.6 }}>
+                            {field.fieldName || fieldKey}
+                          </span>
+                          <span style={{
+                            fontSize: '0.75rem',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '4px',
+                            backgroundColor: field.type === 'text' ? '#e3f2fd' : 
+                                           field.type === 'color' ? '#fff3e0' :
+                                           field.type === 'visibility' ? '#f3e5f5' : '#e8f5e9',
+                            color: '#555',
+                          }}>
+                            {field.type === 'text' ? 'Текст' :
+                             field.type === 'color' ? 'Цвет' :
+                             field.type === 'visibility' ? 'Видимость' : field.type}
+                          </span>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: 'bold' }}>
+                            Имя поля для vMix
+                          </label>
+                          <input
+                            type="text"
+                            value={field.fieldIdentifier || ''}
+                            onChange={(e) => {
+                              const path = `inputs.${selectedInput}.fields.${fieldKey}.fieldIdentifier`;
+                              const parts = path.split('.');
+                              if (parts.length === 5) {
+                                const [parent, inputKey, fieldsKey, fieldKey2, property] = parts;
+                                setConfig(prev => ({
+                                  ...prev,
+                                  [parent]: {
+                                    ...prev[parent],
+                                    [inputKey]: {
+                                      ...prev[parent][inputKey],
+                                      [fieldsKey]: {
+                                        ...prev[parent][inputKey][fieldsKey],
+                                        [fieldKey2]: {
+                                          ...prev[parent][inputKey][fieldsKey][fieldKey2],
+                                          [property]: e.target.value,
+                                        },
+                                      },
+                                    },
+                                  },
+                                }));
+                              }
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem',
+                              fontSize: '0.875rem',
+                              border: '1px solid #bdc3c7',
+                              borderRadius: '4px',
+                            }}
+                            placeholder="Имя поля для vMix"
+                          />
+                          <small style={{ color: '#7f8c8d', display: 'block', marginTop: '0.25rem' }}>
+                            Имя, которое будет использоваться при обращении к vMix для этого поля
+                          </small>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

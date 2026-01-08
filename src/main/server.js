@@ -1119,17 +1119,86 @@ class MobileServer {
 
   /**
    * Получает локальный IP адрес
+   * Приоритет отдается локальной сети (LAN), игнорируются VPN интерфейсы
    */
   getLocalIP() {
     const interfaces = os.networkInterfaces();
+    
+    // Список известных VPN интерфейсов (по имени)
+    const vpnInterfacePatterns = [
+      /^tun\d*$/i,      // TUN/TAP
+      /^tap\d*$/i,      // TAP
+      /^vpn/i,          // VPN (общие)
+      /^hamachi/i,      // LogMeIn Hamachi
+      /^nordlynx/i,     // NordVPN
+      /^wg\d*$/i,       // WireGuard
+      /^utun\d*$/i,     // macOS VPN
+      /^ppp\d*$/i,      // PPP (часто VPN)
+      /^ipsec/i,        // IPSec VPN
+      /^openvpn/i,      // OpenVPN
+      /^proton/i,       // ProtonVPN
+    ];
+    
+    // Функция проверки, является ли интерфейс VPN
+    const isVpnInterface = (name) => {
+      return vpnInterfacePatterns.some(pattern => pattern.test(name));
+    };
+    
+    // Функция проверки, является ли IP частным (RFC 1918)
+    const isPrivateIP = (ip) => {
+      // 10.0.0.0/8 (10.0.0.0 - 10.255.255.255)
+      if (/^10\./.test(ip)) return true;
+      // 172.16.0.0/12 (172.16.0.0 - 172.31.255.255)
+      if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip)) return true;
+      // 192.168.0.0/16 (192.168.0.0 - 192.168.255.255)
+      if (/^192\.168\./.test(ip)) return true;
+      return false;
+    };
+    
+    // Функция проверки, является ли интерфейс беспроводным (Wi-Fi)
+    const isWirelessInterface = (name) => {
+      return /^(Wi-Fi|wlan|wifi|en0|en1)/i.test(name);
+    };
+    
+    const candidates = [];
+    
+    // Собираем все подходящие интерфейсы
     for (const name of Object.keys(interfaces)) {
+      // Пропускаем VPN интерфейсы
+      if (isVpnInterface(name)) {
+        continue;
+      }
+      
       for (const iface of interfaces[name]) {
         // Пропускаем внутренние и не-IPv4 адреса
-        if (iface.family === 'IPv4' && !iface.internal) {
-          return iface.address;
+        if (iface.family !== 'IPv4' || iface.internal) {
+          continue;
+        }
+        
+        const ip = iface.address;
+        const isPrivate = isPrivateIP(ip);
+        const isWireless = isWirelessInterface(name);
+        
+        // Приоритет 1: Частный IP + Wi-Fi интерфейс
+        // Приоритет 2: Частный IP + любой интерфейс
+        // Приоритет 3: Любой не-внутренний IP (fallback)
+        
+        if (isPrivate && isWireless) {
+          candidates.unshift({ ip, name, priority: 1 }); // Высший приоритет
+        } else if (isPrivate) {
+          candidates.push({ ip, name, priority: 2 }); // Средний приоритет
+        } else {
+          candidates.push({ ip, name, priority: 3 }); // Низкий приоритет (fallback)
         }
       }
     }
+    
+    // Возвращаем первый кандидат (уже отсортирован по приоритету)
+    if (candidates.length > 0) {
+      return candidates[0].ip;
+    }
+    
+    // Fallback: если ничего не найдено, возвращаем localhost
     return 'localhost';
   }
 

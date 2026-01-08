@@ -27,6 +27,7 @@ Thumbs.db
 
 # Matches and data (опционально, можно закомментировать если нужны примеры)
 matches/*.json
+matches/*.vmix
 !matches/.gitkeep
 rosters/*.json
 !rosters/.gitkeep

@@ -496,15 +496,46 @@ ipcMain.handle('vmix:update-input', async (event, inputName, data) => {
   }
 });
 
+ipcMain.handle('vmix:update-input-fields', async (event, inputName, fields, colorFields, visibilityFields) => {
+  try {
+    const config = await vmixConfig.getVMixConfig();
+    const client = getVMixClient(config.host, config.port);
+    const results = await client.updateInputFields(inputName, fields || {}, colorFields || {}, visibilityFields || {});
+    // Проверяем, есть ли ошибки
+    const hasErrors = results.some(r => !r.success);
+    if (hasErrors) {
+      const errors = results.filter(r => !r.success).map(r => r.error);
+      return { success: false, error: errors.join('; ') };
+    }
+    return { success: true };
+  } catch (error) {
+    const friendlyError = errorHandler.handleError(error, 'vmix:update-input-fields');
+    return { success: false, error: friendlyError };
+  }
+});
+
 ipcMain.handle('vmix:show-overlay', async (event, inputKey) => {
   try {
     const config = await vmixConfig.getVMixConfig();
     const inputConfig = config.inputs[inputKey];
-    if (!inputConfig || !inputConfig.name) {
+    if (!inputConfig) {
       return { success: false, error: 'Инпут не настроен' };
     }
+    
+    // Поддержка старого и нового формата
+    const inputIdentifier = typeof inputConfig === 'string' 
+      ? inputConfig 
+      : (inputConfig.inputIdentifier || inputConfig.name);
+    const overlay = typeof inputConfig === 'object' && inputConfig.overlay 
+      ? inputConfig.overlay 
+      : (config.overlay || 1);
+    
+    if (!inputIdentifier) {
+      return { success: false, error: 'Инпут не настроен' };
+    }
+    
     const client = getVMixClient(config.host, config.port);
-    const result = await client.showOverlay(inputConfig.overlay, inputConfig.name);
+    const result = await client.showOverlay(overlay, inputIdentifier);
     return result;
   } catch (error) {
     return { success: false, error: error.message };
@@ -515,11 +546,17 @@ ipcMain.handle('vmix:hide-overlay', async (event, inputKey) => {
   try {
     const config = await vmixConfig.getVMixConfig();
     const inputConfig = config.inputs[inputKey];
-    if (!inputConfig || !inputConfig.overlay) {
-      return { success: false, error: 'Оверлей не настроен' };
+    if (!inputConfig) {
+      return { success: false, error: 'Инпут не настроен' };
     }
+    
+    // Поддержка старого и нового формата
+    const overlay = typeof inputConfig === 'object' && inputConfig.overlay 
+      ? inputConfig.overlay 
+      : (config.overlay || 1);
+    
     const client = getVMixClient(config.host, config.port);
-    const result = await client.hideOverlay(inputConfig.overlay);
+    const result = await client.hideOverlay(overlay);
     return result;
   } catch (error) {
     return { success: false, error: error.message };

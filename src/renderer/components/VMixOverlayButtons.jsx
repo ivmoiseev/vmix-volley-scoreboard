@@ -27,9 +27,15 @@ function VMixOverlayButtons({
     const isActive = isOverlayActive(inputKey);
     
     if (isActive) {
-      await onHideOverlay(inputKey);
+      const result = await onHideOverlay(inputKey);
+      if (result && !result.success) {
+        console.error('Ошибка при скрытии оверлея:', result.error);
+      }
     } else {
-      await onShowOverlay(inputKey);
+      const result = await onShowOverlay(inputKey);
+      if (result && !result.success) {
+        console.error('Ошибка при показе оверлея:', result.error);
+      }
     }
   };
 

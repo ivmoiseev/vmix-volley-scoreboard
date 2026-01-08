@@ -1,4 +1,5 @@
 const axios = require('axios');
+const xml2js = require('xml2js');
 const errorHandler = require('../shared/errorHandler');
 
 /**
@@ -77,6 +78,85 @@ class VMixClient {
   }
 
   /**
+   * Обновляет конкретное поле в инпуте по имени поля
+   * @param {string} inputName - Название инпута
+   * @param {string} fieldName - Имя поля (fieldIdentifier)
+   * @param {string} value - Значение для поля
+   */
+  async updateInputField(inputName, fieldName, value) {
+    return this.sendCommand('SetText', {
+      Input: inputName,
+      SelectedName: fieldName,
+      Value: value,
+    });
+  }
+
+  /**
+   * Управляет видимостью текстового поля
+   * @param {string} inputName - Название инпута
+   * @param {string} fieldName - Имя поля (fieldIdentifier)
+   * @param {boolean} visible - true для показа, false для скрытия
+   */
+  async setTextVisibility(inputName, fieldName, visible) {
+    const functionName = visible ? 'SetTextVisibleOn' : 'SetTextVisibleOff';
+    return this.sendCommand(functionName, {
+      Input: inputName,
+      SelectedName: fieldName,
+    });
+  }
+
+  /**
+   * Устанавливает цвет для поля
+   * @param {string} inputName - Название инпута
+   * @param {string} fieldName - Имя поля (fieldIdentifier)
+   * @param {string} color - Цвет в HEX формате (например, #FF0000)
+   */
+  async setColor(inputName, fieldName, color) {
+    return this.sendCommand('SetColor', {
+      Input: inputName,
+      SelectedName: fieldName,
+      Value: color,
+    });
+  }
+
+  /**
+   * Обновляет несколько полей в инпуте
+   * @param {string} inputName - Название инпута
+   * @param {Object} fields - Объект с текстовыми полями { fieldName: value }
+   * @param {Object} colorFields - Объект с полями цвета { fieldName: colorValue }
+   * @param {Object} visibilityFields - Объект с полями видимости { fieldName: { visible: boolean, fieldConfig: object } }
+   * @returns {Promise<Array>} - Массив результатов для каждого поля
+   */
+  async updateInputFields(inputName, fields, colorFields = {}, visibilityFields = {}) {
+    const results = [];
+    
+    // 1. Устанавливаем текстовые значения для обычных полей
+    for (const [fieldName, value] of Object.entries(fields)) {
+      const result = await this.updateInputField(inputName, fieldName, value);
+      results.push(result);
+    }
+    
+    // 2. Устанавливаем цвета для полей типа color через команду SetColor
+    for (const [fieldName, colorValue] of Object.entries(colorFields)) {
+      const result = await this.setColor(inputName, fieldName, colorValue);
+      results.push(result);
+    }
+    
+    // 3. Для полей видимости: сначала устанавливаем символ ●, затем управляем видимостью
+    for (const [fieldName, { visible, fieldConfig }] of Object.entries(visibilityFields)) {
+      // Сначала устанавливаем символ ● в поле
+      const setSymbolResult = await this.updateInputField(inputName, fieldName, '●');
+      results.push(setSymbolResult);
+      
+      // Затем управляем видимостью
+      const visibilityResult = await this.setTextVisibility(inputName, fieldName, visible);
+      results.push(visibilityResult);
+    }
+    
+    return results;
+  }
+
+  /**
    * Показывает инпут в оверлее
    * @param {number} overlay - Номер оверлея (1-8)
    * @param {string} inputName - Название инпута
@@ -106,12 +186,10 @@ class VMixClient {
       });
       
       // Парсим XML ответ vMix
-      // vMix возвращает XML с информацией о состоянии
-      // Здесь упрощенная версия - в реальности нужно парсить XML
-      const xmlData = response.data;
+      const parser = new xml2js.Parser({ explicitArray: false });
+      const result = await parser.parseStringPromise(response.data);
       
-      // Извлекаем информацию об оверлеях из XML
-      // Это упрощенная версия - в реальности нужен XML парсер
+      // Инициализируем состояние оверлеев
       const overlayState = {
         1: { active: false, input: null },
         2: { active: false, input: null },
@@ -123,10 +201,68 @@ class VMixClient {
         8: { active: false, input: null },
       };
 
-      // TODO: Реальный парсинг XML ответа vMix
-      // Для MVP используем упрощенную версию
+      // Извлекаем информацию об оверлеях из XML
+      if (result && result.vmix && result.vmix.overlays) {
+        const overlays = result.vmix.overlays.overlay;
+        
+        // Если overlay один - он будет объектом, если несколько - массивом
+        const overlayArray = Array.isArray(overlays) ? overlays : (overlays ? [overlays] : []);
+        
+        overlayArray.forEach((overlay) => {
+          const number = parseInt(overlay.$.number);
+          if (number >= 1 && number <= 8) {
+            // В реальном XML vMix номер инпута находится внутри элемента как текст
+            // Например: <overlay number="1">13</overlay> означает, что в оверлее 1 находится инпут номер 13
+            // Если элемент пустой или не содержит текста - оверлей неактивен
+            
+            let inputValue = null;
+            let isActive = false;
+            
+            // Получаем текстовое содержимое элемента
+            if (overlay._) {
+              // xml2js помещает текстовое содержимое в свойство _
+              const textContent = overlay._.trim();
+              if (textContent && !isNaN(textContent)) {
+                inputValue = textContent;
+                isActive = true;
+              }
+            } else if (typeof overlay === 'string') {
+              // Если overlay сам по себе строка (при explicitArray: false)
+              const textContent = overlay.trim();
+              if (textContent && !isNaN(textContent)) {
+                inputValue = textContent;
+                isActive = true;
+              }
+            }
+            
+            overlayState[number] = {
+              active: isActive,
+              input: inputValue,
+              preview: overlay.$.preview === 'True' || overlay.$.preview === true,
+            };
+          }
+        });
+      }
       
-      return { success: true, overlays: overlayState };
+      // Также сохраняем список inputs для последующего использования
+      // при поиске инпутов по имени
+      const inputsMap = {};
+      if (result && result.vmix && result.vmix.inputs && result.vmix.inputs.input) {
+        const inputsArray = Array.isArray(result.vmix.inputs.input) 
+          ? result.vmix.inputs.input 
+          : [result.vmix.inputs.input];
+        
+        inputsArray.forEach((input) => {
+          if (input.$ && input.$.number) {
+            inputsMap[input.$.number] = {
+              title: input.$.title || '',
+              shortTitle: input.$.shortTitle || input.$.title || '',
+            };
+          }
+        });
+      }
+      
+      return { success: true, overlays: overlayState, inputsMap };
     } catch (error) {
       return {
         success: false,
@@ -137,7 +273,8 @@ class VMixClient {
   }
 
   /**
-   * Получает список доступных инпутов
+   * Получает список доступных инпутов и их номеров
+   * @returns {Object} { success: boolean, inputs: { number: string, title: string, shortTitle: string }[], error?: string }
    */
   async getInputs() {
     try {
@@ -145,15 +282,82 @@ class VMixClient {
         timeout: 3000,
       });
       
-      // Парсим XML и извлекаем список инпутов
-      // Упрощенная версия
-      return { success: true, inputs: [] };
+      // Парсим XML
+      const parser = new xml2js.Parser({ 
+        explicitArray: false, 
+        trim: true,
+        explicitCharkey: true 
+      });
+      const result = await parser.parseStringPromise(response.data);
+      
+      const inputs = [];
+      
+      if (result && result.vmix && result.vmix.inputs && result.vmix.inputs.input) {
+        const inputsArray = Array.isArray(result.vmix.inputs.input) 
+          ? result.vmix.inputs.input 
+          : [result.vmix.inputs.input];
+        
+        inputsArray.forEach((input) => {
+          if (input.$) {
+            inputs.push({
+              number: input.$.number,
+              title: input.$.title || '',
+              shortTitle: input.$.shortTitle || input.$.title || '',
+            });
+          }
+        });
+      }
+      
+      return { success: true, inputs };
     } catch (error) {
       return {
         success: false,
         error: error.message,
         inputs: [],
       };
+    }
+  }
+
+  /**
+   * Находит номер инпута по его имени или title
+   * @param {string} identifier - имя, title или номер инпута
+   * @returns {Promise<number|null>} - номер инпута или null, если не найден
+   */
+  async findInputNumberByIdentifier(identifier) {
+    try {
+      // Если это уже номер, возвращаем его
+      if (/^\d+$/.test(identifier.trim())) {
+        return parseInt(identifier.trim());
+      }
+      
+      // Если это "InputN", извлекаем номер
+      const inputMatch = identifier.trim().match(/^Input\s*(\d+)$/i);
+      if (inputMatch) {
+        return parseInt(inputMatch[1]);
+      }
+      
+      // Ищем по имени в списке инпутов
+      const inputsResult = await this.getInputs();
+      if (!inputsResult.success) {
+        return null;
+      }
+      
+      const normalizedIdentifier = identifier.trim().toLowerCase();
+      
+      const foundInput = inputsResult.inputs.find(input => {
+        const title = (input.title || '').toLowerCase();
+        const shortTitle = (input.shortTitle || '').toLowerCase();
+        
+        return title === normalizedIdentifier || 
+               shortTitle === normalizedIdentifier ||
+               title.includes(normalizedIdentifier) ||
+               shortTitle.includes(normalizedIdentifier);
+      });
+      
+      return foundInput ? parseInt(foundInput.number) : null;
+    } catch (error) {
+      console.error('Ошибка при поиске номера инпута:', error);
+      return null;
     }
   }
 

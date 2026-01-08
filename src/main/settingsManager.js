@@ -1,5 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
+const { getDefaultFieldsForInput, migrateInputToNewFormat } = require('./vmix-input-configs');
 
 const SETTINGS_FILE = path.join(__dirname, '../../settings.json');
 
@@ -20,24 +21,39 @@ async function ensureSettingsFile() {
  * Возвращает настройки по умолчанию
  */
 function getDefaultSettings() {
+  // Определяем имена инпутов по умолчанию
+  const defaultInputNames = {
+    lineup: 'Input1',
+    statistics: 'Input2',
+    roster: 'Input3',
+    startingLineup: 'Input4',
+    currentScore: 'Input5',
+    set1Score: 'Input6',
+    set2Score: 'Input7',
+    set3Score: 'Input8',
+    set4Score: 'Input9',
+    set5Score: 'Input10',
+    referee1: 'Input11',
+    referee2: 'Input12',
+  };
+
+  // Создаем конфигурацию инпутов с новой структурой
+  const inputs = {};
+  for (const [key, defaultName] of Object.entries(defaultInputNames)) {
+    const defaultFields = getDefaultFieldsForInput(key) || {};
+    inputs[key] = {
+      enabled: true,
+      inputIdentifier: defaultName,
+      overlay: 1,
+      fields: defaultFields,
+    };
+  }
+
   return {
     vmix: {
       host: 'localhost',
       port: 8088,
-      inputs: {
-        lineup: { name: 'Input1', overlay: 1 },
-        statistics: { name: 'Input2', overlay: 1 },
-        roster: { name: 'Input3', overlay: 1 },
-        startingLineup: { name: 'Input4', overlay: 1 },
-        currentScore: { name: 'Input5', overlay: 1 },
-        set1Score: { name: 'Input6', overlay: 1 },
-        set2Score: { name: 'Input7', overlay: 1 },
-        set3Score: { name: 'Input8', overlay: 1 },
-        set4Score: { name: 'Input9', overlay: 1 },
-        set5Score: { name: 'Input10', overlay: 1 },
-        referee1: { name: 'Input11', overlay: 1 },
-        referee2: { name: 'Input12', overlay: 1 },
-      },
+      inputs,
     },
     mobile: {
       enabled: false,
@@ -57,31 +73,40 @@ async function loadSettings() {
     const settings = JSON.parse(data);
     
     // Миграция: если настройки в старом формате, конвертируем
-    if (settings.vmix && settings.vmix.inputs && typeof settings.vmix.inputs.lineup === 'string') {
-      // Старый формат: inputs.lineup = 'Input1'
-      // Новый формат: inputs.lineup = { name: 'Input1', overlay: 1 }
-      const migratedSettings = {
-        ...settings,
-        vmix: {
-          ...settings.vmix,
-          inputs: Object.keys(settings.vmix.inputs).reduce((acc, key) => {
-            const value = settings.vmix.inputs[key];
-            if (typeof value === 'string') {
-              acc[key] = {
-                name: value,
-                overlay: settings.vmix.overlay || 1,
-              };
-            } else {
-              acc[key] = value;
-            }
-            return acc;
-          }, {}),
-        },
-      };
-      // Удаляем старое поле overlay, если оно есть
-      delete migratedSettings.vmix.overlay;
-      await saveSettings(migratedSettings);
-      return migratedSettings;
+    if (settings.vmix && settings.vmix.inputs) {
+      let needsMigration = false;
+      
+      // Проверяем, нужно ли мигрировать
+      for (const key of Object.keys(settings.vmix.inputs)) {
+        const inputValue = settings.vmix.inputs[key];
+        // Если формат старый (строка или объект с name/overlay без fields/enabled)
+        if (typeof inputValue === 'string' || 
+            (inputValue && typeof inputValue === 'object' && 
+             !inputValue.hasOwnProperty('enabled') && 
+             !inputValue.hasOwnProperty('fields'))) {
+          needsMigration = true;
+          break;
+        }
+      }
+
+      if (needsMigration) {
+        const migratedSettings = {
+          ...settings,
+          vmix: {
+            ...settings.vmix,
+            inputs: Object.keys(settings.vmix.inputs).reduce((acc, key) => {
+              const value = settings.vmix.inputs[key];
+              // Мигрируем в новый формат
+              acc[key] = migrateInputToNewFormat(value, key);
+              return acc;
+            }, {}),
+          },
+        };
+        // Удаляем старое поле overlay, если оно есть
+        delete migratedSettings.vmix.overlay;
+        await saveSettings(migratedSettings);
+        return migratedSettings;
+      }
     }
     
     return settings;

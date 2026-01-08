@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setVMixConfig: (config) => ipcRenderer.invoke('vmix:set-config', config),
   testVMixConnection: (host, port) => ipcRenderer.invoke('vmix:test-connection', host, port),
   updateVMixInput: (inputName, data) => ipcRenderer.invoke('vmix:update-input', inputName, data),
+  updateVMixInputFields: (inputName, fields, colorFields, visibilityFields) => ipcRenderer.invoke('vmix:update-input-fields', inputName, fields, colorFields, visibilityFields),
   showVMixOverlay: (inputKey) => ipcRenderer.invoke('vmix:show-overlay', inputKey),
   hideVMixOverlay: (inputKey) => ipcRenderer.invoke('vmix:hide-overlay', inputKey),
   getVMixOverlayState: () => ipcRenderer.invoke('vmix:get-overlay-state'),
