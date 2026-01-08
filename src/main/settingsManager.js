@@ -25,16 +25,18 @@ function getDefaultSettings() {
   const defaultInputNames = {
     lineup: 'Input1',
     statistics: 'Input2',
-    roster: 'Input3',
-    startingLineup: 'Input4',
-    currentScore: 'Input5',
-    set1Score: 'Input6',
-    set2Score: 'Input7',
-    set3Score: 'Input8',
-    set4Score: 'Input9',
-    set5Score: 'Input10',
-    referee1: 'Input11',
-    referee2: 'Input12',
+    rosterTeamA: 'Input3',
+    rosterTeamB: 'Input4',
+    startingLineupTeamA: 'Input5',
+    startingLineupTeamB: 'Input6',
+    currentScore: 'Input7',
+    set1Score: 'Input8',
+    set2Score: 'Input9',
+    set3Score: 'Input10',
+    set4Score: 'Input11',
+    set5Score: 'Input12',
+    referee1: 'Input13',
+    referee2: 'Input14',
   };
 
   // Создаем конфигурацию инпутов с новой структурой
@@ -96,7 +98,37 @@ async function loadSettings() {
             ...settings.vmix,
             inputs: Object.keys(settings.vmix.inputs).reduce((acc, key) => {
               const value = settings.vmix.inputs[key];
-              // Мигрируем в новый формат
+              
+              // Миграция старых ключей roster и startingLineup в новый формат
+              if (key === 'roster') {
+                // Преобразуем roster в rosterTeamA и rosterTeamB
+                acc['rosterTeamA'] = migrateInputToNewFormat(value, 'rosterTeamA');
+                acc['rosterTeamB'] = migrateInputToNewFormat(value, 'rosterTeamB');
+                // Если есть inputIdentifier, используем его, иначе создаем два разных
+                if (value && typeof value === 'object' && value.inputIdentifier) {
+                  acc['rosterTeamB'].inputIdentifier = value.inputIdentifier + '_B';
+                } else if (typeof value === 'string') {
+                  acc['rosterTeamA'].inputIdentifier = value;
+                  acc['rosterTeamB'].inputIdentifier = value + '_B';
+                }
+                return acc;
+              }
+              
+              if (key === 'startingLineup') {
+                // Преобразуем startingLineup в startingLineupTeamA и startingLineupTeamB
+                acc['startingLineupTeamA'] = migrateInputToNewFormat(value, 'startingLineupTeamA');
+                acc['startingLineupTeamB'] = migrateInputToNewFormat(value, 'startingLineupTeamB');
+                // Если есть inputIdentifier, используем его, иначе создаем два разных
+                if (value && typeof value === 'object' && value.inputIdentifier) {
+                  acc['startingLineupTeamB'].inputIdentifier = value.inputIdentifier + '_B';
+                } else if (typeof value === 'string') {
+                  acc['startingLineupTeamA'].inputIdentifier = value;
+                  acc['startingLineupTeamB'].inputIdentifier = value + '_B';
+                }
+                return acc;
+              }
+              
+              // Для остальных ключей просто мигрируем в новый формат
               acc[key] = migrateInputToNewFormat(value, key);
               return acc;
             }, {}),
@@ -106,6 +138,48 @@ async function loadSettings() {
         delete migratedSettings.vmix.overlay;
         await saveSettings(migratedSettings);
         return migratedSettings;
+      }
+      
+      // Дополнительная миграция: если есть старые ключи roster/startingLineup, преобразуем их
+      if (settings.vmix && settings.vmix.inputs) {
+        let needsRosterMigration = false;
+        const newInputs = { ...settings.vmix.inputs };
+        
+        if (newInputs.roster && !newInputs.rosterTeamA) {
+          needsRosterMigration = true;
+          newInputs.rosterTeamA = migrateInputToNewFormat(newInputs.roster, 'rosterTeamA');
+          newInputs.rosterTeamB = migrateInputToNewFormat(newInputs.roster, 'rosterTeamB');
+          // Настраиваем разные inputIdentifier для команд
+          if (newInputs.roster.inputIdentifier) {
+            newInputs.rosterTeamA.inputIdentifier = newInputs.roster.inputIdentifier;
+            newInputs.rosterTeamB.inputIdentifier = newInputs.roster.inputIdentifier + '_B';
+          }
+          delete newInputs.roster;
+        }
+        
+        if (newInputs.startingLineup && !newInputs.startingLineupTeamA) {
+          needsRosterMigration = true;
+          newInputs.startingLineupTeamA = migrateInputToNewFormat(newInputs.startingLineup, 'startingLineupTeamA');
+          newInputs.startingLineupTeamB = migrateInputToNewFormat(newInputs.startingLineup, 'startingLineupTeamB');
+          // Настраиваем разные inputIdentifier для команд
+          if (newInputs.startingLineup.inputIdentifier) {
+            newInputs.startingLineupTeamA.inputIdentifier = newInputs.startingLineup.inputIdentifier;
+            newInputs.startingLineupTeamB.inputIdentifier = newInputs.startingLineup.inputIdentifier + '_B';
+          }
+          delete newInputs.startingLineup;
+        }
+        
+        if (needsRosterMigration) {
+          const migratedSettings = {
+            ...settings,
+            vmix: {
+              ...settings.vmix,
+              inputs: newInputs,
+            },
+          };
+          await saveSettings(migratedSettings);
+          return migratedSettings;
+        }
       }
     }
     

@@ -474,6 +474,62 @@ export function useVMix(match) {
     [formatDateTime]
   );
 
+  // Маппинг значений для полей состава команды
+  const getRosterFieldValue = useCallback(
+    (fieldKey, match, teamKey, roster, logoBaseUrl) => {
+      const team = teamKey === "A" ? match.teamA : match.teamB;
+      const logoFileName = teamKey === "A" ? "logo_a.png" : "logo_b.png";
+
+      // Общие поля (из матча)
+      if (fieldKey === "title") {
+        return match.tournament || "";
+      }
+      if (fieldKey === "subtitle") {
+        return match.tournamentSubtitle || "";
+      }
+
+      // Поля команды
+      if (fieldKey === "teamName") {
+        return team?.name || "";
+      }
+      if (fieldKey === "teamCity") {
+        return team?.city || "";
+      }
+      if (fieldKey === "teamLogo") {
+        return logoBaseUrl && team?.logo
+          ? `${logoBaseUrl}/logos/${logoFileName}`
+          : "";
+      }
+
+      // Поля игроков (player1Number, player1Name, ... player14Number, player14Name)
+      const playerMatch = fieldKey.match(/^player(\d+)(Number|Name)$/);
+      if (playerMatch) {
+        const playerIndex = parseInt(playerMatch[1]) - 1; // Индекс в массиве (0-based)
+        const fieldType = playerMatch[2]; // "Number" или "Name"
+
+        if (!roster || !Array.isArray(roster) || playerIndex >= roster.length) {
+          // Если игрока нет, возвращаем пустую строку
+          return "";
+        }
+
+        const player = roster[playerIndex];
+        if (!player) {
+          return "";
+        }
+
+        if (fieldType === "Number") {
+          return player.number ? String(player.number) : "";
+        }
+        if (fieldType === "Name") {
+          return player.name || "";
+        }
+      }
+
+      return "";
+    },
+    []
+  );
+
   /**
    * Форматирует данные заявки для vMix в виде объекта полей
    * Возвращает объект с полями для текстовых значений и отдельный объект для полей изображений
@@ -584,6 +640,162 @@ export function useVMix(match) {
     [isVMixReady, validateInputConfig, formatLineupData]
   );
 
+  /**
+   * Форматирует данные состава команды для vMix в виде объекта полей
+   * @param {Object} match - данные матча
+   * @param {string} teamKey - 'A' или 'B'
+   * @returns {Promise<Object>} объект с полями { fields, imageFields }
+   */
+  const formatRosterData = useCallback(
+    async (match, teamKey) => {
+      if (!match) return { fields: {}, imageFields: {} };
+
+      const inputKey = teamKey === "A" ? "rosterTeamA" : "rosterTeamB";
+      const inputConfig = vmixConfigRef.current?.inputs?.[inputKey];
+      if (!inputConfig?.fields) {
+        return { fields: {}, imageFields: {} };
+      }
+
+      const team = teamKey === "A" ? match.teamA : match.teamB;
+      const roster = team?.roster || [];
+
+      const fields = {};
+      const imageFields = {};
+
+      // Получаем информацию о мобильном сервере для формирования URL логотипов
+      let logoBaseUrl = null;
+      if (window.electronAPI) {
+        try {
+          const serverInfo = await window.electronAPI.getMobileServerInfo();
+          if (serverInfo?.ip && serverInfo?.port) {
+            logoBaseUrl = `http://${serverInfo.ip}:${serverInfo.port}`;
+          }
+        } catch (error) {
+          console.error(
+            "Не удалось получить информацию о мобильном сервере для логотипов:",
+            error
+          );
+        }
+      }
+
+      // Проходим по всем полям конфигурации и формируем значения
+      Object.entries(inputConfig.fields).forEach(([fieldKey, fieldConfig]) => {
+        if (fieldConfig.enabled === false || !fieldConfig.fieldIdentifier) {
+          return;
+        }
+
+        const fieldIdentifier = fieldConfig.fieldIdentifier;
+        const value = getRosterFieldValue(fieldKey, match, teamKey, roster, logoBaseUrl);
+        const isLogoField = fieldKey === "teamLogo";
+
+        // Разделяем поля по типам
+        if (fieldConfig.type === FIELD_TYPES.IMAGE) {
+          if (value !== "") {
+            imageFields[fieldIdentifier] = value;
+          }
+        } else if (fieldConfig.type === FIELD_TYPES.TEXT) {
+          // Для текстовых полей отправляем значение, даже если оно пустое
+          // (это позволяет очищать поля в vMix при необходимости, например, для пустых игроков)
+          fields[fieldIdentifier] = value;
+
+          if (isLogoField) {
+            console.warn(
+              `[formatRosterData] Поле ${fieldKey} имеет тип "text" вместо "image"!`,
+              { fieldKey, fieldIdentifier, type: fieldConfig.type, value }
+            );
+          }
+        }
+      });
+
+      return { fields, imageFields };
+    },
+    [getRosterFieldValue]
+  );
+
+  /**
+   * Обновляет инпут состава команды А в vMix
+   */
+  const updateRosterTeamAInput = useCallback(
+    async (match) => {
+      if (!isVMixReady()) {
+        return { success: false, error: "vMix не подключен" };
+      }
+
+      try {
+        const inputConfig = vmixConfigRef.current.inputs?.rosterTeamA;
+        const validation = validateInputConfig(inputConfig);
+        if (!validation.valid) {
+          return { success: false, error: validation.error };
+        }
+
+        const { fields, imageFields } = await formatRosterData(match, "A");
+
+        const hasFields =
+          Object.keys(fields).length > 0 || Object.keys(imageFields).length > 0;
+
+        if (!hasFields) {
+          return { success: false, error: "Нет полей для обновления" };
+        }
+
+        const result = await window.electronAPI.updateVMixInputFields(
+          validation.inputIdentifier,
+          fields,
+          {},
+          {},
+          imageFields
+        );
+
+        return result;
+      } catch (error) {
+        console.error("Ошибка при обновлении состава команды А:", error);
+        return { success: false, error: error.message };
+      }
+    },
+    [isVMixReady, validateInputConfig, formatRosterData]
+  );
+
+  /**
+   * Обновляет инпут состава команды Б в vMix
+   */
+  const updateRosterTeamBInput = useCallback(
+    async (match) => {
+      if (!isVMixReady()) {
+        return { success: false, error: "vMix не подключен" };
+      }
+
+      try {
+        const inputConfig = vmixConfigRef.current.inputs?.rosterTeamB;
+        const validation = validateInputConfig(inputConfig);
+        if (!validation.valid) {
+          return { success: false, error: validation.error };
+        }
+
+        const { fields, imageFields } = await formatRosterData(match, "B");
+
+        const hasFields =
+          Object.keys(fields).length > 0 || Object.keys(imageFields).length > 0;
+
+        if (!hasFields) {
+          return { success: false, error: "Нет полей для обновления" };
+        }
+
+        const result = await window.electronAPI.updateVMixInputFields(
+          validation.inputIdentifier,
+          fields,
+          {},
+          {},
+          imageFields
+        );
+
+        return result;
+      } catch (error) {
+        console.error("Ошибка при обновлении состава команды Б:", error);
+        return { success: false, error: error.message };
+      }
+    },
+    [isVMixReady, validateInputConfig, formatRosterData]
+  );
+
   // Инициализируем debounced функцию для обновления данных
   useEffect(() => {
     updateMatchDataDebouncedRef.current = debounce(async (matchData) => {
@@ -597,6 +809,10 @@ export function useVMix(match) {
       try {
         await updateCurrentScoreInput(matchData);
         await updateLineupInput(matchData);
+        
+        // Обновляем составы команд
+        await updateRosterTeamAInput(matchData);
+        await updateRosterTeamBInput(matchData);
 
         // Обновляем счет по партиям
         matchData.sets?.forEach((set) => {
@@ -613,7 +829,7 @@ export function useVMix(match) {
         console.error("Ошибка при обновлении данных в vMix:", error);
       }
     }, DEBOUNCE_DELAY);
-  }, [updateCurrentScoreInput, updateLineupInput]);
+  }, [updateCurrentScoreInput, updateLineupInput, updateRosterTeamAInput, updateRosterTeamBInput]);
 
   /**
    * Форматирует данные счета партии для vMix
@@ -651,39 +867,81 @@ export function useVMix(match) {
   };
 
   /**
-   * Нормализует inputIdentifier в номер инпута для сравнения
+   * Находит инпут в inputsMap по идентификатору (номер, ID или имя)
+   * Возвращает объект с информацией об инпуте или null, если не найден
    */
-  const normalizeInputIdentifier = useCallback(
+  const findInputInMap = useCallback(
     (inputIdentifier) => {
+      if (!inputIdentifier || !inputsMap || Object.keys(inputsMap).length === 0) {
+        return null;
+      }
+
       const trimmed = inputIdentifier.trim();
-
-      // Если это число, возвращаем как есть
+      
+      // 1. Если это число (порядковый номер) - ищем напрямую
       if (/^\d+$/.test(trimmed)) {
-        return trimmed;
+        const inputData = inputsMap[trimmed];
+        if (inputData) {
+          return {
+            number: inputData.number,
+            key: inputData.key,
+            title: inputData.title,
+            shortTitle: inputData.shortTitle,
+            type: inputData.type,
+          };
+        }
+        return null;
       }
 
-      // Если это "InputN", извлекаем номер
-      const inputMatch = trimmed.match(/^Input\s*(\d+)$/i);
-      if (inputMatch) {
-        return inputMatch[1];
-      }
-
-      // Если это имя инпута, ищем его номер в inputsMap
-      const normalizedName = trimmed.toLowerCase();
-      for (const [number, inputInfo] of Object.entries(inputsMap || {})) {
-        const title = (inputInfo.title || "").toLowerCase();
-        const shortTitle = (inputInfo.shortTitle || "").toLowerCase();
-
-        if (
-          title === normalizedName ||
-          shortTitle === normalizedName ||
-          title.includes(normalizedName) ||
-          shortTitle.includes(normalizedName)
-        ) {
-          return number;
+      // 2. Если это ID инпута (key) - ищем по key
+      for (const [number, inputData] of Object.entries(inputsMap)) {
+        if (inputData.key && inputData.key.toLowerCase() === trimmed.toLowerCase()) {
+          return {
+            number: inputData.number,
+            key: inputData.key,
+            title: inputData.title,
+            shortTitle: inputData.shortTitle,
+            type: inputData.type,
+          };
         }
       }
 
+      // 3. Если это имя инпута (title или shortTitle) - ищем по имени
+      const normalizedName = trimmed.toLowerCase();
+      for (const [number, inputData] of Object.entries(inputsMap)) {
+        const title = (inputData.title || "").toLowerCase();
+        const shortTitle = (inputData.shortTitle || "").toLowerCase();
+
+        // Точное совпадение
+        if (title === normalizedName || shortTitle === normalizedName) {
+          return {
+            number: inputData.number,
+            key: inputData.key,
+            title: inputData.title,
+            shortTitle: inputData.shortTitle,
+            type: inputData.type,
+          };
+        }
+
+        // Также проверяем, если имя содержит расширение (например, ".gtzip")
+        // и совпадает с именем без расширения
+        if (normalizedName.includes(".")) {
+          const nameWithoutExt = normalizedName.split(".")[0];
+          if (nameWithoutExt === title || nameWithoutExt === shortTitle) {
+            return {
+              number: inputData.number,
+              key: inputData.key,
+              title: inputData.title,
+              shortTitle: inputData.shortTitle,
+              type: inputData.type,
+            };
+          }
+        }
+      }
+
+      // 4. Если ничего не найдено, возвращаем null
+      // НЕ извлекаем номер из "Input3" - это неправильно,
+      // потому что "Input3" и "3" - это разные способы обращения к инпуту в vMix
       return null;
     },
     [inputsMap]
@@ -718,20 +976,81 @@ export function useVMix(match) {
         return false;
       }
 
-      const overlayInputNumber = overlayState.input
+      // Если оверлей неактивен, плашка не активна
+      if (overlayState.active !== true) {
+        return false;
+      }
+
+      const overlayInputValue = overlayState.input
         ? String(overlayState.input).trim()
         : null;
 
-      const configInputNumber = normalizeInputIdentifier(inputIdentifier);
+      if (!overlayInputValue) {
+        return false;
+      }
 
-      return (
-        overlayState.active === true &&
-        overlayInputNumber !== null &&
-        configInputNumber !== null &&
-        overlayInputNumber === configInputNumber
-      );
+      // vMix API возвращает в оверлее порядковый номер инпута (например, "3")
+      // В конфиге может быть указан:
+      // - Порядковый номер: "3"
+      // - ID инпута (key): "some-uuid"
+      // - Имя инпута: "Zayavka2024-2.gtzip"
+      // НЕ используем формат "Input3" как идентификатор - это некорректно
+
+      // Сначала проверяем точное совпадение исходных идентификаторов
+      const normalizedConfig = inputIdentifier.trim().toLowerCase();
+      const normalizedOverlay = overlayInputValue.toLowerCase();
+
+      if (normalizedConfig === normalizedOverlay) {
+        return true;
+      }
+
+      // vMix API возвращает в оверлее порядковый номер инпута (например, "3")
+      // В конфиге может быть указан:
+      // - Порядковый номер: "3"
+      // - ID инпута (key): "some-uuid"
+      // - Имя инпута: "Zayavka2024-2.gtzip"
+      // НЕ используем формат "Input3" как идентификатор - это некорректно
+      
+      const trimmedIdentifier = inputIdentifier.trim();
+
+      // Проверяем, является ли overlayInputValue порядковым номером (из vMix API)
+      const isOverlayNumber = /^\d+$/.test(overlayInputValue);
+
+      if (isOverlayNumber) {
+        // vMix API вернул номер инпута в оверлее
+        // Найдем инпут с этим номером в inputsMap
+        const overlayInputData = inputsMap && inputsMap[overlayInputValue];
+        
+        if (!overlayInputData) {
+          // Если инпут не найден в inputsMap, не можем проверить - возвращаем false
+          return false;
+        }
+
+        // Теперь найдем инпут из конфига в inputsMap
+        const configInputData = findInputInMap(trimmedIdentifier);
+        
+        if (!configInputData) {
+          // Если инпут из конфига не найден в inputsMap, не можем проверить - возвращаем false
+          return false;
+        }
+
+        // Сравниваем номера инпутов - если они совпадают, это один и тот же инпут
+        return configInputData.number === overlayInputData.number;
+      }
+
+      // Если в оверлее не число (нестандартный случай)
+      // Найдем оба инпута в inputsMap и сравним их номера
+      const overlayInputData = findInputInMap(overlayInputValue);
+      const configInputData = findInputInMap(trimmedIdentifier);
+
+      if (!overlayInputData || !configInputData) {
+        return false;
+      }
+
+      // Сравниваем номера инпутов
+      return overlayInputData.number === configInputData.number;
     },
-    [vmixConfig, overlayStates, getInputIdentifier, normalizeInputIdentifier]
+    [vmixConfig, overlayStates, getInputIdentifier, findInputInMap, inputsMap]
   );
 
   return {

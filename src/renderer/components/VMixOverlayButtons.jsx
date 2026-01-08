@@ -3,8 +3,10 @@ import React from 'react';
 const OVERLAY_BUTTONS = [
   { key: 'lineup', label: 'Заявка' },
   { key: 'statistics', label: 'Статистика' },
-  { key: 'roster', label: 'Состав' },
-  { key: 'startingLineup', label: 'Стартовый состав' },
+  { key: 'rosterTeamA', label: 'Состав А' },
+  { key: 'rosterTeamB', label: 'Состав Б' },
+  { key: 'startingLineupTeamA', label: 'Старт. А' },
+  { key: 'startingLineupTeamB', label: 'Старт. Б' },
   { key: 'currentScore', label: 'Текущий счет' },
   { key: 'set1Score', label: 'Счет П1' },
   { key: 'set2Score', label: 'Счет П2' },

@@ -49,8 +49,19 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
   };
 
   const handleAddPlayer = () => {
+    // Генерируем следующий номер, учитывая, что могут быть игроки без номера (null/undefined)
+    let nextNumber = 1;
+    if (roster.length > 0) {
+      const numbers = roster
+        .map(p => p.number)
+        .filter(num => num != null && !isNaN(num) && num > 0);
+      if (numbers.length > 0) {
+        nextNumber = Math.max(...numbers) + 1;
+      }
+    }
+
     const newPlayer = {
-      number: roster.length > 0 ? Math.max(...roster.map(p => p.number)) + 1 : 1,
+      number: nextNumber,
       name: '',
       position: POSITIONS[0],
       isStarter: false,
@@ -68,6 +79,19 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
   const handlePlayerChange = (index, field, value) => {
     const updatedRoster = roster.map((player, i) => {
       if (i === index) {
+        // Для номера игрока: разрешаем пустое значение (null) и проверяем, что значение не отрицательное
+        if (field === 'number') {
+          // Если значение null, undefined или пустая строка, разрешаем отсутствие номера
+          if (value === null || value === undefined || value === '') {
+            return { ...player, [field]: null };
+          }
+          const numValue = parseInt(value, 10);
+          // Если значение не число или отрицательное, устанавливаем null (без номера)
+          if (isNaN(numValue) || numValue < 0) {
+            return { ...player, [field]: null };
+          }
+          return { ...player, [field]: numValue };
+        }
         return { ...player, [field]: value };
       }
       return player;
@@ -347,10 +371,34 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                   <td style={{ padding: '0.75rem' }}>
                     <input
                       type="number"
-                      value={player.number}
-                      onChange={(e) => handlePlayerChange(index, 'number', parseInt(e.target.value) || 0)}
+                      min="0"
+                      value={player.number ?? ''}
+                      onChange={(e) => {
+                        const inputValue = e.target.value;
+                        // Если поле пустое или содержит только минус, разрешаем отсутствие номера (null)
+                        if (inputValue === '' || inputValue === '-') {
+                          handlePlayerChange(index, 'number', null);
+                          return;
+                        }
+                        // Парсим значение и передаем в handlePlayerChange, который сам проверит на отрицательное
+                        const numValue = parseInt(inputValue, 10);
+                        handlePlayerChange(index, 'number', isNaN(numValue) ? null : numValue);
+                      }}
+                      onBlur={(e) => {
+                        // При потере фокуса проверяем значение и корректируем, если нужно
+                        const inputValue = e.target.value;
+                        if (inputValue === '' || inputValue === '-') {
+                          handlePlayerChange(index, 'number', null);
+                          return;
+                        }
+                        const numValue = parseInt(inputValue, 10);
+                        if (numValue < 0 || isNaN(numValue)) {
+                          handlePlayerChange(index, 'number', null);
+                        }
+                      }}
+                      placeholder="Без номера"
                       style={{
-                        width: '60px',
+                        width: '80px',
                         padding: '0.25rem',
                         border: '1px solid #bdc3c7',
                         borderRadius: '4px',
@@ -496,7 +544,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                   fontWeight: 'bold',
                 }}
               >
-                №{player.number} {player.name}
+                {player.number != null ? `№${player.number}` : 'Без номера'} {player.name}
               </div>
             ))}
           </div>

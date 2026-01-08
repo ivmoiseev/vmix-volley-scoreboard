@@ -282,7 +282,7 @@ class VMixClient {
       }
       
       // Также сохраняем список inputs для последующего использования
-      // при поиске инпутов по имени
+      // при поиске инпутов по номеру, ID или имени
       const inputsMap = {};
       if (result && result.vmix && result.vmix.inputs && result.vmix.inputs.input) {
         const inputsArray = Array.isArray(result.vmix.inputs.input) 
@@ -291,10 +291,17 @@ class VMixClient {
         
         inputsArray.forEach((input) => {
           if (input.$ && input.$.number) {
-            inputsMap[input.$.number] = {
+            const number = input.$.number;
+            const inputData = {
+              number: number,
+              key: input.$.key || null, // ID инпута
               title: input.$.title || '',
               shortTitle: input.$.shortTitle || input.$.title || '',
+              type: input.$.type || '',
             };
+            
+            // Сохраняем по номеру для обратной совместимости
+            inputsMap[number] = inputData;
           }
         });
       }
