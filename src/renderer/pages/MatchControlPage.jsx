@@ -1,32 +1,29 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useMatch } from '../hooks/useMatch';
-import { useVMix } from '../hooks/useVMix';
-import ScoreDisplay from '../components/ScoreDisplay';
-import SetsDisplay from '../components/SetsDisplay';
-import ServeControl from '../components/ServeControl';
-import ScoreButtons from '../components/ScoreButtons';
-import VMixOverlayButtons from '../components/VMixOverlayButtons';
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useMatch } from "../hooks/useMatch";
+import { useVMix } from "../hooks/useVMix";
+import ScoreDisplay from "../components/ScoreDisplay";
+import SetsDisplay from "../components/SetsDisplay";
+import ServeControl from "../components/ServeControl";
+import ScoreButtons from "../components/ScoreButtons";
+import VMixOverlayButtons from "../components/VMixOverlayButtons";
 
 function MatchControlPage({ match: initialMatch, onMatchChange }) {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Получаем матч из location.state, если initialMatch еще не установлен
   // Это решает проблему гонки условий при первом создании матча
   const matchFromState = location.state?.match;
   const effectiveInitialMatch = initialMatch || matchFromState;
-  
-  // Состояние для автосохранения
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
-  
+
   // Отслеживание предыдущего matchId для определения первой загрузки
   const previousMatchIdRef = useRef(null);
   const isFirstLoadRef = useRef(true);
-  
+
   // Флаг принудительного обновления из location.state (например, при F5)
   const forceUpdateFromState = location.state?.forceUpdateVMix || false;
-  
+
   // ВСЕ хуки должны вызываться ДО любых условных возвратов
   const {
     match,
@@ -53,6 +50,9 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
     showOverlay,
     hideOverlay,
     isOverlayActive,
+    updateCoachData,
+    updateReferee1Data,
+    updateReferee2ShowData,
   } = useVMix(match);
 
   // Синхронизируем match из location.state с родительским компонентом
@@ -75,7 +75,7 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
       const timer = setTimeout(() => {
         // Проверяем еще раз после небольшой задержки
         if (!match && !location.state?.match) {
-          navigate('/');
+          navigate("/");
         }
       }, 50);
       return () => clearTimeout(timer);
@@ -89,30 +89,34 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
       const currentMatchId = match.matchId;
       const isNewMatch = previousMatchIdRef.current !== currentMatchId;
       // forceUpdate используется при первой загрузке, смене матча или явном запросе (например, F5)
-      const forceUpdate = isFirstLoadRef.current || isNewMatch || forceUpdateFromState;
-      
+      const forceUpdate =
+        isFirstLoadRef.current || isNewMatch || forceUpdateFromState;
+
       if (isNewMatch) {
         previousMatchIdRef.current = currentMatchId;
         isFirstLoadRef.current = false;
       }
-      
-      console.log('[MatchControlPage] Вызов updateMatchData для обновления vMix:', {
-        matchId: match.matchId,
-        teamA: match.teamA?.name,
-        teamB: match.teamB?.name,
-        hasLogoA: !!match.teamA?.logo,
-        hasLogoB: !!match.teamB?.logo,
-        forceUpdate,
-        isNewMatch,
-      });
+
+      console.log(
+        "[MatchControlPage] Вызов updateMatchData для обновления vMix:",
+        {
+          matchId: match.matchId,
+          teamA: match.teamA?.name,
+          teamB: match.teamB?.name,
+          hasLogoA: !!match.teamA?.logo,
+          hasLogoB: !!match.teamB?.logo,
+          forceUpdate,
+          isNewMatch,
+        }
+      );
       updateMatchData(match, forceUpdate);
-      
+
       // Очищаем флаг forceUpdateFromState после использования
       if (forceUpdateFromState) {
         window.history.replaceState({}, document.title);
       }
     } else {
-      console.log('[MatchControlPage] updateMatchData не вызван:', {
+      console.log("[MatchControlPage] updateMatchData не вызван:", {
         hasMatch: !!match,
         connected: connectionStatus.connected,
       });
@@ -122,7 +126,12 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
         isFirstLoadRef.current = true;
       }
     }
-  }, [match, connectionStatus.connected, updateMatchData, forceUpdateFromState]);
+  }, [
+    match,
+    connectionStatus.connected,
+    updateMatchData,
+    forceUpdateFromState,
+  ]);
 
   // Синхронизируем изменения матча с родительским компонентом
   useEffect(() => {
@@ -138,14 +147,22 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
       window.electronAPI.setCurrentMatch(match);
     }
   }, [match]);
-  
+
   // Дополнительная синхронизация при изменении подачи
   useEffect(() => {
-    if (match && match.currentSet && window.electronAPI && window.electronAPI.setMobileMatch) {
+    if (
+      match &&
+      match.currentSet &&
+      window.electronAPI &&
+      window.electronAPI.setMobileMatch
+    ) {
       // Используем setTimeout для гарантии, что состояние обновилось
       const timeoutId = setTimeout(() => {
-        window.electronAPI.setMobileMatch(match).catch(err => {
-          console.error('Ошибка при синхронизации матча с мобильным сервером:', err);
+        window.electronAPI.setMobileMatch(match).catch((err) => {
+          console.error(
+            "Ошибка при синхронизации матча с мобильным сервером:",
+            err
+          );
         });
       }, 0);
       return () => clearTimeout(timeoutId);
@@ -184,7 +201,8 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
       }
     };
 
-    const removeMatchSaved = window.electronAPI.onMatchSaved?.(handleMatchSaved);
+    const removeMatchSaved =
+      window.electronAPI.onMatchSaved?.(handleMatchSaved);
 
     return () => {
       // Удаляем слушатель при размонтировании компонента
@@ -192,65 +210,23 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
     };
   }, []);
 
-  // Загружаем настройки автосохранения при монтировании
-  useEffect(() => {
-    const loadAutoSaveSettings = async () => {
-      if (window.electronAPI && window.electronAPI.getAutoSaveSettings) {
-        try {
-          const result = await window.electronAPI.getAutoSaveSettings();
-          if (result.success) {
-            setAutoSaveEnabled(result.enabled);
-          }
-        } catch (error) {
-          console.error('Ошибка при загрузке настроек автосохранения:', error);
-        }
-      }
-    };
-    loadAutoSaveSettings();
-    
-    // Слушаем изменения автосохранения из меню
-    if (window.electronAPI && window.electronAPI.onAutoSaveSettingsChanged) {
-      const removeListener = window.electronAPI.onAutoSaveSettingsChanged((enabled) => {
-        setAutoSaveEnabled(enabled);
-      });
-      return () => removeListener?.();
-    }
-  }, []);
-
-  // Обработчик изменения галочки автосохранения
-  const handleAutoSaveToggle = async (enabled) => {
-    if (window.electronAPI && window.electronAPI.setAutoSaveSettings) {
-      try {
-        const result = await window.electronAPI.setAutoSaveSettings(enabled);
-        if (result.success) {
-          setAutoSaveEnabled(enabled);
-        } else {
-          alert('Не удалось изменить настройки автосохранения: ' + (result.error || 'Неизвестная ошибка'));
-        }
-      } catch (error) {
-        console.error('Ошибка при изменении настроек автосохранения:', error);
-        alert('Ошибка при изменении настроек автосохранения: ' + error.message);
-      }
-    }
-  };
-
   // Условный рендеринг ПОСЛЕ всех хуков
   if (!initialMatch || !match) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <div style={{ padding: "2rem", textAlign: "center" }}>
         <h2>Матч не загружен</h2>
         <p>Пожалуйста, создайте новый матч или откройте существующий.</p>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate("/")}
           style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            backgroundColor: '#3498db',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            marginTop: '1rem',
+            padding: "0.75rem 1.5rem",
+            fontSize: "1rem",
+            backgroundColor: "#3498db",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            marginTop: "1rem",
           }}
         >
           Вернуться на главную
@@ -259,512 +235,743 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
     );
   }
 
-  const handleSaveMatch = async () => {
-    try {
-      if (!window.electronAPI) {
-        alert('Electron API недоступен');
-        return;
-      }
-
-      const result = await window.electronAPI.saveMatch(match);
-      if (result.success) {
-        alert('Матч успешно сохранен!');
-        setMatch({ ...match, updatedAt: new Date().toISOString() });
-        // Отмечаем как сохраненный
-        if (window.electronAPI.markMatchSaved) {
-          window.electronAPI.markMatchSaved();
-        }
-      }
-    } catch (error) {
-      console.error('Ошибка при сохранении матча:', error);
-      alert('Не удалось сохранить матч: ' + error.message);
-    }
-  };
-
-  const handleSaveAsMatch = async () => {
-    try {
-      if (!window.electronAPI) {
-        alert('Electron API недоступен');
-        return;
-      }
-
-      const result = await window.electronAPI.saveMatchDialog(match);
-      if (result.success) {
-        alert('Матч успешно сохранен!');
-        setMatch({ ...match, updatedAt: new Date().toISOString() });
-        // Отмечаем как сохраненный
-        if (window.electronAPI.markMatchSaved) {
-          window.electronAPI.markMatchSaved();
-        }
-      }
-    } catch (error) {
-      console.error('Ошибка при сохранении матча:', error);
-      alert('Не удалось сохранить матч: ' + error.message);
-    }
-  };
-
   const handleFinishSet = () => {
     if (!canFinish) {
       const threshold = match?.currentSet?.setNumber === 5 ? 15 : 25;
-      alert(`Партия не может быть завершена. Необходимо набрать ${threshold} очков с разницей минимум 2 очка.`);
+      alert(
+        `Партия не может быть завершена. Необходимо набрать ${threshold} очков с разницей минимум 2 очка.`
+      );
       return;
     }
-    
-    if (window.confirm('Завершить текущую партию?')) {
+
+    if (window.confirm("Завершить текущую партию?")) {
       finishSet();
     }
   };
 
   return (
-    <div style={{ padding: '1rem', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Заголовок с кнопками сохранения */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '1rem',
-        flexWrap: 'wrap',
-        gap: '0.5rem',
-      }}>
-        <h2 style={{ margin: 0 }}>Управление матчем</h2>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <label style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem', 
-            cursor: 'pointer',
-            fontSize: '0.9rem',
-            userSelect: 'none',
-          }}>
-            <input
-              type="checkbox"
-              checked={autoSaveEnabled}
-              onChange={(e) => handleAutoSaveToggle(e.target.checked)}
-              style={{ cursor: 'pointer' }}
-            />
-            <span>Автосохранение</span>
-          </label>
-          <button
-            onClick={handleSaveMatch}
+    <div style={{ padding: "1rem", maxWidth: "1600px", margin: "0 auto" }}>
+      {/* Основной контент: 2/3 слева, 1/3 справа */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 2fr) minmax(280px, 1fr)",
+          gap: "1rem",
+          alignItems: "start",
+        }}
+      >
+        {/* Левая часть (2/3) - Управление матчем */}
+        <div>
+          {/* Информация о матче */}
+          <div
             style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#27ae60',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
+              backgroundColor: "#ecf0f1",
+              padding: "1rem",
+              borderRadius: "4px",
+              marginBottom: "1rem",
             }}
           >
-            Сохранить
-          </button>
-          <button
-            onClick={handleSaveAsMatch}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#95a5a6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
-            Сохранить как...
-          </button>
-        </div>
-      </div>
-
-      {/* Информация о матче */}
-      <div style={{ 
-        backgroundColor: '#ecf0f1', 
-        padding: '1rem', 
-        borderRadius: '4px',
-        marginBottom: '1rem',
-      }}>
-        <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-          <div><strong>Турнир:</strong> {match.tournament || 'Не указан'}</div>
-          <div><strong>Место:</strong> {match.venue || 'Не указано'}</div>
-          <div><strong>Дата:</strong> {match.date || 'Не указана'}</div>
-          <div><strong>Время:</strong> {match.time || 'Не указано'}</div>
-        </div>
-      </div>
-
-      {/* Команды */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: '1fr 1fr', 
-        gap: '1rem',
-        marginBottom: '1rem',
-      }}>
-        <div style={{ 
-          backgroundColor: match.teamA.color || '#3498db', 
-          color: 'white',
-          padding: '1rem',
-          borderRadius: '4px',
-          textAlign: 'center',
-        }}>
-          <h3 style={{ marginTop: 0 }}>{match.teamA.name}</h3>
-          {match.teamA.coach && <p>Тренер: {match.teamA.coach}</p>}
-        </div>
-        <div style={{ 
-          backgroundColor: match.teamB.color || '#e74c3c', 
-          color: 'white',
-          padding: '1rem',
-          borderRadius: '4px',
-          textAlign: 'center',
-        }}>
-          <h3 style={{ marginTop: 0 }}>{match.teamB.name}</h3>
-          {match.teamB.coach && <p>Тренер: {match.teamB.coach}</p>}
-        </div>
-      </div>
-
-      {/* Счет по партиям */}
-      <SetsDisplay 
-        sets={match.sets} 
-        currentSetNumber={match.currentSet.setNumber}
-      />
-
-      {/* Текущий счет */}
-      <div style={{
-        backgroundColor: '#fff',
-        border: '2px solid #3498db',
-        borderRadius: '4px',
-        padding: '1rem',
-        marginBottom: '1rem',
-      }}>
-        <h3 style={{ textAlign: 'center', marginTop: 0 }}>
-          Партия #{match.currentSet.setNumber}
-        </h3>
-        <ScoreDisplay
-          teamA={match.teamA.name}
-          teamB={match.teamB.name}
-          scoreA={match.currentSet.scoreA}
-          scoreB={match.currentSet.scoreB}
-          servingTeam={match.currentSet.servingTeam}
-          isSetball={isSetballNow}
-          setballTeam={setballTeam}
-          isMatchball={isMatchballNow}
-          matchballTeam={matchballTeam}
-          teamALogo={match.teamA.logo}
-          teamBLogo={match.teamB.logo}
-        />
-        <ServeControl
-          servingTeam={match.currentSet.servingTeam}
-          teamAName={match.teamA.name}
-          teamBName={match.teamB.name}
-          onChange={changeServingTeam}
-        />
-      </div>
-
-      {/* Кнопки управления счетом */}
-      <ScoreButtons
-        teamAName={match.teamA.name}
-        teamBName={match.teamB.name}
-        onScoreChange={changeScore}
-      />
-
-      {/* Кнопки управления партией */}
-      <div style={{
-        display: 'flex',
-        gap: '1rem',
-        justifyContent: 'center',
-        marginBottom: '1rem',
-      }}>
-        <button
-          onClick={handleFinishSet}
-          disabled={!canFinish}
-          style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            backgroundColor: canFinish ? '#27ae60' : '#95a5a6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: canFinish ? 'pointer' : 'not-allowed',
-            fontWeight: 'bold',
-          }}
-        >
-          Завершить партию
-        </button>
-        <button
-          onClick={undoLastAction}
-          disabled={!hasHistory}
-          style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            backgroundColor: hasHistory ? '#e74c3c' : '#95a5a6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: hasHistory ? 'pointer' : 'not-allowed',
-          }}
-        >
-          Отменить последнее действие
-        </button>
-      </div>
-
-      {/* Расширенная статистика */}
-      <div style={{
-        backgroundColor: '#ecf0f1',
-        padding: '1rem',
-        borderRadius: '4px',
-        marginBottom: '1rem',
-      }}>
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '1rem',
-          marginBottom: match.statistics.enabled ? '1rem' : 0,
-        }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={match.statistics.enabled}
-              onChange={(e) => toggleStatistics(e.target.checked)}
-            />
-            <span>Расширенная статистика</span>
-          </label>
-        </div>
-
-        {match.statistics.enabled && (
-          <div>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: '1fr 1fr', 
-              gap: '1rem',
-              marginBottom: '1rem',
-            }}>
+            <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
               <div>
-                <h4>{match.teamA.name}</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                  <div>
-                    <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                      <button
-                        onClick={(e) => changeStatistics('A', 'attack', -1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        -1
-                      </button>
-                      <button
-                        onClick={(e) => changeStatistics('A', 'attack', 1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        +1
-                      </button>
-                    </div>
-                    <div style={{ textAlign: 'center', fontWeight: 'bold' }}>Атака: {match.statistics.teamA.attack}</div>
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                      <button
-                        onClick={(e) => changeStatistics('A', 'block', -1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        -1
-                      </button>
-                      <button
-                        onClick={(e) => changeStatistics('A', 'block', 1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        +1
-                      </button>
-                    </div>
-                    <div style={{ textAlign: 'center', fontWeight: 'bold' }}>Блок: {match.statistics.teamA.block}</div>
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                      <button
-                        onClick={(e) => changeStatistics('A', 'serve', -1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        -1
-                      </button>
-                      <button
-                        onClick={(e) => changeStatistics('A', 'serve', 1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        +1
-                      </button>
-                    </div>
-                    <div style={{ textAlign: 'center', fontWeight: 'bold' }}>Подачи: {match.statistics.teamA.serve}</div>
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                      <button
-                        onClick={(e) => changeStatistics('A', 'opponentErrors', -1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        -1
-                      </button>
-                      <button
-                        onClick={(e) => changeStatistics('A', 'opponentErrors', 1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        +1
-                      </button>
-                    </div>
-                    <div style={{ textAlign: 'center', fontWeight: 'bold' }}>Ошибки соперника: {match.statistics.teamA.opponentErrors}</div>
-                  </div>
-                </div>
+                <strong>Турнир:</strong> {match.tournament || "Не указан"}
               </div>
               <div>
-                <h4>{match.teamB.name}</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                  <div>
-                    <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                      <button
-                        onClick={(e) => changeStatistics('B', 'attack', -1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        -1
-                      </button>
-                      <button
-                        onClick={(e) => changeStatistics('B', 'attack', 1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        +1
-                      </button>
-                    </div>
-                    <div style={{ textAlign: 'center', fontWeight: 'bold' }}>Атака: {match.statistics.teamB.attack}</div>
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                      <button
-                        onClick={(e) => changeStatistics('B', 'block', -1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        -1
-                      </button>
-                      <button
-                        onClick={(e) => changeStatistics('B', 'block', 1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        +1
-                      </button>
-                    </div>
-                    <div style={{ textAlign: 'center', fontWeight: 'bold' }}>Блок: {match.statistics.teamB.block}</div>
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                      <button
-                        onClick={(e) => changeStatistics('B', 'serve', -1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        -1
-                      </button>
-                      <button
-                        onClick={(e) => changeStatistics('B', 'serve', 1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        +1
-                      </button>
-                    </div>
-                    <div style={{ textAlign: 'center', fontWeight: 'bold' }}>Подачи: {match.statistics.teamB.serve}</div>
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                      <button
-                        onClick={(e) => changeStatistics('B', 'opponentErrors', -1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        -1
-                      </button>
-                      <button
-                        onClick={(e) => changeStatistics('B', 'opponentErrors', 1, e)}
-                        style={{ flex: 1, padding: '0.5rem', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        +1
-                      </button>
-                    </div>
-                    <div style={{ textAlign: 'center', fontWeight: 'bold' }}>Ошибки соперника: {match.statistics.teamB.opponentErrors}</div>
-                  </div>
-                </div>
+                <strong>Место:</strong> {match.venue || "Не указано"}
+              </div>
+              <div>
+                <strong>Дата:</strong> {match.date || "Не указана"}
+              </div>
+              <div>
+                <strong>Время:</strong> {match.time || "Не указано"}
               </div>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Управление плашками vMix */}
-      <VMixOverlayButtons
-        vmixConfig={vmixConfig}
-        connectionStatus={connectionStatus}
-        overlayStates={overlayStates}
-        onShowOverlay={showOverlay}
-        onHideOverlay={hideOverlay}
-        isOverlayActive={isOverlayActive}
-      />
+          {/* Команды */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "1rem",
+              marginBottom: "1rem",
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: match.teamA.color || "#3498db",
+                color: "white",
+                padding: "1rem",
+                borderRadius: "4px",
+                textAlign: "center",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>{match.teamA.name}</h3>
+              {match.teamA.coach && <p>Тренер: {match.teamA.coach}</p>}
+            </div>
+            <div
+              style={{
+                backgroundColor: match.teamB.color || "#e74c3c",
+                color: "white",
+                padding: "1rem",
+                borderRadius: "4px",
+                textAlign: "center",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>{match.teamB.name}</h3>
+              {match.teamB.coach && <p>Тренер: {match.teamB.coach}</p>}
+            </div>
+          </div>
 
-      {/* Статус подключения к vMix */}
-      <div style={{
-        padding: '0.5rem 1rem',
-        backgroundColor: connectionStatus.connected ? '#27ae60' : '#e74c3c',
-        color: 'white',
-        borderRadius: '4px',
-        textAlign: 'center',
-        marginBottom: '1rem',
-        marginTop: '1rem',
-      }}>
-        Статус: {connectionStatus.message}
-      </div>
+          {/* Счет по партиям */}
+          <SetsDisplay
+            sets={match.sets}
+            currentSetNumber={match.currentSet.setNumber}
+          />
 
-      {/* Навигация */}
-      <div style={{
-        display: 'flex',
-        gap: '1rem',
-        justifyContent: 'center',
-      }}>
-        <button
-          onClick={() => navigate('/match/settings')}
+          {/* Текущий счет */}
+          <div
+            style={{
+              backgroundColor: "#fff",
+              border: "2px solid #3498db",
+              borderRadius: "4px",
+              padding: "1rem",
+              marginBottom: "1rem",
+            }}
+          >
+            <h3 style={{ textAlign: "center", marginTop: 0 }}>
+              Партия #{match.currentSet.setNumber}
+            </h3>
+            <ScoreDisplay
+              teamA={match.teamA.name}
+              teamB={match.teamB.name}
+              scoreA={match.currentSet.scoreA}
+              scoreB={match.currentSet.scoreB}
+              servingTeam={match.currentSet.servingTeam}
+              isSetball={isSetballNow}
+              setballTeam={setballTeam}
+              isMatchball={isMatchballNow}
+              matchballTeam={matchballTeam}
+              teamALogo={match.teamA.logo}
+              teamBLogo={match.teamB.logo}
+            />
+            <ServeControl
+              servingTeam={match.currentSet.servingTeam}
+              teamAName={match.teamA.name}
+              teamBName={match.teamB.name}
+              onChange={changeServingTeam}
+            />
+          </div>
+
+          {/* Кнопки управления счетом */}
+          <ScoreButtons
+            teamAName={match.teamA.name}
+            teamBName={match.teamB.name}
+            onScoreChange={changeScore}
+          />
+
+          {/* Кнопки управления партией */}
+          <div
+            style={{
+              display: "flex",
+              gap: "1rem",
+              justifyContent: "center",
+              marginBottom: "1rem",
+            }}
+          >
+            <button
+              onClick={handleFinishSet}
+              disabled={!canFinish}
+              style={{
+                padding: "0.75rem 1.5rem",
+                fontSize: "1rem",
+                backgroundColor: canFinish ? "#27ae60" : "#95a5a6",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: canFinish ? "pointer" : "not-allowed",
+                fontWeight: "bold",
+              }}
+            >
+              Завершить партию
+            </button>
+            <button
+              onClick={undoLastAction}
+              disabled={!hasHistory}
+              style={{
+                padding: "0.75rem 1.5rem",
+                fontSize: "1rem",
+                backgroundColor: hasHistory ? "#e74c3c" : "#95a5a6",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: hasHistory ? "pointer" : "not-allowed",
+              }}
+            >
+              Отменить последнее действие
+            </button>
+          </div>
+
+          {/* Расширенная статистика */}
+          <div
+            style={{
+              backgroundColor: "#ecf0f1",
+              padding: "1rem",
+              borderRadius: "4px",
+              marginBottom: "1rem",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "1rem",
+                marginBottom: match.statistics.enabled ? "1rem" : 0,
+              }}
+            >
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={match.statistics.enabled}
+                  onChange={(e) => toggleStatistics(e.target.checked)}
+                />
+                <span>Расширенная статистика</span>
+              </label>
+            </div>
+
+            {match.statistics.enabled && (
+              <div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "1rem",
+                    marginBottom: "1rem",
+                  }}
+                >
+                  <div>
+                    <h4>{match.teamA.name}</h4>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "0.25rem",
+                            marginBottom: "0.25rem",
+                          }}
+                        >
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("A", "attack", -1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#e74c3c",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            -1
+                          </button>
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("A", "attack", 1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#27ae60",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            +1
+                          </button>
+                        </div>
+                        <div
+                          style={{ textAlign: "center", fontWeight: "bold" }}
+                        >
+                          Атака: {match.statistics.teamA.attack}
+                        </div>
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "0.25rem",
+                            marginBottom: "0.25rem",
+                          }}
+                        >
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("A", "block", -1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#e74c3c",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            -1
+                          </button>
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("A", "block", 1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#27ae60",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            +1
+                          </button>
+                        </div>
+                        <div
+                          style={{ textAlign: "center", fontWeight: "bold" }}
+                        >
+                          Блок: {match.statistics.teamA.block}
+                        </div>
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "0.25rem",
+                            marginBottom: "0.25rem",
+                          }}
+                        >
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("A", "serve", -1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#e74c3c",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            -1
+                          </button>
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("A", "serve", 1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#27ae60",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            +1
+                          </button>
+                        </div>
+                        <div
+                          style={{ textAlign: "center", fontWeight: "bold" }}
+                        >
+                          Подачи: {match.statistics.teamA.serve}
+                        </div>
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "0.25rem",
+                            marginBottom: "0.25rem",
+                          }}
+                        >
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("A", "opponentErrors", -1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#e74c3c",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            -1
+                          </button>
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("A", "opponentErrors", 1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#27ae60",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            +1
+                          </button>
+                        </div>
+                        <div
+                          style={{ textAlign: "center", fontWeight: "bold" }}
+                        >
+                          Ошибки соперника:{" "}
+                          {match.statistics.teamA.opponentErrors}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h4>{match.teamB.name}</h4>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "0.25rem",
+                            marginBottom: "0.25rem",
+                          }}
+                        >
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("B", "attack", -1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#e74c3c",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            -1
+                          </button>
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("B", "attack", 1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#27ae60",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            +1
+                          </button>
+                        </div>
+                        <div
+                          style={{ textAlign: "center", fontWeight: "bold" }}
+                        >
+                          Атака: {match.statistics.teamB.attack}
+                        </div>
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "0.25rem",
+                            marginBottom: "0.25rem",
+                          }}
+                        >
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("B", "block", -1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#e74c3c",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            -1
+                          </button>
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("B", "block", 1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#27ae60",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            +1
+                          </button>
+                        </div>
+                        <div
+                          style={{ textAlign: "center", fontWeight: "bold" }}
+                        >
+                          Блок: {match.statistics.teamB.block}
+                        </div>
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "0.25rem",
+                            marginBottom: "0.25rem",
+                          }}
+                        >
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("B", "serve", -1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#e74c3c",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            -1
+                          </button>
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("B", "serve", 1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#27ae60",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            +1
+                          </button>
+                        </div>
+                        <div
+                          style={{ textAlign: "center", fontWeight: "bold" }}
+                        >
+                          Подачи: {match.statistics.teamB.serve}
+                        </div>
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "0.25rem",
+                            marginBottom: "0.25rem",
+                          }}
+                        >
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("B", "opponentErrors", -1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#e74c3c",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            -1
+                          </button>
+                          <button
+                            onClick={(e) =>
+                              changeStatistics("B", "opponentErrors", 1, e)
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "0.5rem",
+                              backgroundColor: "#27ae60",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            +1
+                          </button>
+                        </div>
+                        <div
+                          style={{ textAlign: "center", fontWeight: "bold" }}
+                        >
+                          Ошибки соперника:{" "}
+                          {match.statistics.teamB.opponentErrors}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Правая часть (1/3) - Управление vMix */}
+        <div
           style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            backgroundColor: '#3498db',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
+            display: "flex",
+            flexDirection: "column",
+            gap: "1rem",
+            position: "sticky",
+            top: "1rem",
+          }}
+        >
+          {/* Управление плашками vMix */}
+          <VMixOverlayButtons
+            vmixConfig={vmixConfig}
+            connectionStatus={connectionStatus}
+            overlayStates={overlayStates}
+            onShowOverlay={showOverlay}
+            onHideOverlay={hideOverlay}
+            isOverlayActive={isOverlayActive}
+            match={match}
+            onUpdateCoachData={updateCoachData}
+            onUpdateReferee1Data={updateReferee1Data}
+            onUpdateReferee2ShowData={updateReferee2ShowData}
+          />
+
+          {/* Статус подключения к vMix */}
+          <div
+            style={{
+              padding: "0.75rem 1rem",
+              backgroundColor: connectionStatus.connected
+                ? "#27ae60"
+                : "#e74c3c",
+              color: "white",
+              borderRadius: "4px",
+              textAlign: "center",
+              fontSize: "0.95rem",
+            }}
+          >
+            <div style={{ fontWeight: "bold", marginBottom: "0.25rem" }}>
+              vMix
+            </div>
+            <div>{connectionStatus.message}</div>
+          </div>
+
+          {/* Кнопка настроек vMix */}
+          <button
+            onClick={() => navigate("/vmix/settings")}
+            style={{
+              padding: "0.75rem 1rem",
+              fontSize: "1rem",
+              backgroundColor: "#16a085",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              width: "100%",
+            }}
+          >
+            Настройки vMix
+          </button>
+        </div>
+      </div>
+
+      {/* Навигация (внизу страницы, на всю ширину) */}
+      <div
+        style={{
+          display: "flex",
+          gap: "1rem",
+          justifyContent: "center",
+          marginTop: "1rem",
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          onClick={() => navigate("/match/settings")}
+          style={{
+            padding: "0.75rem 1.5rem",
+            fontSize: "1rem",
+            backgroundColor: "#3498db",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
           }}
         >
           Настройки матча
         </button>
         <button
-          onClick={() => navigate('/match/roster')}
+          onClick={() => navigate("/match/roster")}
           style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            backgroundColor: '#9b59b6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
+            padding: "0.75rem 1.5rem",
+            fontSize: "1rem",
+            backgroundColor: "#9b59b6",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
           }}
         >
           Управление составами
         </button>
         <button
-          onClick={() => navigate('/vmix/settings')}
+          onClick={() => navigate("/mobile/access")}
           style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            backgroundColor: '#16a085',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
-          Настройки vMix
-        </button>
-        <button
-          onClick={() => navigate('/mobile/access')}
-          style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            backgroundColor: '#f39c12',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
+            padding: "0.75rem 1.5rem",
+            fontSize: "1rem",
+            backgroundColor: "#f39c12",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
           }}
         >
           Мобильный доступ

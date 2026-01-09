@@ -83,7 +83,7 @@ function App() {
   }, [navigate, currentMatch]);
 
   return (
-    <Layout>
+    <Layout match={currentMatch} onMatchChange={setCurrentMatch}>
       <Routes>
         <Route path="/" element={<WelcomePage />} />
         <Route 

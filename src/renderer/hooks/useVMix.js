@@ -49,6 +49,11 @@ export function useVMix(match) {
   
   // ID текущего матча для отслеживания смены матча
   const currentMatchIdRef = useRef(null);
+  
+  // Отслеживание активной кнопки для каждого инпута
+  // Структура: { inputKey: buttonKey }
+  // Например: { referee1: "coachTeamA" }
+  const activeButtonRef = useRef({});
 
   // Обновляем refs при изменении состояния
   useEffect(() => {
@@ -251,6 +256,90 @@ export function useVMix(match) {
         if (result.inputsMap) {
           setInputsMap(result.inputsMap);
         }
+        // Очищаем активные кнопки для инпутов, которые стали неактивными
+        // Обрабатываем инпуты, активированные через vMix напрямую
+        const currentConfig = vmixConfigRef.current;
+        if (currentConfig && currentConfig.inputs && result.inputsMap) {
+          const tempInputsMap = result.inputsMap;
+          
+          // Проверяем все инпуты в конфигурации
+          for (const [inputKey, inputConfig] of Object.entries(currentConfig.inputs)) {
+            if (!inputConfig) continue;
+            
+            const overlay = (typeof inputConfig === "object" && inputConfig.overlay) || 1;
+            const overlayState = result.overlays[overlay];
+            
+            // Проверяем, активен ли оверлей
+            const isOverlayActiveInVMix = overlayState && overlayState.active === true;
+            
+            if (!isOverlayActiveInVMix) {
+              // Оверлей неактивен - очищаем активную кнопку для этого инпута
+              if (activeButtonRef.current[inputKey]) {
+                delete activeButtonRef.current[inputKey];
+              }
+            } else {
+              // Оверлей активен - проверяем, активен ли именно наш инпут
+              // Получаем идентификатор инпута из конфигурации
+              const inputIdentifier = typeof inputConfig === "string"
+                ? inputConfig
+                : (inputConfig.inputIdentifier || inputConfig.name);
+              
+              if (!inputIdentifier) continue;
+              
+              // Получаем номер инпута из оверлея
+              const overlayInputValue = overlayState.input
+                ? String(overlayState.input).trim()
+                : null;
+              
+              if (!overlayInputValue) continue;
+              
+              // Функция для поиска инпута в карте (локальная копия логики из findInputInMap)
+              const findInputInTempMap = (id) => {
+                const trimmed = String(id).trim();
+                if (/^\d+$/.test(trimmed)) {
+                  return tempInputsMap[trimmed] || null;
+                }
+                for (const [num, data] of Object.entries(tempInputsMap)) {
+                  if (data.key && data.key.toLowerCase() === trimmed.toLowerCase()) {
+                    return data;
+                  }
+                  if (data.title && data.title.toLowerCase() === trimmed.toLowerCase()) {
+                    return data;
+                  }
+                  if (data.shortTitle && data.shortTitle.toLowerCase() === trimmed.toLowerCase()) {
+                    return data;
+                  }
+                }
+                return null;
+              };
+              
+              // Сравниваем инпуты по номерам
+              let isOurInputActive = false;
+              const overlayInputData = findInputInTempMap(overlayInputValue);
+              const configInputData = findInputInTempMap(inputIdentifier);
+              
+              if (overlayInputData && configInputData) {
+                isOurInputActive = overlayInputData.number === configInputData.number;
+              } else if (overlayInputValue.toLowerCase() === inputIdentifier.trim().toLowerCase()) {
+                isOurInputActive = true;
+              }
+              
+              if (!isOurInputActive) {
+                // В оверлее активен другой инпут - очищаем активную кнопку
+                if (activeButtonRef.current[inputKey]) {
+                  delete activeButtonRef.current[inputKey];
+                }
+              } else {
+                // Инпут активен в vMix и это именно наш инпут
+                // Если активная кнопка не установлена, значит инпут был активирован через vMix напрямую
+                if (!activeButtonRef.current[inputKey]) {
+                  // Устанавливаем специальный маркер для обозначения внешней активации
+                  activeButtonRef.current[inputKey] = '__EXTERNAL__';
+                }
+              }
+            }
+          }
+        }
       }
     } catch (error) {
       console.error("Ошибка при обновлении состояния оверлеев:", error);
@@ -299,6 +388,8 @@ export function useVMix(match) {
         // Это важно, так как структура полей может измениться
         if (configChanged) {
           resetLastSentValues();
+          // Очищаем активные кнопки при изменении конфигурации
+          activeButtonRef.current = {};
         }
         
         checkConnection(config.host, config.port);
@@ -325,6 +416,8 @@ export function useVMix(match) {
         updateOverlayStates();
         // При переподключении сбрасываем кэш, чтобы синхронизировать данные
         resetLastSentValues();
+        // Очищаем активные кнопки при переподключении
+        activeButtonRef.current = {};
       }
     } catch (error) {
       setConnectionStatus({
@@ -366,7 +459,7 @@ export function useVMix(match) {
    * Показывает плашку в оверлее
    */
   const showOverlay = useCallback(
-    async (inputKey) => {
+    async (inputKey, buttonKey = null) => {
       if (!isVMixReady()) {
         return { success: false, error: "vMix не подключен" };
       }
@@ -381,6 +474,10 @@ export function useVMix(match) {
         const result = await window.electronAPI.showVMixOverlay(inputKey);
 
         if (result.success) {
+          // Сохраняем активную кнопку для этого инпута
+          if (buttonKey) {
+            activeButtonRef.current[inputKey] = buttonKey;
+          }
           scheduleOverlayUpdate();
         }
 
@@ -406,6 +503,8 @@ export function useVMix(match) {
         const result = await window.electronAPI.hideVMixOverlay(inputKey);
 
         if (result.success) {
+          // Очищаем активную кнопку для этого инпута
+          delete activeButtonRef.current[inputKey];
           scheduleOverlayUpdate();
         }
 
@@ -425,12 +524,14 @@ export function useVMix(match) {
   const updateMatchData = useCallback((matchData, forceUpdate = false) => {
     // Проверяем, сменился ли матч (по matchId)
     if (matchData && matchData.matchId && currentMatchIdRef.current !== matchData.matchId) {
-      // Матч сменился - сбрасываем кэш
+      // Матч сменился - сбрасываем кэш и активные кнопки
       resetLastSentValues();
+      activeButtonRef.current = {};
       currentMatchIdRef.current = matchData.matchId;
     } else if (!matchData) {
       // Матч был сброшен
       currentMatchIdRef.current = null;
+      activeButtonRef.current = {};
     }
 
     if (updateMatchDataDebouncedRef.current) {
@@ -868,6 +969,282 @@ export function useVMix(match) {
   );
 
   /**
+   * Обновляет данные тренера в инпуте referee1 (Плашка общая)
+   * @param {Object} match - данные матча
+   * @param {string} team - 'A' или 'B'
+   * @param {string} inputKey - ключ инпута (referee1)
+   * @returns {Promise<Object>} результат обновления
+   */
+  const updateCoachData = useCallback(
+    async (match, team, inputKey = 'referee1') => {
+      if (!isVMixReady()) {
+        return { success: false, error: "vMix не подключен" };
+      }
+
+      if (!match) {
+        return { success: false, error: "Матч не загружен" };
+      }
+
+      try {
+        const inputConfig = vmixConfigRef.current.inputs?.[inputKey];
+        const validation = validateInputConfig(inputConfig);
+        if (!validation.valid) {
+          return { success: false, error: validation.error };
+        }
+
+        // Получаем имя тренера
+        const coachName = team === 'A' 
+          ? (match.teamA?.coach || '') 
+          : (match.teamB?.coach || '');
+
+        if (!coachName) {
+          return { success: false, error: `Тренер команды ${team} не указан` };
+        }
+
+        // Форматируем данные для полей
+        const fields = {};
+        const fieldsConfig = inputConfig.fields || {};
+
+        // Находим поля name и position в конфигурации
+        if (fieldsConfig.name && fieldsConfig.name.enabled) {
+          fields[fieldsConfig.name.fieldIdentifier || 'Name'] = coachName;
+        }
+
+        if (fieldsConfig.position && fieldsConfig.position.enabled) {
+          fields[fieldsConfig.position.fieldIdentifier || 'Position'] = 'Тренер';
+        }
+
+        if (Object.keys(fields).length === 0) {
+          return { success: false, error: "Поля для тренера не настроены" };
+        }
+
+        // Отправляем данные в vMix (всегда forceUpdate для тренера, так как это разовое действие)
+        const result = await window.electronAPI.updateVMixInputFields(
+          validation.inputIdentifier,
+          fields,
+          {}, // colorFields
+          {}, // visibilityFields
+          {}  // imageFields
+        );
+
+        if (result.success) {
+          console.log(`[updateCoachData] Данные тренера команды ${team} обновлены:`, fields);
+        }
+
+        return result;
+      } catch (error) {
+        console.error("Ошибка при обновлении данных тренера:", error);
+        return { success: false, error: error.message };
+      }
+    },
+    [isVMixReady, validateInputConfig]
+  );
+
+  /**
+   * Обновляет данные первого судьи в инпуте referee1 (Плашка общая)
+   * @param {Object} match - данные матча
+   * @param {string} inputKey - ключ инпута (referee1)
+   * @returns {Promise<Object>} результат обновления
+   */
+  const updateReferee1Data = useCallback(
+    async (match, inputKey = 'referee1') => {
+      if (!isVMixReady()) {
+        return { success: false, error: "vMix не подключен" };
+      }
+
+      if (!match) {
+        return { success: false, error: "Матч не загружен" };
+      }
+
+      try {
+        const inputConfig = vmixConfigRef.current.inputs?.[inputKey];
+        const validation = validateInputConfig(inputConfig);
+        if (!validation.valid) {
+          return { success: false, error: validation.error };
+        }
+
+        // Получаем имя первого судьи
+        const referee1Name = match.officials?.referee1 || '';
+
+        if (!referee1Name) {
+          return { success: false, error: "Первый судья не указан" };
+        }
+
+        // Форматируем данные для полей
+        const fields = {};
+        const fieldsConfig = inputConfig.fields || {};
+
+        // Находим поля name и position в конфигурации
+        if (fieldsConfig.name && fieldsConfig.name.enabled) {
+          fields[fieldsConfig.name.fieldIdentifier || 'Name'] = referee1Name;
+        }
+
+        if (fieldsConfig.position && fieldsConfig.position.enabled) {
+          fields[fieldsConfig.position.fieldIdentifier || 'Position'] = 'Первый судья';
+        }
+
+        if (Object.keys(fields).length === 0) {
+          return { success: false, error: "Поля для первого судьи не настроены" };
+        }
+
+        // Отправляем данные в vMix (всегда forceUpdate для первого судьи, так как это разовое действие)
+        const result = await window.electronAPI.updateVMixInputFields(
+          validation.inputIdentifier,
+          fields,
+          {}, // colorFields
+          {}, // visibilityFields
+          {}  // imageFields
+        );
+
+        if (result.success) {
+          console.log(`[updateReferee1Data] Данные первого судьи обновлены:`, fields);
+        }
+
+        return result;
+      } catch (error) {
+        console.error("Ошибка при обновлении данных первого судьи:", error);
+        return { success: false, error: error.message };
+      }
+    },
+    [isVMixReady, validateInputConfig]
+  );
+
+  /**
+   * Обновляет данные второго судьи в инпуте referee1 (Плашка общая)
+   * @param {Object} match - данные матча
+   * @param {string} inputKey - ключ инпута (referee1)
+   * @returns {Promise<Object>} результат обновления
+   */
+  const updateReferee2ShowData = useCallback(
+    async (match, inputKey = 'referee1') => {
+      if (!isVMixReady()) {
+        return { success: false, error: "vMix не подключен" };
+      }
+
+      if (!match) {
+        return { success: false, error: "Матч не загружен" };
+      }
+
+      try {
+        const inputConfig = vmixConfigRef.current.inputs?.[inputKey];
+        const validation = validateInputConfig(inputConfig);
+        if (!validation.valid) {
+          return { success: false, error: validation.error };
+        }
+
+        // Получаем имя второго судьи
+        const referee2Name = match.officials?.referee2 || '';
+
+        if (!referee2Name) {
+          return { success: false, error: "Второй судья не указан" };
+        }
+
+        // Форматируем данные для полей
+        const fields = {};
+        const fieldsConfig = inputConfig.fields || {};
+
+        // Находим поля name и position в конфигурации
+        if (fieldsConfig.name && fieldsConfig.name.enabled) {
+          fields[fieldsConfig.name.fieldIdentifier || 'Name'] = referee2Name;
+        }
+
+        if (fieldsConfig.position && fieldsConfig.position.enabled) {
+          fields[fieldsConfig.position.fieldIdentifier || 'Position'] = 'Второй судья';
+        }
+
+        if (Object.keys(fields).length === 0) {
+          return { success: false, error: "Поля для второго судьи не настроены" };
+        }
+
+        // Отправляем данные в vMix (всегда forceUpdate для второго судьи, так как это разовое действие)
+        const result = await window.electronAPI.updateVMixInputFields(
+          validation.inputIdentifier,
+          fields,
+          {}, // colorFields
+          {}, // visibilityFields
+          {}  // imageFields
+        );
+
+        if (result.success) {
+          console.log(`[updateReferee2ShowData] Данные второго судьи обновлены:`, fields);
+        }
+
+        return result;
+      } catch (error) {
+        console.error("Ошибка при обновлении данных второго судьи:", error);
+        return { success: false, error: error.message };
+      }
+    },
+    [isVMixReady, validateInputConfig]
+  );
+
+  /**
+   * Обновляет данные обоих судей в инпуте referee2 (Плашка 2 судьи)
+   * @param {Object} match - данные матча
+   * @returns {Promise<Object>} результат обновления
+   */
+  const updateReferee2Data = useCallback(
+    async (match) => {
+      if (!isVMixReady()) {
+        return { success: false, error: "vMix не подключен" };
+      }
+
+      if (!match) {
+        return { success: false, error: "Матч не загружен" };
+      }
+
+      try {
+        const inputKey = 'referee2';
+        const inputConfig = vmixConfigRef.current.inputs?.[inputKey];
+        const validation = validateInputConfig(inputConfig);
+        if (!validation.valid) {
+          return { success: false, error: validation.error };
+        }
+
+        // Получаем имена судей
+        const referee1Name = match.officials?.referee1 || '';
+        const referee2Name = match.officials?.referee2 || '';
+
+        // Форматируем данные для полей
+        const fields = {};
+        const fieldsConfig = inputConfig.fields || {};
+
+        // Находим поля referee1Name и referee2Name в конфигурации
+        if (fieldsConfig.referee1Name && fieldsConfig.referee1Name.enabled) {
+          fields[fieldsConfig.referee1Name.fieldIdentifier || 'Referee1Name'] = referee1Name;
+        }
+
+        if (fieldsConfig.referee2Name && fieldsConfig.referee2Name.enabled) {
+          fields[fieldsConfig.referee2Name.fieldIdentifier || 'Referee2Name'] = referee2Name;
+        }
+
+        if (Object.keys(fields).length === 0) {
+          return { success: false, error: "Поля для судей не настроены" };
+        }
+
+        // Отправляем данные в vMix
+        const result = await window.electronAPI.updateVMixInputFields(
+          validation.inputIdentifier,
+          fields,
+          {}, // colorFields
+          {}, // visibilityFields
+          {}  // imageFields
+        );
+
+        if (result.success) {
+          console.log(`[updateReferee2Data] Данные судей обновлены:`, fields);
+        }
+
+        return result;
+      } catch (error) {
+        console.error("Ошибка при обновлении данных судей:", error);
+        return { success: false, error: error.message };
+      }
+    },
+    [isVMixReady, validateInputConfig]
+  );
+
+  /**
    * Форматирует данные состава команды для vMix в виде объекта полей
    * @param {Object} match - данные матча
    * @param {string} teamKey - 'A' или 'B'
@@ -1218,9 +1595,12 @@ export function useVMix(match) {
 
   /**
    * Проверяет, активна ли плашка в оверлее
+   * @param {string} inputKey - ключ инпута
+   * @param {string} buttonKey - ключ кнопки (опционально, для кнопок, использующих один инпут)
+   * @returns {boolean} true если плашка активна и buttonKey соответствует активной кнопке
    */
   const isOverlayActive = useCallback(
-    (inputKey) => {
+    (inputKey, buttonKey = null) => {
       if (!vmixConfig || !overlayStates) {
         return false;
       }
@@ -1247,6 +1627,10 @@ export function useVMix(match) {
 
       // Если оверлей неактивен, плашка не активна
       if (overlayState.active !== true) {
+        // Если оверлей неактивен, очищаем активную кнопку для этого инпута
+        if (activeButtonRef.current[inputKey]) {
+          delete activeButtonRef.current[inputKey];
+        }
         return false;
       }
 
@@ -1269,55 +1653,96 @@ export function useVMix(match) {
       const normalizedConfig = inputIdentifier.trim().toLowerCase();
       const normalizedOverlay = overlayInputValue.toLowerCase();
 
+      let isInputActive = false;
       if (normalizedConfig === normalizedOverlay) {
-        return true;
+        isInputActive = true;
+      } else {
+        const trimmedIdentifier = inputIdentifier.trim();
+
+        // Проверяем, является ли overlayInputValue порядковым номером (из vMix API)
+        const isOverlayNumber = /^\d+$/.test(overlayInputValue);
+
+        if (isOverlayNumber) {
+          // vMix API вернул номер инпута в оверлее
+          // Найдем инпут с этим номером в inputsMap
+          const overlayInputData = inputsMap && inputsMap[overlayInputValue];
+          
+          if (overlayInputData) {
+            // Теперь найдем инпут из конфига в inputsMap
+            const configInputData = findInputInMap(trimmedIdentifier);
+            
+            if (configInputData) {
+              // Сравниваем номера инпутов - если они совпадают, это один и тот же инпут
+              isInputActive = configInputData.number === overlayInputData.number;
+            }
+          }
+        } else {
+          // Если в оверлее не число (нестандартный случай)
+          // Найдем оба инпута в inputsMap и сравним их номера
+          const overlayInputData = findInputInMap(overlayInputValue);
+          const configInputData = findInputInMap(trimmedIdentifier);
+
+          if (overlayInputData && configInputData) {
+            // Сравниваем номера инпутов
+            isInputActive = overlayInputData.number === configInputData.number;
+          }
+        }
       }
 
-      // vMix API возвращает в оверлее порядковый номер инпута (например, "3")
-      // В конфиге может быть указан:
-      // - Порядковый номер: "3"
-      // - ID инпута (key): "some-uuid"
-      // - Имя инпута: "Zayavka2024-2.gtzip"
-      // НЕ используем формат "Input3" как идентификатор - это некорректно
-      
-      const trimmedIdentifier = inputIdentifier.trim();
-
-      // Проверяем, является ли overlayInputValue порядковым номером (из vMix API)
-      const isOverlayNumber = /^\d+$/.test(overlayInputValue);
-
-      if (isOverlayNumber) {
-        // vMix API вернул номер инпута в оверлее
-        // Найдем инпут с этим номером в inputsMap
-        const overlayInputData = inputsMap && inputsMap[overlayInputValue];
-        
-        if (!overlayInputData) {
-          // Если инпут не найден в inputsMap, не можем проверить - возвращаем false
-          return false;
+      // Если инпут неактивен, очищаем активную кнопку
+      if (!isInputActive) {
+        if (activeButtonRef.current[inputKey]) {
+          delete activeButtonRef.current[inputKey];
         }
-
-        // Теперь найдем инпут из конфига в inputsMap
-        const configInputData = findInputInMap(trimmedIdentifier);
-        
-        if (!configInputData) {
-          // Если инпут из конфига не найден в inputsMap, не можем проверить - возвращаем false
-          return false;
-        }
-
-        // Сравниваем номера инпутов - если они совпадают, это один и тот же инпут
-        return configInputData.number === overlayInputData.number;
-      }
-
-      // Если в оверлее не число (нестандартный случай)
-      // Найдем оба инпута в inputsMap и сравним их номера
-      const overlayInputData = findInputInMap(overlayInputValue);
-      const configInputData = findInputInMap(trimmedIdentifier);
-
-      if (!overlayInputData || !configInputData) {
         return false;
       }
 
-      // Сравниваем номера инпутов
-      return overlayInputData.number === configInputData.number;
+      // Если инпут активен, проверяем, соответствует ли buttonKey активной кнопке
+      if (buttonKey !== null) {
+        // Для кнопок, использующих один инпут, проверяем активную кнопку
+        let activeButton = activeButtonRef.current[inputKey];
+        
+        // Если активная кнопка имеет специальное значение '__EXTERNAL__',
+        // значит инпут был активирован через vMix напрямую
+        // В этом случае устанавливаем текущую кнопку как активную при первом вызове
+        // Используем атомарную проверку для предотвращения гонки условий
+        if (activeButton === '__EXTERNAL__') {
+          // Атомарно устанавливаем buttonKey как активную кнопку только если она еще '__EXTERNAL__'
+          activeButtonRef.current[inputKey] = buttonKey;
+          activeButton = buttonKey;
+        }
+        
+        // Если активная кнопка не установлена (undefined или null), но инпут активен в vMix,
+        // значит это первый раз, когда мы проверяем этот инпут после активации через vMix
+        // Устанавливаем текущую кнопку как активную
+        // Это может произойти, если updateOverlayStates еще не успел установить '__EXTERNAL__'
+        if ((activeButton === undefined || activeButton === null) && isInputActive) {
+          // Двойная проверка для атомарности (избегаем гонки условий)
+          // Если между проверками другая кнопка установилась, используем её
+          const currentActive = activeButtonRef.current[inputKey];
+          if (currentActive === undefined || currentActive === null || currentActive === '__EXTERNAL__') {
+            activeButtonRef.current[inputKey] = buttonKey;
+            activeButton = buttonKey;
+          } else {
+            // Другая кнопка уже установилась - используем её
+            activeButton = currentActive;
+          }
+        }
+        
+        // Обновляем локальную переменную после возможных изменений
+        activeButton = activeButtonRef.current[inputKey];
+        
+        // Если активная кнопка все еще не установлена или имеет маркер внешней активации, возвращаем false
+        if (activeButton === undefined || activeButton === null || activeButton === '__EXTERNAL__') {
+          return false;
+        }
+        
+        return activeButton === buttonKey;
+      }
+
+      // Если buttonKey не указан, возвращаем статус активности инпута
+      // Но это используется только для внутренних проверок
+      return true;
     },
     [vmixConfig, overlayStates, getInputIdentifier, findInputInMap, inputsMap]
   );
@@ -1333,5 +1758,9 @@ export function useVMix(match) {
     isOverlayActive,
     checkConnection,
     resetImageFieldsCache,
+    updateCoachData,
+    updateReferee1Data,
+    updateReferee2ShowData,
+    updateReferee2Data,
   };
 }

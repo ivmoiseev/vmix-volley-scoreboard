@@ -11,8 +11,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   // Используем match из пропсов, затем из state, затем пытаемся загрузить из Electron API
   const [match, setMatch] = useState(propMatch || matchFromState || null);
   
-  // Получаем updateMatchData и resetImageFieldsCache из useVMix для принудительного обновления при сохранении
-  const { updateMatchData, connectionStatus, resetImageFieldsCache } = useVMix(match);
+  // Получаем updateMatchData, resetImageFieldsCache и updateReferee2Data из useVMix для принудительного обновления при сохранении
+  const { updateMatchData, connectionStatus, resetImageFieldsCache, updateReferee2Data } = useVMix(match);
   
   const [formData, setFormData] = useState({
     tournament: '',
@@ -161,6 +161,17 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     // Принудительно обновляем все данные в vMix при сохранении настроек
     if (connectionStatus.connected) {
       updateMatchData(updatedMatch, true);
+      // Обновляем данные обоих судей в плашке 2 судей при сохранении настроек
+      if (updateReferee2Data) {
+        try {
+          const result = await updateReferee2Data(updatedMatch);
+          if (!result.success) {
+            console.error('Ошибка при обновлении данных судей в плашке 2 судей:', result.error);
+          }
+        } catch (error) {
+          console.error('Ошибка при обновлении данных судей в плашке 2 судей:', error);
+        }
+      }
     }
     
     navigate('/match', { state: { match: updatedMatch } });
