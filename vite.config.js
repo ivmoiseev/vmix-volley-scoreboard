@@ -9,6 +9,14 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, 'dist'),
     emptyOutDir: true,
+    // Для Electron используем относительные пути
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        // Используем относительные пути для корректной работы в Electron
+        format: 'es',
+      },
+    },
   },
   server: {
     port: 5173,

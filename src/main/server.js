@@ -47,7 +47,15 @@ class MobileServer {
     this.app.use(express.static('public'));
     
     // Статические файлы для логотипов
-    const logosPath = path.join(__dirname, '../../logos');
+    // В production logos находится в extraResources (вне ASAR)
+    let logosPath;
+    if (process.resourcesPath) {
+      // Production режим - logos в resources/
+      logosPath = path.join(process.resourcesPath, 'logos');
+    } else {
+      // Dev режим - обычный путь
+      logosPath = path.join(__dirname, '../../logos');
+    }
     this.app.use('/logos', express.static(logosPath));
   }
 

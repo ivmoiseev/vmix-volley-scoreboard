@@ -1,21 +1,34 @@
 const fs = require('fs').promises;
 const path = require('path');
-const { dialog } = require('electron');
+const { dialog, app } = require('electron');
 const { validateMatch, createNewMatch } = require('../shared/matchUtils');
 const errorHandler = require('../shared/errorHandler');
 const logoManager = require('./logoManager');
 
-const MATCHES_DIR = path.join(__dirname, '../../matches');
+// Определяем путь к папке matches с учетом production режима
+// Используем lazy evaluation, так как app может быть не готов при импорте модуля
+function getMatchesDir() {
+  // В production matches находится в extraResources (вне ASAR)
+  // process.resourcesPath доступен только в production режиме
+  if (process.resourcesPath) {
+    // process.resourcesPath указывает на папку resources/ (где находятся extraResources)
+    return path.join(process.resourcesPath, 'matches');
+  }
+  // В dev режиме - обычный путь
+  return path.join(__dirname, '../../matches');
+}
 
 /**
  * Убеждается, что папка matches существует
  */
 async function ensureMatchesDir() {
+  const matchesDir = getMatchesDir();
   try {
-    await fs.access(MATCHES_DIR);
+    await fs.access(matchesDir);
   } catch {
-    await fs.mkdir(MATCHES_DIR, { recursive: true });
+    await fs.mkdir(matchesDir, { recursive: true });
   }
+  return matchesDir;
 }
 
 /**
@@ -30,7 +43,7 @@ async function createMatch() {
  * Сохраняет матч в файл
  */
 async function saveMatch(match, filePath = null) {
-  await ensureMatchesDir();
+  const matchesDir = await ensureMatchesDir();
 
   if (!validateMatch(match)) {
     throw new Error('Некорректные данные матча');
@@ -50,7 +63,7 @@ async function saveMatch(match, filePath = null) {
   // Если путь не указан, используем стандартный путь
   if (!filePath) {
     const fileName = `match_${match.matchId}.json`;
-    filePath = path.join(MATCHES_DIR, fileName);
+    filePath = path.join(matchesDir, fileName);
   }
 
   // Сохраняем файл
@@ -65,7 +78,7 @@ async function saveMatch(match, filePath = null) {
 async function openMatchDialog() {
   const result = await dialog.showOpenDialog({
     title: 'Открыть матч',
-    defaultPath: MATCHES_DIR,
+    defaultPath: getMatchesDir(),
     filters: [
       { name: 'JSON файлы', extensions: ['json'] },
       { name: 'Все файлы', extensions: ['*'] },
@@ -152,7 +165,7 @@ async function saveMatchDialog(match) {
 
   const result = await dialog.showSaveDialog({
     title: 'Сохранить матч',
-    defaultPath: path.join(MATCHES_DIR, defaultFileName),
+    defaultPath: path.join(getMatchesDir(), defaultFileName),
     filters: [
       { name: 'JSON файлы', extensions: ['json'] },
       { name: 'Все файлы', extensions: ['*'] },
@@ -172,6 +185,6 @@ module.exports = {
   openMatch,
   openMatchDialog,
   saveMatchDialog,
-  MATCHES_DIR,
+  getMatchesDir,
 };
 

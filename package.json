@@ -3,16 +3,14 @@
   "version": "1.0.0",
   "description": "VolleyScore Master: An Electron-based application designed for volleyball tournament graphics management. It integrates seamlessly with vMix for live broadcasts, providing real-time control over on-screen titles, scoreboards, and match infographics.",
   "main": "src/main/main.js",
-  "directories": {
-    "doc": "docs"
-  },
   "scripts": {
     "dev": "concurrently -k -s first \"vite\" \"node scripts/wait-for-vite.js && electron .\"",
     "build": "vite build",
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "build:electron": "vite build && electron-builder",
+    "build:electron": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false vite build && electron-builder --win",
+    "build:electron:all": "vite build && electron-builder",
     "lint": "echo 'Linting...'",
     "test": "echo 'Tests will be added later'"
   },
@@ -28,6 +26,84 @@
     "url": "https://github.com/ivmoiseev/vmix-volley-scoreboard/issues"
   },
   "homepage": "https://github.com/ivmoiseev/vmix-volley-scoreboard#readme",
+  "build": {
+    "appId": "com.vmix.volley-scoreboard",
+    "productName": "VolleyScore Master",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "src/main/**/*",
+      "src/shared/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "logos",
+        "to": "logos",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "matches",
+        "to": "matches",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "settings.json",
+        "to": "."
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.sports"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "Utility"
+    },
+    "beforePack": null
+  },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.0.3",
@@ -37,6 +113,7 @@
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^5.1.2",
     "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
     "electron": "^39.2.7",
     "electron-builder": "^26.0.12",
     "typescript": "^5.9.3",

@@ -169,6 +169,25 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
     }
   }, [match?.currentSet?.servingTeam]);
 
+  // Принудительное обновление видимости полей в vMix при изменении подачи
+  useEffect(() => {
+    if (
+      match &&
+      match.currentSet &&
+      connectionStatus.connected
+    ) {
+      console.log(
+        "[MatchControlPage] Обновление видимости полей при изменении подачи:",
+        {
+          servingTeam: match.currentSet.servingTeam,
+        }
+      );
+      // Вызываем updateMatchData с forceUpdate=false, но изменения видимости должны быть обнаружены
+      // через filterChangedVisibilityFields, так как видимость изменилась
+      updateMatchData(match, false);
+    }
+  }, [match?.currentSet?.servingTeam, connectionStatus.connected, updateMatchData]);
+
   // Обработка обновления матча из мобильного приложения
   useEffect(() => {
     if (!window.electronAPI) return;

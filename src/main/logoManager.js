@@ -1,16 +1,30 @@
 const fs = require('fs').promises;
 const path = require('path');
 
-const LOGOS_DIR = path.join(__dirname, '../../logos');
+// Определяем путь к папке logos с учетом production режима
+// Используем lazy evaluation, так как app может быть не готов при импорте модуля
+function getLogosDir() {
+  // В production logos находится в extraResources (вне ASAR)
+  // process.resourcesPath доступен только в production режиме
+  if (process.resourcesPath) {
+    // process.resourcesPath указывает на папку resources/ (где находятся extraResources)
+    return path.join(process.resourcesPath, 'logos');
+  }
+  // В dev режиме - обычный путь
+  return path.join(__dirname, '../../logos');
+}
+
+// Убираем константу, будем использовать функцию напрямую
 
 /**
  * Убеждается, что папка logos существует
  */
 async function ensureLogosDir() {
+  const logosDir = getLogosDir();
   try {
-    await fs.access(LOGOS_DIR);
+    await fs.access(logosDir);
   } catch {
-    await fs.mkdir(LOGOS_DIR, { recursive: true });
+    await fs.mkdir(logosDir, { recursive: true });
   }
 }
 
@@ -35,7 +49,7 @@ async function saveLogoToFile(base64String, team) {
   
   // Используем фиксированные имена для перезаписи
   const fileName = team === 'A' ? 'logo_a.png' : 'logo_b.png';
-  const filePath = path.join(LOGOS_DIR, fileName);
+  const filePath = path.join(getLogosDir(), fileName);
   
   // Конвертируем base64 в Buffer и сохраняем (перезаписываем существующий файл)
   const buffer = base64ToBuffer(base64String);
@@ -56,7 +70,10 @@ async function loadLogoFromFile(logoPath) {
     
     // Если путь относительный (начинается с logos/)
     if (logoPath.startsWith('logos/')) {
-      filePath = path.join(__dirname, '../../', logoPath);
+      // Используем правильный путь к logos в зависимости от режима
+      const logosDir = getLogosDir();
+      const fileName = logoPath.replace('logos/', '');
+      filePath = path.join(logosDir, fileName);
     } else {
       // Если абсолютный путь
       filePath = logoPath;
@@ -217,14 +234,15 @@ async function cleanupLogosDirectory() {
     const allowedFiles = new Set(['logo_a.png', 'logo_b.png', '.gitkeep']);
     
     // Читаем все файлы в папке
-    const files = await fs.readdir(LOGOS_DIR);
+    const logosDir = getLogosDir();
+    const files = await fs.readdir(logosDir);
     
     // Удаляем все файлы, кроме разрешенных
     const deletePromises = files
       .filter(file => !allowedFiles.has(file))
       .map(async (file) => {
         try {
-          const filePath = path.join(LOGOS_DIR, file);
+          const filePath = path.join(logosDir, file);
           const stats = await fs.stat(filePath);
           
           // Удаляем только файлы, не директории
@@ -252,6 +270,6 @@ module.exports = {
   processTeamLogoForLoad,
   getLogoHttpUrl,
   cleanupLogosDirectory,
-  LOGOS_DIR,
+  getLogosDir,
 };
 

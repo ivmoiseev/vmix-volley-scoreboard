@@ -47,6 +47,71 @@ npm run preview
 npm run build:electron
 ```
 
+## Сборка для production
+
+### Подготовка
+
+Убедитесь, что все зависимости установлены:
+```bash
+npm install
+```
+
+### Сборка приложения
+
+Для сборки готового установочного пакета используйте:
+
+```bash
+npm run build:electron
+```
+
+Эта команда:
+1. Собирает React приложение через Vite в папку `dist/`
+2. Создает установочные пакеты через electron-builder в папку `release/`
+
+### Результат сборки
+
+После успешной сборки в папке `release/` будут созданы установочные пакеты:
+- **Windows**: `VolleyScore Master Setup X.X.X.exe` (NSIS installer)
+- **macOS**: `VolleyScore Master-X.X.X.dmg`
+- **Linux**: `VolleyScore Master-X.X.X.AppImage`
+
+### Дополнительные опции сборки
+
+Сборка только для текущей платформы:
+```bash
+npm run build && electron-builder --dir
+```
+
+Сборка только для Windows:
+```bash
+npm run build && electron-builder --win
+```
+
+Сборка только для macOS:
+```bash
+npm run build && electron-builder --mac
+```
+
+Сборка только для Linux:
+```bash
+npm run build && electron-builder --linux
+```
+
+### Структура сборки
+
+При сборке в пакет включаются:
+- Собранное React приложение из `dist/`
+- Файлы Main Process из `src/main/`
+- Общие утилиты из `src/shared/`
+- Все зависимости из `node_modules/`
+- Папки `logos/` и `matches/` как дополнительные ресурсы
+
+### Примечания
+
+- При первой сборке electron-builder может скачать необходимые инструменты (может занять время)
+- Для сборки на Windows для macOS потребуется macOS система (кросскомпиляция не поддерживается)
+- Для подписи приложений настройте соответствующие сертификаты в конфигурации `build`
+
 ## Структура проекта
 
 ```

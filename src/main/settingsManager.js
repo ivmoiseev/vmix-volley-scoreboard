@@ -1,19 +1,79 @@
 const fs = require('fs').promises;
 const path = require('path');
+const { app } = require('electron');
 const { getDefaultFieldsForInput, migrateInputToNewFormat } = require('./vmix-input-configs');
 
-const SETTINGS_FILE = path.join(__dirname, '../../settings.json');
+// Определяем путь к файлу настроек с учетом production режима
+function getSettingsFilePath() {
+  const isPackaged = app && app.isPackaged;
+  
+  if (isPackaged) {
+    // В production используем userData директорию для хранения настроек пользователя
+    // Это позволяет пользователю изменять настройки без проблем с правами доступа
+    const userDataPath = app.getPath('userData');
+    return path.join(userDataPath, 'settings.json');
+  }
+  
+  // В dev режиме - обычный путь в корне проекта
+  return path.join(__dirname, '../../settings.json');
+}
+
+// Получаем путь к файлу настроек по умолчанию из extraResources (для первого запуска)
+function getDefaultSettingsFilePath() {
+  const isPackaged = app && app.isPackaged;
+  
+  if (isPackaged && process.resourcesPath) {
+    // В production settings.json находится в extraResources
+    return path.join(process.resourcesPath, 'settings.json');
+  }
+  
+  // В dev режиме - обычный путь в корне проекта
+  return path.join(__dirname, '../../settings.json');
+}
+
+// Убираем константу, используем функцию напрямую
 
 /**
  * Убеждается, что файл настроек существует
  */
 async function ensureSettingsFile() {
+  const settingsPath = getSettingsFilePath();
+  
   try {
-    await fs.access(SETTINGS_FILE);
+    await fs.access(settingsPath);
+    // Файл существует, всё хорошо
+    return;
   } catch {
-    // Файл не существует, создаем с дефолтными настройками
+    // Файл не существует
+    const isPackaged = app && app.isPackaged;
+    
+    if (isPackaged) {
+      // В production сначала пытаемся скопировать настройки из extraResources
+      try {
+        const defaultSettingsPath = getDefaultSettingsFilePath();
+        await fs.access(defaultSettingsPath);
+        
+        // Копируем настройки по умолчанию из extraResources в userData
+        const defaultData = await fs.readFile(defaultSettingsPath, 'utf-8');
+        // Убеждаемся, что директория userData существует
+        const userDataDir = app.getPath('userData');
+        await fs.mkdir(userDataDir, { recursive: true });
+        // Сохраняем копию в userData
+        await fs.writeFile(settingsPath, defaultData, 'utf-8');
+        console.log('[SettingsManager] Скопированы настройки по умолчанию из extraResources в userData');
+        return;
+      } catch (copyError) {
+        console.log('[SettingsManager] Не удалось скопировать настройки из extraResources, создаем новые:', copyError.message);
+        // Если не удалось скопировать, создаем с дефолтными настройками
+      }
+    }
+    
+    // Создаем файл с дефолтными настройками
     const defaultSettings = getDefaultSettings();
-    await fs.writeFile(SETTINGS_FILE, JSON.stringify(defaultSettings, null, 2), 'utf-8');
+    // Убеждаемся, что директория существует
+    const settingsDir = path.dirname(settingsPath);
+    await fs.mkdir(settingsDir, { recursive: true });
+    await fs.writeFile(settingsPath, JSON.stringify(defaultSettings, null, 2), 'utf-8');
   }
 }
 
@@ -74,7 +134,8 @@ function getDefaultSettings() {
 async function loadSettings() {
   try {
     await ensureSettingsFile();
-    const data = await fs.readFile(SETTINGS_FILE, 'utf-8');
+    const settingsPath = getSettingsFilePath();
+    const data = await fs.readFile(settingsPath, 'utf-8');
     const settings = JSON.parse(data);
     
     // Миграция: если настройки в старом формате, конвертируем
@@ -291,7 +352,8 @@ async function loadSettings() {
 async function saveSettings(settings) {
   try {
     await ensureSettingsFile();
-    await fs.writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+    const settingsPath = getSettingsFilePath();
+    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
     return true;
   } catch (error) {
     console.error('Ошибка при сохранении настроек:', error);
@@ -420,6 +482,6 @@ module.exports = {
   setAutoSaveSettings,
   getSetting,
   setSetting,
-  SETTINGS_FILE,
+  getSettingsFilePath,
 };
 
