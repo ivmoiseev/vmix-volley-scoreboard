@@ -7,6 +7,7 @@ export interface Player {
   name: string;
   position: string;
   isStarter: boolean;
+  numberOnCard?: string; // Номер игрока на карте (опционально)
 }
 
 export interface Team {

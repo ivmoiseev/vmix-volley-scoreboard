@@ -184,6 +184,97 @@ async function loadSettings() {
           return migratedSettings;
         }
       }
+
+      // Добавляем недостающие инпуты и поля из конфигурации по умолчанию
+      const defaultInputNames = {
+        lineup: 'Input1',
+        statistics: 'Input2',
+        rosterTeamA: 'Input3',
+        rosterTeamB: 'Input4',
+        startingLineupTeamA: 'Input5',
+        startingLineupTeamB: 'Input6',
+        currentScore: 'Input7',
+        set1Score: 'Input8',
+        set2Score: 'Input9',
+        set3Score: 'Input10',
+        set4Score: 'Input11',
+        set5Score: 'Input12',
+        referee1: 'Input13',
+        referee2: 'Input14',
+      };
+
+      let needsFieldsMigration = false;
+      const inputs = settings.vmix.inputs || {};
+
+      // Проверяем и добавляем недостающие инпуты
+      for (const [key, defaultName] of Object.entries(defaultInputNames)) {
+        if (!inputs[key]) {
+          needsFieldsMigration = true;
+          const defaultFields = getDefaultFieldsForInput(key) || {};
+          inputs[key] = {
+            enabled: true,
+            inputIdentifier: defaultName,
+            overlay: 1,
+            fields: defaultFields,
+          };
+        } else {
+          // Инпут существует, проверяем и дополняем его поля
+          const input = inputs[key];
+          const defaultFields = getDefaultFieldsForInput(key) || {};
+          const existingFields = input.fields || {};
+          
+          // Объединяем поля: сначала defaults, затем существующие (чтобы сохранить пользовательские настройки)
+          const mergedFields = { ...defaultFields };
+          for (const [fieldKey, existingField] of Object.entries(existingFields)) {
+            if (mergedFields[fieldKey]) {
+              // Поле есть в defaults - объединяем, сохраняя пользовательские настройки
+              mergedFields[fieldKey] = {
+                ...mergedFields[fieldKey], // defaults имеют приоритет для type
+                ...existingField,
+                // Переопределяем тип из defaults (важно для обновления типов)
+                type: mergedFields[fieldKey].type,
+                // Убеждаемся, что fieldIdentifier есть (если нет, используем из defaults)
+                fieldIdentifier: existingField.fieldIdentifier || mergedFields[fieldKey].fieldIdentifier,
+              };
+            } else {
+              // Поле отсутствует в defaults, но есть в существующих - добавляем как есть
+              mergedFields[fieldKey] = existingField;
+            }
+          }
+          
+          // Если добавились новые поля, отмечаем необходимость миграции
+          if (Object.keys(mergedFields).length > Object.keys(existingFields).length) {
+            needsFieldsMigration = true;
+            input.fields = mergedFields;
+          }
+          
+          // Убеждаемся, что у инпута есть все необходимые свойства
+          if (input.enabled === undefined) {
+            needsFieldsMigration = true;
+            input.enabled = true;
+          }
+          if (!input.inputIdentifier) {
+            needsFieldsMigration = true;
+            input.inputIdentifier = defaultName;
+          }
+          if (input.overlay === undefined) {
+            needsFieldsMigration = true;
+            input.overlay = 1;
+          }
+        }
+      }
+
+      if (needsFieldsMigration) {
+        const migratedSettings = {
+          ...settings,
+          vmix: {
+            ...settings.vmix,
+            inputs,
+          },
+        };
+        await saveSettings(migratedSettings);
+        return migratedSettings;
+      }
     }
     
     return settings;

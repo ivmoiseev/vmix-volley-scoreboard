@@ -77,6 +77,12 @@ export function useVMix(match) {
       visibilityFields: {},
       imageFields: {},
     },
+    referee2: {
+      fields: {},
+      colorFields: {},
+      visibilityFields: {},
+      imageFields: {},
+    },
   });
 
   // ID текущего матча для отслеживания смены матча
@@ -268,6 +274,12 @@ export function useVMix(match) {
           imageFields: {},
         },
         startingLineupTeamB: {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+        },
+        referee2: {
           fields: {},
           colorFields: {},
           visibilityFields: {},
@@ -1380,7 +1392,7 @@ export function useVMix(match) {
    * @returns {Promise<Object>} результат обновления
    */
   const updateReferee2Data = useCallback(
-    async (match) => {
+    async (match, forceUpdate = false) => {
       if (!isVMixReady()) {
         return { success: false, error: "vMix не подключен" };
       }
@@ -1420,7 +1432,48 @@ export function useVMix(match) {
           return { success: false, error: "Поля для судей не настроены" };
         }
 
-        // Отправляем данные в vMix
+        // Проверяем кэш для оптимизации (если не forceUpdate)
+        if (!forceUpdate) {
+          const cachedValues = lastSentValuesRef.current[inputKey]?.fields || {};
+          const changedFields = filterChangedFields(fields, cachedValues);
+
+          if (Object.keys(changedFields).length === 0) {
+            // Нет изменений, не отправляем
+            return { success: true, skipped: true };
+          }
+
+          // Отправляем только измененные поля
+          const result = await window.electronAPI.updateVMixInputFields(
+            validation.inputIdentifier,
+            changedFields,
+            {}, // colorFields
+            {}, // visibilityFields
+            {} // imageFields
+          );
+
+          if (result.success) {
+            // Обновляем кэш только для отправленных полей
+            if (!lastSentValuesRef.current[inputKey]) {
+              lastSentValuesRef.current[inputKey] = {
+                fields: {},
+                colorFields: {},
+                visibilityFields: {},
+                imageFields: {},
+              };
+            }
+            Object.keys(changedFields).forEach((key) => {
+              lastSentValuesRef.current[inputKey].fields[key] = fields[key];
+            });
+            console.log(
+              `[updateReferee2Data] Данные судей обновлены (только измененные):`,
+              changedFields
+            );
+          }
+
+          return result;
+        }
+
+        // Отправляем все поля (forceUpdate)
         const result = await window.electronAPI.updateVMixInputFields(
           validation.inputIdentifier,
           fields,
@@ -1430,6 +1483,16 @@ export function useVMix(match) {
         );
 
         if (result.success) {
+          // Обновляем кэш
+          if (!lastSentValuesRef.current[inputKey]) {
+            lastSentValuesRef.current[inputKey] = {
+              fields: {},
+              colorFields: {},
+              visibilityFields: {},
+              imageFields: {},
+            };
+          }
+          lastSentValuesRef.current[inputKey].fields = { ...fields };
           console.log(`[updateReferee2Data] Данные судей обновлены:`, fields);
         }
 
@@ -1439,7 +1502,7 @@ export function useVMix(match) {
         return { success: false, error: error.message };
       }
     },
-    [isVMixReady, validateInputConfig]
+    [isVMixReady, validateInputConfig, filterChangedFields]
   );
 
   /**
@@ -1613,12 +1676,17 @@ export function useVMix(match) {
           : "";
       }
 
-      // Поля игроков (player1Number, player1Name, ... player8Number, player8Name)
-      // Берем из стартового состава
-      const playerMatch = fieldKey.match(/^player(\d+)(Number|Name)$/);
+      // Поля игроков (player1Number, player1Name, player1NumberOnCard, ... player6Number, player6Name, player6NumberOnCard)
+      // Берем из стартового состава (индексы 0-5 - это первые 6 игроков)
+      const playerMatch = fieldKey.match(/^player(\d+)(Number|Name|NumberOnCard)$/);
       if (playerMatch) {
-        const playerIndex = parseInt(playerMatch[1]) - 1; // Индекс в массиве (0-based)
-        const fieldType = playerMatch[2]; // "Number" или "Name"
+        const playerIndex = parseInt(playerMatch[1]) - 1; // Индекс в массиве (0-based: 1 -> 0, 2 -> 1, ..., 6 -> 5)
+        const fieldType = playerMatch[2]; // "Number", "Name" или "NumberOnCard"
+
+        // Проверяем, что номер игрока не больше 6 (т.к. 7 и 8 теперь либеро)
+        if (playerIndex >= 6) {
+          return "";
+        }
 
         if (
           !startingLineup ||
@@ -1640,27 +1708,32 @@ export function useVMix(match) {
         if (fieldType === "Name") {
           return player.name || "";
         }
+        if (fieldType === "NumberOnCard") {
+          // Поле "Номер на карте" берем из player.numberOnCard, если оно есть, иначе используем обычный номер
+          return player.numberOnCard ? String(player.numberOnCard) : (player.number ? String(player.number) : "");
+        }
       }
 
-      // Поля либеро (libero1Number, libero1Name, libero2Number, libero2Name)
-      // Берем из всего состава команды, фильтруя по позиции "Либеро"
-      const liberoMatch = fieldKey.match(/^libero(\d+)(Number|Name)$/);
+      // Поля либеро (libero1Number, libero1Name, libero1NumberOnCard, libero2Number, libero2Name, libero2NumberOnCard)
+      // Берем из стартового состава (индексы 6 и 7 - это либеро 1 и либеро 2)
+      const liberoMatch = fieldKey.match(/^libero(\d+)(Number|Name|NumberOnCard)$/);
       if (liberoMatch) {
-        const liberoIndex = parseInt(liberoMatch[1]) - 1; // Индекс либеро (0-based)
-        const fieldType = liberoMatch[2]; // "Number" или "Name"
+        const liberoIndex = parseInt(liberoMatch[1]) - 1; // Индекс либеро (0-based: 0 = libero1, 1 = libero2)
+        const fieldType = liberoMatch[2]; // "Number", "Name" или "NumberOnCard"
 
-        // Находим всех либеро из состава команды
-        const teamRoster = team?.roster || [];
-        const liberos = teamRoster.filter(
-          (player) => player.position === "Либеро"
-        );
+        // Либеро 1 находится на индексе 6, либеро 2 на индексе 7 в стартовом составе
+        const startingLineupIndex = liberoIndex + 6; // 0 -> 6, 1 -> 7
 
-        if (!liberos || liberos.length === 0 || liberoIndex >= liberos.length) {
-          // Если либеро нет, возвращаем пустую строку
+        if (
+          !startingLineup ||
+          !Array.isArray(startingLineup) ||
+          startingLineupIndex >= startingLineup.length
+        ) {
+          // Если либеро нет в стартовом составе, возвращаем пустую строку
           return "";
         }
 
-        const libero = liberos[liberoIndex];
+        const libero = startingLineup[startingLineupIndex];
         if (!libero) {
           return "";
         }
@@ -1670,6 +1743,10 @@ export function useVMix(match) {
         }
         if (fieldType === "Name") {
           return libero.name || "";
+        }
+        if (fieldType === "NumberOnCard") {
+          // Поле "Номер на карте" берем из libero.numberOnCard, если оно есть, иначе используем обычный номер
+          return libero.numberOnCard ? String(libero.numberOnCard) : (libero.number ? String(libero.number) : "");
         }
       }
 
@@ -2134,6 +2211,9 @@ export function useVMix(match) {
           await updateStartingLineupTeamAInput(matchData, forceUpdate);
           await updateStartingLineupTeamBInput(matchData, forceUpdate);
 
+          // Обновляем данные судей в "Плашка 2 судьи"
+          await updateReferee2Data(matchData, forceUpdate);
+
           // Обновляем счет по партиям
           matchData.sets?.forEach((set) => {
             if (set.completed) {
@@ -2158,6 +2238,7 @@ export function useVMix(match) {
     updateRosterTeamBInput,
     updateStartingLineupTeamAInput,
     updateStartingLineupTeamBInput,
+    updateReferee2Data,
   ]);
 
   /**

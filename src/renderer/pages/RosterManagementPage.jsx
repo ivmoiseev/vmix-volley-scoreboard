@@ -898,7 +898,8 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
             {Array.from({ length: 8 }).map((_, cellIndex) => {
               const player = starters[cellIndex] || null;
               const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI'];
-              const isReserve = cellIndex >= 6;
+              const isLibero = cellIndex >= 6;
+              const liberoLabels = ['Либеро 1', 'Либеро 2'];
 
               return (
                 <div
@@ -913,7 +914,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                   }}
                   style={{
                     minHeight: '80px',
-                    border: `2px ${isReserve ? 'solid' : 'dashed'} ${draggedIndex === cellIndex ? '#229954' : '#bdc3c7'}`,
+                    border: `2px ${isLibero ? 'solid' : 'dashed'} ${draggedIndex === cellIndex ? '#229954' : '#bdc3c7'}`,
                     borderRadius: '4px',
                     padding: '0.75rem',
                     backgroundColor: player ? (draggedIndex === cellIndex ? '#229954' : '#27ae60') : 'white',
@@ -938,7 +939,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                     if (!player) {
                       e.currentTarget.style.backgroundColor = 'white';
                       e.currentTarget.style.borderColor = '#bdc3c7';
-                      e.currentTarget.style.borderStyle = isReserve ? 'solid' : 'dashed';
+                      e.currentTarget.style.borderStyle = isLibero ? 'solid' : 'dashed';
                     }
                   }}
                 >
@@ -951,7 +952,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                     fontWeight: 'bold',
                     opacity: 0.7,
                   }}>
-                    {!isReserve ? romanNumerals[cellIndex] : ''}
+                    {isLibero ? liberoLabels[cellIndex - 6] : romanNumerals[cellIndex]}
                   </div>
                   
                   {/* Игрок в ячейке */}
@@ -976,7 +977,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                       textAlign: 'center',
                       opacity: 0.5,
                     }}>
-                      {isReserve ? 'Запасной' : 'Пусто'}
+                      {isLibero ? liberoLabels[cellIndex - 6] : 'Пусто'}
                     </div>
                   )}
                 </div>
