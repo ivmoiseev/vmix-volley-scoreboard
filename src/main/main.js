@@ -201,6 +201,14 @@ app.whenReady().then(async () => {
   createWindow();
   await createMenu();
 
+  // Очищаем папку logos от устаревших файлов при старте приложения
+  try {
+    await logoManager.cleanupLogosDirectory();
+    console.log('[App] Папка logos очищена от устаревших файлов');
+  } catch (error) {
+    console.warn('[App] Не удалось очистить папку logos при старте:', error.message);
+  }
+
   // Восстанавливаем состояние мобильного сервера при запуске
   try {
     const mobileSettings = await settingsManager.getMobileSettings();
@@ -646,6 +654,9 @@ ipcMain.handle('match:swap-teams', async (event, match) => {
         swappedMatch.teamB.logoBase64 = processedTeamB.logoBase64;
         swappedMatch.teamB.logoPath = processedTeamB.logoPath;
       }
+      
+      // Очищаем папку logos от устаревших файлов после смены команд
+      await logoManager.cleanupLogosDirectory();
     } catch (error) {
       console.error('Ошибка при сохранении логотипов после смены команд:', error);
       // Не прерываем выполнение
@@ -882,6 +893,8 @@ ipcMain.handle('mobile:set-match', async (event, match) => {
     if (match && match.teamB) {
       await logoManager.processTeamLogoForSave(match.teamB, 'B');
     }
+    // Очищаем папку logos от устаревших файлов
+    await logoManager.cleanupLogosDirectory();
   } catch (error) {
     console.error('Ошибка при сохранении логотипов для мобильного сервера:', error);
     // Не прерываем выполнение, если ошибка сохранения логотипов

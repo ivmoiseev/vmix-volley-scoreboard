@@ -37,6 +37,18 @@ export function useVMix(match) {
   const vmixConfigRef = useRef(vmixConfig);
   const updateMatchDataDebouncedRef = useRef(null);
   const connectionStatusRef = useRef(connectionStatus);
+  
+  // Кэш последних отправленных значений для каждого инпута
+  // Структура: { inputKey: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} } }
+  const lastSentValuesRef = useRef({
+    currentScore: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
+    lineup: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
+    rosterTeamA: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
+    rosterTeamB: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
+  });
+  
+  // ID текущего матча для отслеживания смены матча
+  const currentMatchIdRef = useRef(null);
 
   // Обновляем refs при изменении состояния
   useEffect(() => {
@@ -87,6 +99,147 @@ export function useVMix(match) {
       : `#${normalizedColor}`;
   }, []);
 
+  /**
+   * Сравнивает два значения, нормализуя их для корректного сравнения
+   */
+  const compareValues = useCallback((value1, value2) => {
+    // Приводим к строкам для сравнения
+    const str1 = String(value1 || '').trim();
+    const str2 = String(value2 || '').trim();
+    return str1 === str2;
+  }, []);
+
+  /**
+   * Сравнивает объект visibilityFields
+   */
+  const compareVisibilityFields = useCallback((field1, field2) => {
+    if (!field1 && !field2) return true;
+    if (!field1 || !field2) return false;
+    return field1.visible === field2.visible;
+  }, []);
+
+  /**
+   * Фильтрует поля, оставляя только измененные
+   * @param {Object} newFields - новые поля
+   * @param {Object} lastSentFields - последние отправленные поля
+   * @returns {Object} - объект с только измененными полями
+   */
+  const filterChangedFields = useCallback((newFields, lastSentFields) => {
+    const changed = {};
+    for (const [key, value] of Object.entries(newFields)) {
+      if (!compareValues(value, lastSentFields[key])) {
+        changed[key] = value;
+      }
+    }
+    return changed;
+  }, [compareValues]);
+
+  /**
+   * Фильтрует colorFields, оставляя только измененные
+   */
+  const filterChangedColorFields = useCallback((newFields, lastSentFields) => {
+    const changed = {};
+    for (const [key, value] of Object.entries(newFields)) {
+      const normalizedNew = normalizeColor(value);
+      const normalizedLast = normalizeColor(lastSentFields[key]);
+      if (normalizedNew !== normalizedLast) {
+        changed[key] = normalizedNew;
+      }
+    }
+    return changed;
+  }, [normalizeColor]);
+
+  /**
+   * Фильтрует visibilityFields, оставляя только измененные
+   */
+  const filterChangedVisibilityFields = useCallback((newFields, lastSentFields) => {
+    const changed = {};
+    for (const [key, value] of Object.entries(newFields)) {
+      if (!compareVisibilityFields(value, lastSentFields[key])) {
+        changed[key] = value;
+      }
+    }
+    return changed;
+  }, [compareVisibilityFields]);
+
+  /**
+   * Фильтрует imageFields, оставляя только измененные
+   */
+  const filterChangedImageFields = useCallback((newFields, lastSentFields) => {
+    const changed = {};
+    for (const [key, value] of Object.entries(newFields)) {
+      if (!compareValues(value, lastSentFields[key])) {
+        changed[key] = value;
+      }
+    }
+    return changed;
+  }, [compareValues]);
+
+  /**
+   * Сбрасывает кэш для указанного инпута или всех инпутов
+   */
+  const resetLastSentValues = useCallback((inputKey = null) => {
+    if (inputKey) {
+      lastSentValuesRef.current[inputKey] = {
+        fields: {},
+        colorFields: {},
+        visibilityFields: {},
+        imageFields: {},
+      };
+    } else {
+      lastSentValuesRef.current = {
+        currentScore: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
+        lineup: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
+        rosterTeamA: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
+        rosterTeamB: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
+      };
+    }
+  }, []);
+
+  /**
+   * Сбрасывает кэш только для imageFields (используется при смене команд для принудительного обновления логотипов)
+   */
+  const resetImageFieldsCache = useCallback(() => {
+    // Сбрасываем imageFields для всех инпутов, которые могут содержать логотипы
+    if (lastSentValuesRef.current.lineup) {
+      lastSentValuesRef.current.lineup.imageFields = {};
+    }
+    if (lastSentValuesRef.current.rosterTeamA) {
+      lastSentValuesRef.current.rosterTeamA.imageFields = {};
+    }
+    if (lastSentValuesRef.current.rosterTeamB) {
+      lastSentValuesRef.current.rosterTeamB.imageFields = {};
+    }
+  }, []);
+
+  /**
+   * Обновляет кэш для указанного инпута
+   */
+  const updateLastSentValues = useCallback((inputKey, fields, colorFields, visibilityFields, imageFields) => {
+    if (!lastSentValuesRef.current[inputKey]) {
+      lastSentValuesRef.current[inputKey] = {
+        fields: {},
+        colorFields: {},
+        visibilityFields: {},
+        imageFields: {},
+      };
+    }
+    
+    // Обновляем только те поля, которые были отправлены
+    if (fields) {
+      lastSentValuesRef.current[inputKey].fields = { ...lastSentValuesRef.current[inputKey].fields, ...fields };
+    }
+    if (colorFields) {
+      lastSentValuesRef.current[inputKey].colorFields = { ...lastSentValuesRef.current[inputKey].colorFields, ...colorFields };
+    }
+    if (visibilityFields) {
+      lastSentValuesRef.current[inputKey].visibilityFields = { ...lastSentValuesRef.current[inputKey].visibilityFields, ...visibilityFields };
+    }
+    if (imageFields) {
+      lastSentValuesRef.current[inputKey].imageFields = { ...lastSentValuesRef.current[inputKey].imageFields, ...imageFields };
+    }
+  }, []);
+
   const updateOverlayStates = useCallback(async () => {
     try {
       if (!isVMixReady()) {
@@ -133,7 +286,21 @@ export function useVMix(match) {
       }
       const config = await window.electronAPI.getVMixConfig();
       if (config) {
+        // Сохраняем старую конфигурацию перед обновлением для сравнения
+        const oldConfig = vmixConfigRef.current;
+        
+        // Проверяем, изменилась ли конфигурация (особенно структура инпутов)
+        const configChanged = oldConfig && 
+          JSON.stringify(oldConfig.inputs) !== JSON.stringify(config.inputs);
+        
         setVMixConfig(config);
+        
+        // Если конфигурация изменилась (особенно структура инпутов), сбрасываем кэш
+        // Это важно, так как структура полей может измениться
+        if (configChanged) {
+          resetLastSentValues();
+        }
+        
         checkConnection(config.host, config.port);
       }
     } catch (error) {
@@ -156,6 +323,8 @@ export function useVMix(match) {
 
       if (result.success) {
         updateOverlayStates();
+        // При переподключении сбрасываем кэш, чтобы синхронизировать данные
+        resetLastSentValues();
       }
     } catch (error) {
       setConnectionStatus({
@@ -250,12 +419,24 @@ export function useVMix(match) {
 
   /**
    * Автоматическое обновление данных матча в vMix
+   * @param {Object} matchData - данные матча
+   * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
    */
-  const updateMatchData = useCallback((matchData) => {
-    if (updateMatchDataDebouncedRef.current) {
-      updateMatchDataDebouncedRef.current(matchData);
+  const updateMatchData = useCallback((matchData, forceUpdate = false) => {
+    // Проверяем, сменился ли матч (по matchId)
+    if (matchData && matchData.matchId && currentMatchIdRef.current !== matchData.matchId) {
+      // Матч сменился - сбрасываем кэш
+      resetLastSentValues();
+      currentMatchIdRef.current = matchData.matchId;
+    } else if (!matchData) {
+      // Матч был сброшен
+      currentMatchIdRef.current = null;
     }
-  }, []);
+
+    if (updateMatchDataDebouncedRef.current) {
+      updateMatchDataDebouncedRef.current(matchData, forceUpdate);
+    }
+  }, [resetLastSentValues]);
 
   /**
    * Рассчитывает счет по сетам для команды
@@ -369,9 +550,11 @@ export function useVMix(match) {
 
   /**
    * Обновляет инпут текущего счета в vMix
+   * @param {Object} match - данные матча
+   * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
    */
   const updateCurrentScoreInput = useCallback(
-    async (match) => {
+    async (match, forceUpdate = false) => {
       if (!isVMixReady()) {
         return { success: false, error: "vMix не подключен" };
       }
@@ -386,28 +569,46 @@ export function useVMix(match) {
         const { fields, colorFields, visibilityFields } =
           formatCurrentScoreData(match);
 
+        // Фильтруем только измененные поля, если не forceUpdate
+        let fieldsToSend = fields;
+        let colorFieldsToSend = colorFields;
+        let visibilityFieldsToSend = visibilityFields;
+
+        if (!forceUpdate) {
+          const lastSent = lastSentValuesRef.current.currentScore;
+          fieldsToSend = filterChangedFields(fields, lastSent.fields);
+          colorFieldsToSend = filterChangedColorFields(colorFields, lastSent.colorFields);
+          visibilityFieldsToSend = filterChangedVisibilityFields(visibilityFields, lastSent.visibilityFields);
+        }
+
         const hasFields =
-          Object.keys(fields).length > 0 ||
-          Object.keys(colorFields).length > 0 ||
-          Object.keys(visibilityFields).length > 0;
+          Object.keys(fieldsToSend).length > 0 ||
+          Object.keys(colorFieldsToSend).length > 0 ||
+          Object.keys(visibilityFieldsToSend).length > 0;
 
         if (!hasFields) {
-          return { success: false, error: "Нет полей для обновления" };
+          return { success: true, skipped: true, message: "Нет измененных полей для обновления" };
         }
 
         const result = await window.electronAPI.updateVMixInputFields(
           validation.inputIdentifier,
-          fields,
-          colorFields,
-          visibilityFields
+          fieldsToSend,
+          colorFieldsToSend,
+          visibilityFieldsToSend
         );
+
+        // Обновляем кэш только при успешной отправке
+        if (result.success) {
+          updateLastSentValues('currentScore', fieldsToSend, colorFieldsToSend, visibilityFieldsToSend, {});
+        }
+
         return result;
       } catch (error) {
         console.error("Ошибка при обновлении текущего счета:", error);
         return { success: false, error: error.message };
       }
     },
-    [isVMixReady, validateInputConfig, formatCurrentScoreData]
+    [isVMixReady, validateInputConfig, formatCurrentScoreData, filterChangedFields, filterChangedColorFields, filterChangedVisibilityFields, updateLastSentValues]
   );
 
   // Форматирует дату и время в формат ДД.ММ.ГГГГ ЧЧ:ММ
@@ -533,9 +734,11 @@ export function useVMix(match) {
   /**
    * Форматирует данные заявки для vMix в виде объекта полей
    * Возвращает объект с полями для текстовых значений и отдельный объект для полей изображений
+   * @param {Object} match - данные матча
+   * @param {boolean} forceUpdate - принудительное обновление (добавляет timestamp к URL логотипов)
    */
   const formatLineupData = useCallback(
-    async (match) => {
+    async (match, forceUpdate = false) => {
       if (!match) return { fields: {}, imageFields: {} };
 
       const inputConfig = vmixConfigRef.current?.inputs?.lineup;
@@ -569,10 +772,17 @@ export function useVMix(match) {
         }
 
         const fieldIdentifier = fieldConfig.fieldIdentifier;
-        const value = getLineupFieldValue(fieldKey, match, logoBaseUrl);
+        let value = getLineupFieldValue(fieldKey, match, logoBaseUrl);
         const isLogoField =
           fieldKey === FIELD_KEYS.TEAM_A_LOGO ||
           fieldKey === FIELD_KEYS.TEAM_B_LOGO;
+
+        // Если это поле логотипа и forceUpdate=true, добавляем timestamp к URL
+        // чтобы заставить vMix перезагрузить изображение
+        if (isLogoField && fieldConfig.type === FIELD_TYPES.IMAGE && value && forceUpdate) {
+          const separator = value.includes('?') ? '&' : '?';
+          value = `${value}${separator}t=${Date.now()}`;
+        }
 
         // Разделяем поля по типам
         if (fieldConfig.type === FIELD_TYPES.IMAGE) {
@@ -600,9 +810,11 @@ export function useVMix(match) {
 
   /**
    * Обновляет инпут заявки в vMix
+   * @param {Object} match - данные матча
+   * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
    */
   const updateLineupInput = useCallback(
-    async (match) => {
+    async (match, forceUpdate = false) => {
       if (!isVMixReady()) {
         return { success: false, error: "vMix не подключен" };
       }
@@ -614,22 +826,37 @@ export function useVMix(match) {
           return { success: false, error: validation.error };
         }
 
-        const { fields, imageFields } = await formatLineupData(match);
+        const { fields, imageFields } = await formatLineupData(match, forceUpdate);
+
+        // Фильтруем только измененные поля, если не forceUpdate
+        let fieldsToSend = fields;
+        let imageFieldsToSend = imageFields;
+
+        if (!forceUpdate) {
+          const lastSent = lastSentValuesRef.current.lineup;
+          fieldsToSend = filterChangedFields(fields, lastSent.fields);
+          imageFieldsToSend = filterChangedImageFields(imageFields, lastSent.imageFields);
+        }
 
         const hasFields =
-          Object.keys(fields).length > 0 || Object.keys(imageFields).length > 0;
+          Object.keys(fieldsToSend).length > 0 || Object.keys(imageFieldsToSend).length > 0;
 
         if (!hasFields) {
-          return { success: false, error: "Нет полей для обновления" };
+          return { success: true, skipped: true, message: "Нет измененных полей для обновления" };
         }
 
         const result = await window.electronAPI.updateVMixInputFields(
           validation.inputIdentifier,
-          fields,
+          fieldsToSend,
           {},
           {},
-          imageFields
+          imageFieldsToSend
         );
+
+        // Обновляем кэш только при успешной отправке
+        if (result.success) {
+          updateLastSentValues('lineup', fieldsToSend, {}, {}, imageFieldsToSend);
+        }
 
         return result;
       } catch (error) {
@@ -637,17 +864,18 @@ export function useVMix(match) {
         return { success: false, error: error.message };
       }
     },
-    [isVMixReady, validateInputConfig, formatLineupData]
+    [isVMixReady, validateInputConfig, formatLineupData, filterChangedFields, filterChangedImageFields, updateLastSentValues]
   );
 
   /**
    * Форматирует данные состава команды для vMix в виде объекта полей
    * @param {Object} match - данные матча
    * @param {string} teamKey - 'A' или 'B'
+   * @param {boolean} forceUpdate - принудительное обновление (добавляет timestamp к URL логотипов)
    * @returns {Promise<Object>} объект с полями { fields, imageFields }
    */
   const formatRosterData = useCallback(
-    async (match, teamKey) => {
+    async (match, teamKey, forceUpdate = false) => {
       if (!match) return { fields: {}, imageFields: {} };
 
       const inputKey = teamKey === "A" ? "rosterTeamA" : "rosterTeamB";
@@ -685,8 +913,15 @@ export function useVMix(match) {
         }
 
         const fieldIdentifier = fieldConfig.fieldIdentifier;
-        const value = getRosterFieldValue(fieldKey, match, teamKey, roster, logoBaseUrl);
+        let value = getRosterFieldValue(fieldKey, match, teamKey, roster, logoBaseUrl);
         const isLogoField = fieldKey === "teamLogo";
+
+        // Если это поле логотипа и forceUpdate=true, добавляем timestamp к URL
+        // чтобы заставить vMix перезагрузить изображение
+        if (isLogoField && fieldConfig.type === FIELD_TYPES.IMAGE && value && forceUpdate) {
+          const separator = value.includes('?') ? '&' : '?';
+          value = `${value}${separator}t=${Date.now()}`;
+        }
 
         // Разделяем поля по типам
         if (fieldConfig.type === FIELD_TYPES.IMAGE) {
@@ -714,9 +949,11 @@ export function useVMix(match) {
 
   /**
    * Обновляет инпут состава команды А в vMix
+   * @param {Object} match - данные матча
+   * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
    */
   const updateRosterTeamAInput = useCallback(
-    async (match) => {
+    async (match, forceUpdate = false) => {
       if (!isVMixReady()) {
         return { success: false, error: "vMix не подключен" };
       }
@@ -728,22 +965,37 @@ export function useVMix(match) {
           return { success: false, error: validation.error };
         }
 
-        const { fields, imageFields } = await formatRosterData(match, "A");
+        const { fields, imageFields } = await formatRosterData(match, "A", forceUpdate);
+
+        // Фильтруем только измененные поля, если не forceUpdate
+        let fieldsToSend = fields;
+        let imageFieldsToSend = imageFields;
+
+        if (!forceUpdate) {
+          const lastSent = lastSentValuesRef.current.rosterTeamA;
+          fieldsToSend = filterChangedFields(fields, lastSent.fields);
+          imageFieldsToSend = filterChangedImageFields(imageFields, lastSent.imageFields);
+        }
 
         const hasFields =
-          Object.keys(fields).length > 0 || Object.keys(imageFields).length > 0;
+          Object.keys(fieldsToSend).length > 0 || Object.keys(imageFieldsToSend).length > 0;
 
         if (!hasFields) {
-          return { success: false, error: "Нет полей для обновления" };
+          return { success: true, skipped: true, message: "Нет измененных полей для обновления" };
         }
 
         const result = await window.electronAPI.updateVMixInputFields(
           validation.inputIdentifier,
-          fields,
+          fieldsToSend,
           {},
           {},
-          imageFields
+          imageFieldsToSend
         );
+
+        // Обновляем кэш только при успешной отправке
+        if (result.success) {
+          updateLastSentValues('rosterTeamA', fieldsToSend, {}, {}, imageFieldsToSend);
+        }
 
         return result;
       } catch (error) {
@@ -751,14 +1003,16 @@ export function useVMix(match) {
         return { success: false, error: error.message };
       }
     },
-    [isVMixReady, validateInputConfig, formatRosterData]
+    [isVMixReady, validateInputConfig, formatRosterData, filterChangedFields, filterChangedImageFields, updateLastSentValues]
   );
 
   /**
    * Обновляет инпут состава команды Б в vMix
+   * @param {Object} match - данные матча
+   * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
    */
   const updateRosterTeamBInput = useCallback(
-    async (match) => {
+    async (match, forceUpdate = false) => {
       if (!isVMixReady()) {
         return { success: false, error: "vMix не подключен" };
       }
@@ -770,22 +1024,37 @@ export function useVMix(match) {
           return { success: false, error: validation.error };
         }
 
-        const { fields, imageFields } = await formatRosterData(match, "B");
+        const { fields, imageFields } = await formatRosterData(match, "B", forceUpdate);
+
+        // Фильтруем только измененные поля, если не forceUpdate
+        let fieldsToSend = fields;
+        let imageFieldsToSend = imageFields;
+
+        if (!forceUpdate) {
+          const lastSent = lastSentValuesRef.current.rosterTeamB;
+          fieldsToSend = filterChangedFields(fields, lastSent.fields);
+          imageFieldsToSend = filterChangedImageFields(imageFields, lastSent.imageFields);
+        }
 
         const hasFields =
-          Object.keys(fields).length > 0 || Object.keys(imageFields).length > 0;
+          Object.keys(fieldsToSend).length > 0 || Object.keys(imageFieldsToSend).length > 0;
 
         if (!hasFields) {
-          return { success: false, error: "Нет полей для обновления" };
+          return { success: true, skipped: true, message: "Нет измененных полей для обновления" };
         }
 
         const result = await window.electronAPI.updateVMixInputFields(
           validation.inputIdentifier,
-          fields,
+          fieldsToSend,
           {},
           {},
-          imageFields
+          imageFieldsToSend
         );
+
+        // Обновляем кэш только при успешной отправке
+        if (result.success) {
+          updateLastSentValues('rosterTeamB', fieldsToSend, {}, {}, imageFieldsToSend);
+        }
 
         return result;
       } catch (error) {
@@ -793,12 +1062,12 @@ export function useVMix(match) {
         return { success: false, error: error.message };
       }
     },
-    [isVMixReady, validateInputConfig, formatRosterData]
+    [isVMixReady, validateInputConfig, formatRosterData, filterChangedFields, filterChangedImageFields, updateLastSentValues]
   );
 
   // Инициализируем debounced функцию для обновления данных
   useEffect(() => {
-    updateMatchDataDebouncedRef.current = debounce(async (matchData) => {
+    updateMatchDataDebouncedRef.current = debounce(async (matchData, forceUpdate = false) => {
       const currentConfig = vmixConfigRef.current;
       const currentStatus = connectionStatusRef.current;
 
@@ -807,12 +1076,12 @@ export function useVMix(match) {
       }
 
       try {
-        await updateCurrentScoreInput(matchData);
-        await updateLineupInput(matchData);
+        await updateCurrentScoreInput(matchData, forceUpdate);
+        await updateLineupInput(matchData, forceUpdate);
         
         // Обновляем составы команд
-        await updateRosterTeamAInput(matchData);
-        await updateRosterTeamBInput(matchData);
+        await updateRosterTeamAInput(matchData, forceUpdate);
+        await updateRosterTeamBInput(matchData, forceUpdate);
 
         // Обновляем счет по партиям
         matchData.sets?.forEach((set) => {
@@ -1063,5 +1332,6 @@ export function useVMix(match) {
     updateMatchData,
     isOverlayActive,
     checkConnection,
+    resetImageFieldsCache,
   };
 }

@@ -44,6 +44,9 @@ async function saveMatch(match, filePath = null) {
   matchToSave.teamA = await logoManager.processTeamLogoForSave(match.teamA, 'A');
   matchToSave.teamB = await logoManager.processTeamLogoForSave(match.teamB, 'B');
 
+  // Очищаем папку logos от устаревших файлов после сохранения логотипов
+  await logoManager.cleanupLogosDirectory();
+
   // Если путь не указан, используем стандартный путь
   if (!filePath) {
     const fileName = `match_${match.matchId}.json`;

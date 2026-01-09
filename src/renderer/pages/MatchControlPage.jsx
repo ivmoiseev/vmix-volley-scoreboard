@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMatch } from '../hooks/useMatch';
 import { useVMix } from '../hooks/useVMix';
@@ -19,6 +19,13 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
   
   // Состояние для автосохранения
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  
+  // Отслеживание предыдущего matchId для определения первой загрузки
+  const previousMatchIdRef = useRef(null);
+  const isFirstLoadRef = useRef(true);
+  
+  // Флаг принудительного обновления из location.state (например, при F5)
+  const forceUpdateFromState = location.state?.forceUpdateVMix || false;
   
   // ВСЕ хуки должны вызываться ДО любых условных возвратов
   const {
@@ -78,21 +85,44 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
   // Автоматическое обновление vMix при изменении матча
   useEffect(() => {
     if (match && connectionStatus.connected) {
+      // Определяем, является ли это первой загрузкой матча или сменой матча
+      const currentMatchId = match.matchId;
+      const isNewMatch = previousMatchIdRef.current !== currentMatchId;
+      // forceUpdate используется при первой загрузке, смене матча или явном запросе (например, F5)
+      const forceUpdate = isFirstLoadRef.current || isNewMatch || forceUpdateFromState;
+      
+      if (isNewMatch) {
+        previousMatchIdRef.current = currentMatchId;
+        isFirstLoadRef.current = false;
+      }
+      
       console.log('[MatchControlPage] Вызов updateMatchData для обновления vMix:', {
         matchId: match.matchId,
         teamA: match.teamA?.name,
         teamB: match.teamB?.name,
         hasLogoA: !!match.teamA?.logo,
         hasLogoB: !!match.teamB?.logo,
+        forceUpdate,
+        isNewMatch,
       });
-      updateMatchData(match);
+      updateMatchData(match, forceUpdate);
+      
+      // Очищаем флаг forceUpdateFromState после использования
+      if (forceUpdateFromState) {
+        window.history.replaceState({}, document.title);
+      }
     } else {
       console.log('[MatchControlPage] updateMatchData не вызван:', {
         hasMatch: !!match,
         connected: connectionStatus.connected,
       });
+      // Сбрасываем флаг первой загрузки, если нет матча
+      if (!match) {
+        previousMatchIdRef.current = null;
+        isFirstLoadRef.current = true;
+      }
     }
-  }, [match, connectionStatus.connected, updateMatchData]);
+  }, [match, connectionStatus.connected, updateMatchData, forceUpdateFromState]);
 
   // Синхронизируем изменения матча с родительским компонентом
   useEffect(() => {

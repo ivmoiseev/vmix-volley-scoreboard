@@ -59,8 +59,13 @@ function App() {
     const handleRefreshVMix = () => {
       // Обновление vMix будет обработано в MatchControlPage
       if (currentMatch) {
-        // Триггерим обновление через изменение состояния
-        setCurrentMatch({ ...currentMatch });
+        // Переходим на страницу матча с флагом для принудительного обновления всех данных
+        navigate('/match', { 
+          state: { 
+            match: currentMatch,
+            forceUpdateVMix: true // Флаг для принудительного обновления всех данных в vMix
+          } 
+        });
       }
     };
 

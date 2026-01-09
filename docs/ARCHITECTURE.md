@@ -117,11 +117,15 @@ vmix-volley-scoreboard/
 - **Технологии:** axios, xml2js
 - **Основные методы:**
   - `testConnection()` - проверка подключения
+  - `sendCommand(functionName, params)` - отправка произвольной команды в vMix
   - `updateInputField()` - обновление текстового поля через `SetText`
   - `setColor()` - изменение цвета через `SetColor`
   - `setTextVisibility()` - управление видимостью через `SetTextVisibleOn`/`Off`
   - `setImage()` - установка изображения через `SetImage`
-  - `updateInputFields()` - массовое обновление полей разных типов
+  - `updateInputFields(inputName, fields, colorFields, visibilityFields, imageFields)` - массовое обновление полей разных типов
+    - Отправляет отдельные HTTP запросы для каждого поля
+    - Возвращает массив результатов для каждого поля
+    - Используется для оптимизированной отправки только измененных полей
   - `showOverlay()` / `hideOverlay()` - управление оверлеями
   - `getOverlayState()` - получение состояния оверлеев из XML
   - `getInputs()` - получение списка инпутов
@@ -175,10 +179,25 @@ vmix-volley-scoreboard/
 #### `logoManager.js`
 - **Назначение:** Управление логотипами команд
 - **Основные функции:**
-  - `processTeamLogoForSave()` - сохранение логотипа в файл PNG
-  - Конвертация base64 в PNG файлы
-  - Сохранение в `logos/logo_a.png` и `logos/logo_b.png`
+  - `processTeamLogoForSave(team, teamLetter)` - сохранение логотипа в файл PNG
+    - Конвертация base64 в PNG файлы
+    - Сохранение в фиксированные файлы `logos/logo_a.png` и `logos/logo_b.png` (перезапись)
+    - Возвращает объект команды с `logoPath` и `logoBase64`
+  - `processTeamLogoForLoad(team, teamLetter)` - загрузка логотипа из файла или base64
+    - Приоритет 1: base64 из JSON (перезаписывает файл для синхронизации)
+    - Приоритет 2: старый формат `logo` (если это base64)
+    - Приоритет 3: загрузка из файла
+  - `cleanupLogosDirectory()` - очистка папки logos от устаревших файлов
+    - Удаляет все файлы, кроме `logo_a.png`, `logo_b.png` и `.gitkeep`
+    - Вызывается автоматически при старте приложения, сохранении матча, смене команд, установке матча для мобильного сервера
+    - Безопасная обработка ошибок (не прерывает выполнение)
+  - `saveLogoToFile(base64String, team)` - сохранение base64 в PNG файл
+  - `loadLogoFromFile(logoPath)` - загрузка файла и конвертация в base64
+  - `getLogoHttpUrl(logoPath, port)` - формирование HTTP URL для логотипа
+- **Особенности:**
+  - Фиксированные имена файлов для перезаписи (не создаются временные файлы)
   - Поддержка смены логотипов при смене команд местами
+  - Автоматическая очистка устаревших файлов для предотвращения накопления мусора
 
 #### `vmix-input-configs.js`
 - **Назначение:** Конфигурации полей по умолчанию для инпутов vMix
@@ -230,14 +249,20 @@ vmix-volley-scoreboard/
 ##### `useVMix.js`
 - **Назначение:** Интеграция с vMix
 - **Основные функции:**
-  - `updateMatchData()` - обновление данных матча в vMix (debounced)
+  - `updateMatchData(match, forceUpdate)` - обновление данных матча в vMix (debounced, с поддержкой принудительного обновления)
   - `showOverlay()` / `hideOverlay()` - управление оверлеями
   - `isOverlayActive()` - проверка активности оверлея
+  - `resetImageFieldsCache()` - сброс кэша логотипов для принудительного обновления
   - Автоматическое обновление инпутов при изменении матча
+  - **Оптимизация отправки команд:**
+    - Кэширование последних отправленных значений для каждого инпута
+    - Отправка только измененных полей (фильтрация по текстовым полям, цветам, видимости, изображениям)
+    - Автоматический сброс кэша при смене матча, переподключении к vMix, изменении конфигурации
+    - Параметр `forceUpdate` для исключительных случаев (создание/открытие матча, сохранение настроек)
   - Форматирование данных для vMix:
     - `formatCurrentScoreData()` - форматирование текущего счета
-    - `formatLineupData()` - форматирование заявки
-    - `formatRosterData()` - форматирование состава
+    - `formatLineupData(match, forceUpdate)` - форматирование заявки (с поддержкой timestamp для логотипов)
+    - `formatRosterData(match, teamKey, forceUpdate)` - форматирование состава (с поддержкой timestamp для логотипов)
   - Периодический опрос состояния оверлеев из vMix
 
 ### Компоненты
@@ -299,21 +324,48 @@ vmix-volley-scoreboard/
 
 ## Потоки данных
 
-### Обновление матча → vMix
+### Обновление матча → vMix (оптимизированное)
 
 ```
 MatchControlPage (useMatch)
   ↓ изменение матча
-useVMix (updateMatchData)
+useVMix (updateMatchData(match, forceUpdate))
+  ↓
+  ├─ Если forceUpdate = false (обычное изменение):
+  │  ├─ formatCurrentScoreData() → сравнивается с кэшем → фильтруются измененные поля
+  │  ├─ formatLineupData() → сравнивается с кэшем → фильтруются измененные поля
+  │  ├─ formatRosterData() → сравнивается с кэшем → фильтруются измененные поля
+  │  └─ Отправляются ТОЛЬКО измененные поля
+  │
+  └─ Если forceUpdate = true (принудительное обновление):
+     ├─ Отправляются ВСЕ поля независимо от кэша
+     ├─ Для логотипов добавляется timestamp к URL: logo_a.png?t=1234567890
+     └─ Кэш обновляется после успешной отправки
   ↓ debounce (300ms)
 window.electronAPI.updateInputFields
   ↓ IPC
 main.js (vmix:update-input-fields handler)
   ↓
 vmix-client.js (updateInputFields)
-  ↓ HTTP GET
+  ↓ HTTP GET (только для измененных полей или всех при forceUpdate)
 vMix API
 ```
+
+**Механизм оптимизации:**
+- **Кэширование**: Хранятся последние отправленные значения для каждого инпута (currentScore, lineup, rosterTeamA, rosterTeamB)
+- **Сравнение значений**: Новые значения сравниваются со старыми через функции `filterChangedFields()`, `filterChangedColorFields()`, `filterChangedVisibilityFields()`, `filterChangedImageFields()`
+- **Фильтрация**: Отправляются только поля, значения которых изменились
+- **Принудительное обновление**: При `forceUpdate=true` (создание/открытие матча, сохранение настроек/составов, смена команд, F5) отправляются все поля
+- **Сброс кэша**: Автоматически при смене матча (по `matchId`), переподключении к vMix, изменении конфигурации инпутов
+- **Логотипы**: При `forceUpdate=true` добавляется timestamp к URL для гарантированного обновления: `logo_a.png?t=1234567890`
+
+**Исключения (всегда используется forceUpdate=true):**
+- Создание нового матча
+- Открытие матча из файла
+- Сохранение настроек матча
+- Сохранение списков команд
+- Смена команд местами
+- Ручное обновление через F5 (меню "Вид" → "Обновить данные в vMix")
 
 ### Мобильный доступ → Main Process
 
@@ -343,9 +395,11 @@ main.js (match:save handler)
   ↓
 fileManager.js (saveMatch)
   ↓
-logoManager.js (processTeamLogoForSave)
+logoManager.js (processTeamLogoForSave) - сохранение логотипов в файлы
   ↓
-File System (matches/*.json, logos/*.png)
+logoManager.js (cleanupLogosDirectory) - очистка устаревших файлов
+  ↓
+File System (matches/*.json, logos/logo_a.png, logos/logo_b.png)
 ```
 
 ### Автосохранение матча
@@ -361,7 +415,11 @@ main.js (scheduleAutoSave)
   ↓
 fileManager.saveMatch(match, currentMatchFilePath)
   ↓
-File System (matches/*.json, logos/*.png)
+logoManager.js (processTeamLogoForSave) - сохранение логотипов
+  ↓
+logoManager.js (cleanupLogosDirectory) - очистка устаревших файлов
+  ↓
+File System (matches/*.json, logos/logo_a.png, logos/logo_b.png)
 ```
 
 ### Смена команд местами
@@ -379,11 +437,20 @@ main.js (match:swap-teams handler)
   ├─ Меняем счет в партиях
   ├─ Меняем статистику
   ├─ Сохраняем логотипы в правильные файлы (logo_a.png, logo_b.png)
+  ├─ cleanupLogosDirectory() - очистка устаревших файлов
   └─ Обновляем объекты команд
   ↓
 Возврат обновленного матча
   ↓
 MatchSettingsPage (обновление формы и UI)
+  ↓
+useVMix.resetImageFieldsCache() - сброс кэша логотипов
+  ↓
+useVMix.updateMatchData(swappedMatch, true) - принудительное обновление всех данных
+  ↓
+Форматирование данных с timestamp для логотипов: logo_a.png?t=1234567890
+  ↓
+Отправка всех полей в vMix (включая обновленные логотипы)
 ```
 
 ## Хранение данных

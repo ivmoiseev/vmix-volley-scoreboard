@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useVMix } from '../hooks/useVMix';
 
 const POSITIONS = [
   'Нападающий',
@@ -17,6 +18,10 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
 
   // Используем match из пропсов, затем из state
   const [match, setMatch] = useState(propMatch || matchFromState || null);
+  
+  // Получаем updateMatchData из useVMix для принудительного обновления при сохранении
+  const { updateMatchData, connectionStatus } = useVMix(match);
+  
   const [selectedTeam, setSelectedTeam] = useState('A');
   const [roster, setRoster] = useState([]);
 
@@ -159,6 +164,11 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
     // Обновляем матч в родительском компоненте
     if (onMatchChange) {
       onMatchChange(match);
+    }
+    
+    // Принудительно обновляем все данные в vMix при сохранении списков команд
+    if (connectionStatus.connected) {
+      updateMatchData(match, true);
     }
     
     navigate('/match', { state: { match } });

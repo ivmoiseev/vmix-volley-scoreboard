@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { resizeImage } from '../utils/imageResize';
+import { useVMix } from '../hooks/useVMix';
 
 function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   const navigate = useNavigate();
@@ -9,6 +10,10 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
 
   // Используем match из пропсов, затем из state, затем пытаемся загрузить из Electron API
   const [match, setMatch] = useState(propMatch || matchFromState || null);
+  
+  // Получаем updateMatchData и resetImageFieldsCache из useVMix для принудительного обновления при сохранении
+  const { updateMatchData, connectionStatus, resetImageFieldsCache } = useVMix(match);
+  
   const [formData, setFormData] = useState({
     tournament: '',
     tournamentSubtitle: '',
@@ -152,6 +157,12 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     }
 
     setMatch(updatedMatch);
+    
+    // Принудительно обновляем все данные в vMix при сохранении настроек
+    if (connectionStatus.connected) {
+      updateMatchData(updatedMatch, true);
+    }
+    
     navigate('/match', { state: { match: updatedMatch } });
   };
 
@@ -320,6 +331,14 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                     }
                     
                     setMatch(swappedMatch);
+                    
+                    // Принудительно обновляем все данные в vMix при смене команд местами
+                    // Это критически важно, так как меняются все данные команд
+                    // Сбрасываем кэш логотипов перед обновлением, чтобы гарантировать их обновление
+                    if (connectionStatus.connected) {
+                      resetImageFieldsCache();
+                      updateMatchData(swappedMatch, true);
+                    }
                     
                     // Обновляем форму
                     setFormData({
