@@ -11,8 +11,44 @@ const logoManager = require('./logoManager');
 
 let mainWindow;
 let currentMatch = null;
+let currentMatchFilePath = null; // Путь к файлу текущего матча
 let hasUnsavedChanges = false;
 let isLoadingVite = false; // Флаг для предотвращения одновременных попыток загрузки
+let autoSaveTimeout = null; // Таймер для отложенного автосохранения
+
+/**
+ * Планирует автосохранение матча с задержкой (debounce)
+ */
+async function scheduleAutoSave(match) {
+  // Очищаем предыдущий таймер
+  if (autoSaveTimeout) {
+    clearTimeout(autoSaveTimeout);
+  }
+  
+  // Проверяем, включено ли автосохранение
+  const autoSaveSettings = await settingsManager.getAutoSaveSettings();
+  if (!autoSaveSettings.enabled) {
+    return;
+  }
+  
+  // Если файл не был сохранен, не делаем автосохранение
+  if (!currentMatchFilePath) {
+    return;
+  }
+  
+  // Устанавливаем таймер на 2 секунды (debounce)
+  autoSaveTimeout = setTimeout(async () => {
+    try {
+      await fileManager.saveMatch(match, currentMatchFilePath);
+      hasUnsavedChanges = false;
+      console.log('[AutoSave] Матч автоматически сохранен в', currentMatchFilePath);
+    } catch (error) {
+      console.error('[AutoSave] Ошибка при автосохранении:', error);
+      // Не показываем ошибку пользователю, только логируем
+    }
+    autoSaveTimeout = null;
+  }, 2000);
+}
 
 function createWindow() {
   const iconPath = path.join(__dirname, '../assets/icon.png');
@@ -163,7 +199,7 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   createWindow();
-  createMenu();
+  await createMenu();
 
   // Восстанавливаем состояние мобильного сервера при запуске
   try {
@@ -236,7 +272,16 @@ app.on('before-quit', async (event) => {
 /**
  * Создает главное меню приложения
  */
-function createMenu() {
+async function createMenu() {
+  // Загружаем настройки автосохранения для меню
+  let autoSaveEnabled = true;
+  try {
+    const autoSaveSettings = await settingsManager.getAutoSaveSettings();
+    autoSaveEnabled = autoSaveSettings.enabled;
+  } catch (error) {
+    console.error('Ошибка при загрузке настроек автосохранения для меню:', error);
+  }
+  
   const template = [
     {
       label: 'Файл',
@@ -248,6 +293,7 @@ function createMenu() {
             if (mainWindow) {
               const match = await fileManager.createMatch();
               currentMatch = match;
+              currentMatchFilePath = null; // Сбрасываем путь при создании нового матча
               hasUnsavedChanges = true;
               mainWindow.webContents.send('load-match', match);
             }
@@ -263,6 +309,7 @@ function createMenu() {
                 if (filePath) {
                   const match = await fileManager.openMatch(filePath);
                   currentMatch = match;
+                  currentMatchFilePath = filePath; // Запоминаем путь к файлу
                   hasUnsavedChanges = false;
                   mainWindow.webContents.send('load-match', match);
                 }
@@ -274,14 +321,42 @@ function createMenu() {
         },
         { type: 'separator' },
         {
+          label: 'Автосохранение',
+          type: 'checkbox',
+          checked: autoSaveEnabled,
+          click: async (menuItem) => {
+            try {
+              await settingsManager.setAutoSaveSettings({ enabled: menuItem.checked });
+              // Отправляем событие в renderer для обновления UI
+              if (mainWindow) {
+                mainWindow.webContents.send('autosave-settings-changed', menuItem.checked);
+              }
+            } catch (error) {
+              console.error('Ошибка при изменении автосохранения:', error);
+            }
+          },
+        },
+        {
           label: 'Сохранить матч',
           accelerator: 'CmdOrCtrl+S',
           click: async () => {
             if (mainWindow && currentMatch) {
               try {
-                await fileManager.saveMatch(currentMatch);
-                hasUnsavedChanges = false;
-                mainWindow.webContents.send('match-saved');
+                let filePath;
+                // Если файл уже был сохранен, используем его путь
+                if (currentMatchFilePath) {
+                  filePath = await fileManager.saveMatch(currentMatch, currentMatchFilePath);
+                } else {
+                  // Первое сохранение - показываем диалог
+                  filePath = await fileManager.saveMatchDialog(currentMatch);
+                  if (filePath) {
+                    currentMatchFilePath = filePath;
+                  }
+                }
+                if (filePath) {
+                  hasUnsavedChanges = false;
+                  mainWindow.webContents.send('match-saved');
+                }
               } catch (error) {
                 dialog.showErrorBox('Ошибка', 'Не удалось сохранить матч: ' + error.message);
               }
@@ -294,9 +369,12 @@ function createMenu() {
           click: async () => {
             if (mainWindow && currentMatch) {
               try {
-                await fileManager.saveMatchDialog(currentMatch);
-                hasUnsavedChanges = false;
-                mainWindow.webContents.send('match-saved');
+                const filePath = await fileManager.saveMatchDialog(currentMatch);
+                if (filePath) {
+                  currentMatchFilePath = filePath; // Обновляем путь к файлу
+                  hasUnsavedChanges = false;
+                  mainWindow.webContents.send('match-saved');
+                }
               } catch (error) {
                 dialog.showErrorBox('Ошибка', 'Не удалось сохранить матч: ' + error.message);
               }
@@ -412,7 +490,11 @@ ipcMain.handle('match:open-dialog', async () => {
     if (!filePath) {
       return null;
     }
-    return await fileManager.openMatch(filePath);
+    const match = await fileManager.openMatch(filePath);
+    currentMatchFilePath = filePath; // Запоминаем путь к файлу
+    currentMatch = match;
+    hasUnsavedChanges = false;
+    return match;
   } catch (error) {
     console.error('Error opening match:', error);
     const friendlyError = errorHandler.handleError(error, 'match:open-dialog');
@@ -422,7 +504,19 @@ ipcMain.handle('match:open-dialog', async () => {
 
 ipcMain.handle('match:save', async (event, match) => {
   try {
-    const filePath = await fileManager.saveMatch(match);
+    let filePath;
+    // Если файл уже был сохранен, используем его путь
+    if (currentMatchFilePath) {
+      filePath = await fileManager.saveMatch(match, currentMatchFilePath);
+    } else {
+      // Первое сохранение - показываем диалог
+      filePath = await fileManager.saveMatchDialog(match);
+      if (filePath) {
+        currentMatchFilePath = filePath;
+      } else {
+        return { success: false, cancelled: true };
+      }
+    }
     currentMatch = match;
     hasUnsavedChanges = false;
     return { success: true, filePath };
@@ -439,6 +533,7 @@ ipcMain.handle('match:save-dialog', async (event, match) => {
     if (!filePath) {
       return { success: false, cancelled: true };
     }
+    currentMatchFilePath = filePath; // Обновляем путь к файлу
     currentMatch = match;
     hasUnsavedChanges = false;
     return { success: true, filePath };
@@ -467,12 +562,107 @@ ipcMain.handle('match:set-current', async (event, match) => {
   
   currentMatch = match;
   hasUnsavedChanges = true;
+  
+  // Автосохранение при изменениях матча
+  await scheduleAutoSave(match);
+  
   return { success: true };
 });
 
 ipcMain.handle('match:mark-saved', () => {
   hasUnsavedChanges = false;
   return { success: true };
+});
+
+/**
+ * Меняет команды местами в матче
+ * Меняет местами teamA и teamB, счет, статистику и файлы логотипов
+ */
+ipcMain.handle('match:swap-teams', async (event, match) => {
+  try {
+    if (!match) {
+      return { success: false, error: 'Матч не указан' };
+    }
+
+    // Создаем копию матча для изменения
+    const swappedMatch = JSON.parse(JSON.stringify(match));
+
+    // 1. Сохраняем оригинальные логотипы ДО смены команд
+    // Это критически важно - нужно сохранить логотипы до того, как команды поменяются местами
+    const originalTeamALogo = match.teamA.logo || match.teamA.logoBase64;
+    const originalTeamBLogo = match.teamB.logo || match.teamB.logoBase64;
+
+    // 2. Меняем местами команды
+    const tempTeam = swappedMatch.teamA;
+    swappedMatch.teamA = swappedMatch.teamB;
+    swappedMatch.teamB = tempTeam;
+
+    // 3. Меняем местами счет в текущей партии
+    const tempScore = swappedMatch.currentSet.scoreA;
+    swappedMatch.currentSet.scoreA = swappedMatch.currentSet.scoreB;
+    swappedMatch.currentSet.scoreB = tempScore;
+
+    // 4. Инвертируем подачу (A -> B, B -> A)
+    swappedMatch.currentSet.servingTeam = swappedMatch.currentSet.servingTeam === 'A' ? 'B' : 'A';
+
+    // 5. Меняем местами счет в завершенных партиях
+    if (swappedMatch.sets && Array.isArray(swappedMatch.sets)) {
+      swappedMatch.sets = swappedMatch.sets.map(set => {
+        const tempSetScore = set.scoreA;
+        set.scoreA = set.scoreB;
+        set.scoreB = tempSetScore;
+        return set;
+      });
+    }
+
+    // 6. Меняем местами статистику
+    if (swappedMatch.statistics) {
+      const tempStats = swappedMatch.statistics.teamA;
+      swappedMatch.statistics.teamA = swappedMatch.statistics.teamB;
+      swappedMatch.statistics.teamB = tempStats;
+    }
+
+    // 7. Сохраняем логотипы в правильные файлы
+    // После смены команд местами:
+    // - swappedMatch.teamA теперь содержит данные бывшей команды B
+    // - swappedMatch.teamB теперь содержит данные бывшей команды A
+    // Поэтому сохраняем оригинальный логотип команды B в logo_a.png
+    // и оригинальный логотип команды A в logo_b.png
+    try {
+      // Сохраняем оригинальный логотип команды B в logo_a.png (для новой команды A)
+      if (originalTeamBLogo) {
+        const processedTeamA = await logoManager.processTeamLogoForSave({ logo: originalTeamBLogo }, 'A');
+        // Обновляем логотипы в swappedMatch.teamA
+        swappedMatch.teamA.logo = processedTeamA.logo || processedTeamA.logoBase64;
+        swappedMatch.teamA.logoBase64 = processedTeamA.logoBase64;
+        swappedMatch.teamA.logoPath = processedTeamA.logoPath;
+      }
+      
+      // Сохраняем оригинальный логотип команды A в logo_b.png (для новой команды B)
+      if (originalTeamALogo) {
+        const processedTeamB = await logoManager.processTeamLogoForSave({ logo: originalTeamALogo }, 'B');
+        // Обновляем логотипы в swappedMatch.teamB
+        swappedMatch.teamB.logo = processedTeamB.logo || processedTeamB.logoBase64;
+        swappedMatch.teamB.logoBase64 = processedTeamB.logoBase64;
+        swappedMatch.teamB.logoPath = processedTeamB.logoPath;
+      }
+    } catch (error) {
+      console.error('Ошибка при сохранении логотипов после смены команд:', error);
+      // Не прерываем выполнение
+    }
+
+    // 8. Обновляем updatedAt
+    swappedMatch.updatedAt = new Date().toISOString();
+
+    // 10. Обновляем текущий матч
+    currentMatch = swappedMatch;
+    hasUnsavedChanges = true;
+
+    return { success: true, match: swappedMatch };
+  } catch (error) {
+    console.error('Ошибка при смене команд местами:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 // vMix handlers
@@ -703,5 +893,26 @@ ipcMain.handle('mobile:set-match', async (event, match) => {
 
 ipcMain.handle('mobile:is-running', () => {
   return mobileServer.isRunning();
+});
+
+// AutoSave handlers
+ipcMain.handle('autosave:get-settings', async () => {
+  try {
+    const settings = await settingsManager.getAutoSaveSettings();
+    return { success: true, enabled: settings.enabled };
+  } catch (error) {
+    console.error('Error getting auto-save settings:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('autosave:set-settings', async (event, enabled) => {
+  try {
+    await settingsManager.setAutoSaveSettings({ enabled });
+    return { success: true };
+  } catch (error) {
+    console.error('Error setting auto-save settings:', error);
+    return { success: false, error: error.message };
+  }
 });
 

@@ -34,6 +34,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Match state management
   setCurrentMatch: (match) => ipcRenderer.invoke('match:set-current', match),
   markMatchSaved: () => ipcRenderer.invoke('match:mark-saved'),
+  swapTeams: (match) => ipcRenderer.invoke('match:swap-teams', match),
+  
+  // AutoSave management
+  getAutoSaveSettings: () => ipcRenderer.invoke('autosave:get-settings'),
+  setAutoSaveSettings: (enabled) => ipcRenderer.invoke('autosave:set-settings', enabled),
   
   // Listeners (возвращают функцию для удаления слушателя)
   onNavigate: (callback) => {
@@ -56,6 +61,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = () => callback();
     ipcRenderer.on('refresh-vmix', handler);
     return () => ipcRenderer.removeListener('refresh-vmix', handler);
+  },
+  onAutoSaveSettingsChanged: (callback) => {
+    const handler = (event, enabled) => callback(enabled);
+    ipcRenderer.on('autosave-settings-changed', handler);
+    return () => ipcRenderer.removeListener('autosave-settings-changed', handler);
   },
 });
 

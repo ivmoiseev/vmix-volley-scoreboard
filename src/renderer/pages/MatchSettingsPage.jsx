@@ -294,7 +294,85 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
         borderRadius: '4px',
         marginBottom: '1.5rem',
       }}>
-        <h3 style={{ marginTop: 0 }}>Команды</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ marginTop: 0, marginBottom: 0 }}>Команды</h3>
+          <button
+            onClick={async () => {
+              if (!match) return;
+              
+              if (!window.confirm('Вы уверены, что хотите поменять команды местами? Это действие изменит:\n- Названия команд\n- Цвета команд\n- Логотипы команд\n- Счет в текущей партии\n- Счет во всех завершенных партиях\n- Статистику команд')) {
+                return;
+              }
+
+              try {
+                if (window.electronAPI && window.electronAPI.swapTeams) {
+                  const result = await window.electronAPI.swapTeams(match);
+                  if (result.success) {
+                    const swappedMatch = result.match;
+                    
+                    // Обновляем матч в Electron API
+                    await window.electronAPI.setCurrentMatch(swappedMatch);
+                    await window.electronAPI.setMobileMatch(swappedMatch);
+                    
+                    // Обновляем матч в родительском компоненте
+                    if (onMatchChange) {
+                      onMatchChange(swappedMatch);
+                    }
+                    
+                    setMatch(swappedMatch);
+                    
+                    // Обновляем форму
+                    setFormData({
+                      tournament: swappedMatch.tournament || '',
+                      tournamentSubtitle: swappedMatch.tournamentSubtitle || '',
+                      location: swappedMatch.location || '',
+                      venue: swappedMatch.venue || '',
+                      date: swappedMatch.date || '',
+                      time: swappedMatch.time || '',
+                      teamAName: swappedMatch.teamA.name || '',
+                      teamAColor: swappedMatch.teamA.color || '#3498db',
+                      teamACity: swappedMatch.teamA.city || '',
+                      teamBName: swappedMatch.teamB.name || '',
+                      teamBColor: swappedMatch.teamB.color || '#e74c3c',
+                      teamBCity: swappedMatch.teamB.city || '',
+                      referee1: swappedMatch.officials?.referee1 || '',
+                      referee2: swappedMatch.officials?.referee2 || '',
+                      lineJudge1: swappedMatch.officials?.lineJudge1 || '',
+                      lineJudge2: swappedMatch.officials?.lineJudge2 || '',
+                      scorer: swappedMatch.officials?.scorer || '',
+                    });
+                    
+                    alert('Команды успешно поменяны местами!');
+                  } else {
+                    alert('Ошибка при смене команд: ' + (result.error || 'Неизвестная ошибка'));
+                  }
+                } else {
+                  alert('Electron API недоступен');
+                }
+              } catch (error) {
+                console.error('Ошибка при смене команд:', error);
+                alert('Ошибка при смене команд: ' + error.message);
+              }
+            }}
+            style={{
+              padding: '0.75rem 1.5rem',
+              fontSize: '1rem',
+              backgroundColor: '#f39c12',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+            title="Поменять команды местами (A ↔ B)"
+          >
+            <span>⇄</span>
+            Поменять команды местами
+          </button>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
           {/* Команда А */}
           <div>

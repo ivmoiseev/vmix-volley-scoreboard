@@ -93,6 +93,9 @@ vmix-volley-scoreboard/
   - Управление меню приложения
   - Обработка закрытия приложения с проверкой несохраненных изменений
   - Автоматическое восстановление мобильного сервера при запуске
+  - Отслеживание пути к файлу текущего матча (`currentMatchFilePath`)
+  - Функция `scheduleAutoSave()` для автосохранения с debounce
+  - Функция `match:swap-teams` для смены команд местами
 
 #### `server.js` - MobileServer
 - **Назначение:** HTTP сервер для мобильного доступа
@@ -146,6 +149,9 @@ vmix-volley-scoreboard/
       "enabled": false,
       "port": 3000,
       "sessionId": null
+    },
+    "autoSave": {
+      "enabled": true
     }
   }
   ```
@@ -154,6 +160,7 @@ vmix-volley-scoreboard/
   - `saveSettings()` - сохранение настроек
   - `getVMixSettings()` / `setVMixSettings()` - работа с настройками vMix
   - `getMobileSettings()` / `setMobileSettings()` - работа с настройками мобильного сервера
+  - `getAutoSaveSettings()` / `setAutoSaveSettings()` - работа с настройками автосохранения
 
 #### `fileManager.js`
 - **Назначение:** Управление файлами матчей
@@ -171,6 +178,7 @@ vmix-volley-scoreboard/
   - `processTeamLogoForSave()` - сохранение логотипа в файл PNG
   - Конвертация base64 в PNG файлы
   - Сохранение в `logos/logo_a.png` и `logos/logo_b.png`
+  - Поддержка смены логотипов при смене команд местами
 
 #### `vmix-input-configs.js`
 - **Назначение:** Конфигурации полей по умолчанию для инпутов vMix
@@ -214,6 +222,10 @@ vmix-volley-scoreboard/
   - `isSetballNow()` / `setballTeam()` - определение сетбола
   - `isMatchballNow()` / `matchballTeam()` - определение матчбола
   - `canFinish()` - проверка возможности завершения партии
+- **Автосохранение:**
+  - Автоматическое сохранение при изменениях матча через `match:set-current`
+  - Debounce механизм (2 секунды) для оптимизации частоты сохранений
+  - Работает только если файл уже был сохранен ранее
 
 ##### `useVMix.js`
 - **Назначение:** Интеграция с vMix
@@ -266,9 +278,12 @@ vmix-volley-scoreboard/
 **Renderer Process → Main Process (через `window.electronAPI`):**
 - `match:create` - создание матча
 - `match:open-dialog` - открытие матча
-- `match:save` - сохранение матча
+- `match:save` - сохранение матча (первый раз - диалог, повторно - в тот же файл)
 - `match:save-dialog` - сохранение матча как...
 - `match:set-current` - установка текущего матча
+- `match:swap-teams` - смена команд местами
+- `autosave:get-settings` - получение настроек автосохранения
+- `autosave:set-settings` - установка настроек автосохранения
 - `vmix:get-config` - получение настроек vMix
 - `vmix:set-config` - сохранение настроек vMix
 - `vmix:test-connection` - тест подключения к vMix
@@ -280,6 +295,7 @@ vmix-volley-scoreboard/
 - `mobile:generate-session` - генерация сессии
 - `mobile:get-saved-session` - получение сохраненной сессии
 - `mobile:set-match` - установка матча для мобильного сервера
+- `onAutoSaveSettingsChanged` - событие изменения настроек автосохранения
 
 ## Потоки данных
 
@@ -321,12 +337,53 @@ MatchControlPage
 window.electronAPI.saveMatch
   ↓ IPC
 main.js (match:save handler)
+  ↓ проверка currentMatchFilePath
+  ├─ Если файл существует → fileManager.saveMatch(match, filePath)
+  └─ Если файла нет → fileManager.saveMatchDialog(match)
   ↓
 fileManager.js (saveMatch)
   ↓
 logoManager.js (processTeamLogoForSave)
   ↓
 File System (matches/*.json, logos/*.png)
+```
+
+### Автосохранение матча
+
+```
+MatchControlPage (useMatch)
+  ↓ изменение матча
+match:set-current (IPC)
+  ↓
+main.js (scheduleAutoSave)
+  ↓ проверка автосохранения и currentMatchFilePath
+  ↓ debounce (2 секунды)
+  ↓
+fileManager.saveMatch(match, currentMatchFilePath)
+  ↓
+File System (matches/*.json, logos/*.png)
+```
+
+### Смена команд местами
+
+```
+MatchSettingsPage
+  ↓ кнопка "Поменять команды местами"
+window.electronAPI.swapTeams(match)
+  ↓ IPC
+main.js (match:swap-teams handler)
+  ↓
+  ├─ Меняем команды местами (teamA ↔ teamB)
+  ├─ Меняем счет (scoreA ↔ scoreB)
+  ├─ Инвертируем подачу (A ↔ B)
+  ├─ Меняем счет в партиях
+  ├─ Меняем статистику
+  ├─ Сохраняем логотипы в правильные файлы (logo_a.png, logo_b.png)
+  └─ Обновляем объекты команд
+  ↓
+Возврат обновленного матча
+  ↓
+MatchSettingsPage (обновление формы и UI)
 ```
 
 ## Хранение данных

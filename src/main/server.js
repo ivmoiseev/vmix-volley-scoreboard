@@ -212,7 +212,7 @@ class MobileServer {
     // API: Изменение подачи
     this.app.post('/api/match/:sessionId/serve', (req, res) => {
       const { sessionId } = req.params;
-      const { direction } = req.body;
+      const { team } = req.body; // Принимаем команду ('A' или 'B')
       
       if (!this.validateSession(sessionId)) {
         return res.status(403).json({ error: 'Неверная или истекшая сессия' });
@@ -222,15 +222,20 @@ class MobileServer {
         return res.status(404).json({ error: 'Матч не найден' });
       }
 
-      if (direction === 'prev' || direction === 'next') {
-        this.currentMatch.currentSet.servingTeam = 
-          this.currentMatch.currentSet.servingTeam === 'A' ? 'B' : 'A';
-        this.currentMatch.updatedAt = new Date().toISOString();
+      // Проверяем, что передана корректная команда
+      if (team === 'A' || team === 'B') {
+        // Если подача уже у этой команды, ничего не делаем
+        if (this.currentMatch.currentSet.servingTeam !== team) {
+          this.currentMatch.currentSet.servingTeam = team;
+          this.currentMatch.updatedAt = new Date().toISOString();
 
-        // Уведомляем основное приложение об изменении матча
-        if (this.onMatchUpdate) {
-          this.onMatchUpdate(this.currentMatch);
+          // Уведомляем основное приложение об изменении матча
+          if (this.onMatchUpdate) {
+            this.onMatchUpdate(this.currentMatch);
+          }
         }
+      } else {
+        return res.status(400).json({ error: 'Некорректная команда. Ожидается "A" или "B"' });
       }
 
       res.json({ success: true, match: this.currentMatch });
@@ -591,8 +596,45 @@ class MobileServer {
         <div class="logo-container" id="logoB"></div>
       </div>
       <div class="set-info" id="setInfo">Партия 1</div>
-      <div class="serve-info">
-        Подача: <span class="serving" id="servingTeam">-</span>
+      <div class="serve-info" style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
+        <span>Подача:</span>
+        <span class="serving" id="servingTeam" style="color: #f39c12; font-weight: bold;">-</span>
+        <div style="display: flex; gap: 0.5rem;">
+          <button 
+            id="serveLeftBtn" 
+            onclick="changeServingTeam('A')"
+            style="
+              padding: 0.5rem 0.75rem;
+              font-size: 1.2rem;
+              background-color: #3498db;
+              color: white;
+              border: none;
+              border-radius: 8px;
+              cursor: pointer;
+              touch-action: manipulation;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            "
+          >
+            ◄
+          </button>
+          <button 
+            id="serveRightBtn" 
+            onclick="changeServingTeam('B')"
+            style="
+              padding: 0.5rem 0.75rem;
+              font-size: 1.2rem;
+              background-color: #3498db;
+              color: white;
+              border: none;
+              border-radius: 8px;
+              cursor: pointer;
+              touch-action: manipulation;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            "
+          >
+            ►
+          </button>
+        </div>
       </div>
     </div>
 
@@ -742,6 +784,26 @@ class MobileServer {
         ? matchData.teamA.name 
         : matchData.teamB.name;
       document.getElementById('servingTeam').textContent = servingTeam;
+      
+      // Обновляем состояние кнопок управления подачей
+      const serveLeftBtn = document.getElementById('serveLeftBtn');
+      const serveRightBtn = document.getElementById('serveRightBtn');
+      const isLeftDisabled = matchData.currentSet.servingTeam === 'A';
+      const isRightDisabled = matchData.currentSet.servingTeam === 'B';
+      
+      if (serveLeftBtn) {
+        serveLeftBtn.disabled = isLeftDisabled;
+        serveLeftBtn.style.backgroundColor = isLeftDisabled ? '#bdc3c7' : '#3498db';
+        serveLeftBtn.style.opacity = isLeftDisabled ? '0.5' : '1';
+        serveLeftBtn.style.cursor = isLeftDisabled ? 'not-allowed' : 'pointer';
+      }
+      
+      if (serveRightBtn) {
+        serveRightBtn.disabled = isRightDisabled;
+        serveRightBtn.style.backgroundColor = isRightDisabled ? '#bdc3c7' : '#3498db';
+        serveRightBtn.style.opacity = isRightDisabled ? '0.5' : '1';
+        serveRightBtn.style.cursor = isRightDisabled ? 'not-allowed' : 'pointer';
+      }
 
       // Индикаторы сетбола и матчбола
       updateIndicators();
@@ -954,6 +1016,54 @@ class MobileServer {
         } else {
           const error = await response.json();
           alert('Ошибка: ' + (error.error || 'Не удалось изменить счет'));
+          updateStatus('disconnected', 'Ошибка');
+        }
+      } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Ошибка подключения');
+        updateStatus('disconnected', 'Ошибка');
+      }
+    }
+
+    async function changeServingTeam(team) {
+      // Проверяем, что передана корректная команда
+      if (team !== 'A' && team !== 'B') {
+        console.error('changeServingTeam: некорректная команда', team);
+        return;
+      }
+      
+      // Если подача уже у этой команды, ничего не делаем
+      if (matchData && matchData.currentSet.servingTeam === team) {
+        return;
+      }
+      
+      // Сохраняем состояние для отмены
+      if (matchData) {
+        actionHistory.push({
+          type: 'serve',
+          team,
+          previousState: JSON.parse(JSON.stringify(matchData)),
+        });
+        document.getElementById('undoBtn').disabled = false;
+      }
+
+      updateStatus('syncing', 'Синхронизация...', true); // Локальное обновление
+      
+      try {
+        const response = await fetch(\`/api/match/\${sessionId}/serve\`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ team }),
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          matchData = result.match;
+          updateUI();
+          updateStatus('connected', null, false); // Обновление с сервера
+        } else {
+          const error = await response.json();
+          alert('Ошибка: ' + (error.error || 'Не удалось изменить подачу'));
           updateStatus('disconnected', 'Ошибка');
         }
       } catch (error) {

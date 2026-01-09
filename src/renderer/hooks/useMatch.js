@@ -96,27 +96,37 @@ export function useMatch(initialMatch) {
 
   /**
    * Ручная коррекция подачи
+   * @param {string} team - Команда, которой передается подача ('A' или 'B')
    */
-  const changeServingTeam = useCallback((direction) => {
+  const changeServingTeam = useCallback((team) => {
     if (!match) return;
+    
+    // Проверяем, что передана корректная команда
+    if (team !== 'A' && team !== 'B') {
+      console.warn('changeServingTeam: некорректная команда', team);
+      return;
+    }
     
     setMatch(prevMatch => {
       if (!prevMatch) return prevMatch;
       
+      // Если подача уже у этой команды, ничего не делаем
+      if (prevMatch.currentSet.servingTeam === team) {
+        return prevMatch;
+      }
+      
       const previousState = { ...prevMatch };
       const newMatch = { ...prevMatch };
       
-      if (direction === 'prev') {
-        newMatch.currentSet.servingTeam = newMatch.currentSet.servingTeam === 'A' ? 'B' : 'A';
-      } else if (direction === 'next') {
-        newMatch.currentSet.servingTeam = newMatch.currentSet.servingTeam === 'A' ? 'B' : 'A';
-      }
+      // Передаем подачу указанной команде
+      newMatch.currentSet.servingTeam = team;
       
       newMatch.updatedAt = new Date().toISOString();
       
       addToHistory({
         type: 'serve_change',
-        direction,
+        team,
+        previousTeam: previousState.currentSet.servingTeam,
         previousState,
       });
       

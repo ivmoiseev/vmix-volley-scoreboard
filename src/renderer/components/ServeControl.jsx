@@ -2,6 +2,14 @@ import React from 'react';
 
 function ServeControl({ servingTeam, teamAName, teamBName, onChange }) {
   const servingTeamName = servingTeam === 'A' ? teamAName : teamBName;
+  
+  // Левая стрелка (◄) передает подачу команде A
+  // Если уже подает A, кнопка неактивна
+  const isLeftDisabled = servingTeam === 'A';
+  
+  // Правая стрелка (►) передает подачу команде B
+  // Если уже подает B, кнопка неактивна
+  const isRightDisabled = servingTeam === 'B';
 
   return (
     <div style={{
@@ -15,32 +23,38 @@ function ServeControl({ servingTeam, teamAName, teamBName, onChange }) {
       marginBottom: '1rem',
     }}>
       <span>Подача:</span>
-      <span style={{ fontWeight: 'bold', color: '#3498db' }}>{servingTeamName}</span>
+      <span style={{ fontWeight: 'bold', color: '#f39c12' }}>{servingTeamName}</span>
       <button
-        onClick={() => onChange('prev')}
+        onClick={() => !isLeftDisabled && onChange('A')}
+        disabled={isLeftDisabled}
         style={{
           padding: '0.25rem 0.5rem',
           fontSize: '1rem',
-          backgroundColor: '#95a5a6',
+          backgroundColor: isLeftDisabled ? '#bdc3c7' : '#3498db',
           color: 'white',
           border: 'none',
           borderRadius: '4px',
-          cursor: 'pointer',
+          cursor: isLeftDisabled ? 'not-allowed' : 'pointer',
+          opacity: isLeftDisabled ? 0.5 : 1,
         }}
+        title={isLeftDisabled ? 'Команда A уже подает' : 'Передать подачу команде A'}
       >
         ◄
       </button>
       <button
-        onClick={() => onChange('next')}
+        onClick={() => !isRightDisabled && onChange('B')}
+        disabled={isRightDisabled}
         style={{
           padding: '0.25rem 0.5rem',
           fontSize: '1rem',
-          backgroundColor: '#95a5a6',
+          backgroundColor: isRightDisabled ? '#bdc3c7' : '#3498db',
           color: 'white',
           border: 'none',
           borderRadius: '4px',
-          cursor: 'pointer',
+          cursor: isRightDisabled ? 'not-allowed' : 'pointer',
+          opacity: isRightDisabled ? 0.5 : 1,
         }}
+        title={isRightDisabled ? 'Команда B уже подает' : 'Передать подачу команде B'}
       >
         ►
       </button>

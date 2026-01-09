@@ -17,6 +17,9 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
   const matchFromState = location.state?.match;
   const effectiveInitialMatch = initialMatch || matchFromState;
   
+  // Состояние для автосохранения
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  
   // ВСЕ хуки должны вызываться ДО любых условных возвратов
   const {
     match,
@@ -105,6 +108,19 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
       window.electronAPI.setCurrentMatch(match);
     }
   }, [match]);
+  
+  // Дополнительная синхронизация при изменении подачи
+  useEffect(() => {
+    if (match && match.currentSet && window.electronAPI && window.electronAPI.setMobileMatch) {
+      // Используем setTimeout для гарантии, что состояние обновилось
+      const timeoutId = setTimeout(() => {
+        window.electronAPI.setMobileMatch(match).catch(err => {
+          console.error('Ошибка при синхронизации матча с мобильным сервером:', err);
+        });
+      }, 0);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [match?.currentSet?.servingTeam]);
 
   // Обработка обновления матча из мобильного приложения
   useEffect(() => {
@@ -145,6 +161,48 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
       removeMatchSaved?.();
     };
   }, []);
+
+  // Загружаем настройки автосохранения при монтировании
+  useEffect(() => {
+    const loadAutoSaveSettings = async () => {
+      if (window.electronAPI && window.electronAPI.getAutoSaveSettings) {
+        try {
+          const result = await window.electronAPI.getAutoSaveSettings();
+          if (result.success) {
+            setAutoSaveEnabled(result.enabled);
+          }
+        } catch (error) {
+          console.error('Ошибка при загрузке настроек автосохранения:', error);
+        }
+      }
+    };
+    loadAutoSaveSettings();
+    
+    // Слушаем изменения автосохранения из меню
+    if (window.electronAPI && window.electronAPI.onAutoSaveSettingsChanged) {
+      const removeListener = window.electronAPI.onAutoSaveSettingsChanged((enabled) => {
+        setAutoSaveEnabled(enabled);
+      });
+      return () => removeListener?.();
+    }
+  }, []);
+
+  // Обработчик изменения галочки автосохранения
+  const handleAutoSaveToggle = async (enabled) => {
+    if (window.electronAPI && window.electronAPI.setAutoSaveSettings) {
+      try {
+        const result = await window.electronAPI.setAutoSaveSettings(enabled);
+        if (result.success) {
+          setAutoSaveEnabled(enabled);
+        } else {
+          alert('Не удалось изменить настройки автосохранения: ' + (result.error || 'Неизвестная ошибка'));
+        }
+      } catch (error) {
+        console.error('Ошибка при изменении настроек автосохранения:', error);
+        alert('Ошибка при изменении настроек автосохранения: ' + error.message);
+      }
+    }
+  };
 
   // Условный рендеринг ПОСЛЕ всех хуков
   if (!initialMatch || !match) {
@@ -239,7 +297,23 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
         gap: '0.5rem',
       }}>
         <h2 style={{ margin: 0 }}>Управление матчем</h2>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <label style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem', 
+            cursor: 'pointer',
+            fontSize: '0.9rem',
+            userSelect: 'none',
+          }}>
+            <input
+              type="checkbox"
+              checked={autoSaveEnabled}
+              onChange={(e) => handleAutoSaveToggle(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            <span>Автосохранение</span>
+          </label>
           <button
             onClick={handleSaveMatch}
             style={{

@@ -62,6 +62,9 @@ function getDefaultSettings() {
       port: 3000,
       sessionId: null,
     },
+    autoSave: {
+      enabled: true, // По умолчанию автосохранение включено
+    },
   };
 }
 
@@ -287,6 +290,34 @@ async function setMobileSettings(mobileConfig) {
   await saveSettings(settings);
 }
 
+/**
+ * Получает настройки автосохранения
+ */
+async function getAutoSaveSettings() {
+  const settings = await loadSettings();
+  if (!settings.autoSave) {
+    // Если секции autoSave нет, создаем её с дефолтными значениями и сохраняем
+    const defaultAutoSave = getDefaultSettings().autoSave;
+    settings.autoSave = defaultAutoSave;
+    await saveSettings(settings);
+  }
+  return settings.autoSave;
+}
+
+/**
+ * Сохраняет настройки автосохранения
+ */
+async function setAutoSaveSettings(autoSaveConfig) {
+  const settings = await loadSettings();
+  // Объединяем с дефолтными настройками, чтобы не потерять структуру
+  const defaultAutoSave = getDefaultSettings().autoSave;
+  settings.autoSave = {
+    ...defaultAutoSave,
+    ...autoSaveConfig,
+  };
+  await saveSettings(settings);
+}
+
 module.exports = {
   loadSettings,
   saveSettings,
@@ -294,6 +325,8 @@ module.exports = {
   setVMixSettings,
   getMobileSettings,
   setMobileSettings,
+  getAutoSaveSettings,
+  setAutoSaveSettings,
   getSetting,
   setSetting,
   SETTINGS_FILE,
