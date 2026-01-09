@@ -68,35 +68,47 @@ function createNewMatch() {
  * Валидация данных матча
  */
 function validateMatch(match) {
-  if (!match || typeof match !== "object") {
+  try {
+    if (!match || typeof match !== "object") {
+      console.error('Validation failed: match is not an object', match);
+      return false;
+    }
+
+    if (!match.matchId || typeof match.matchId !== "string") {
+      console.error('Validation failed: matchId is missing or not a string', match.matchId);
+      return false;
+    }
+
+    if (!match.teamA || !match.teamB) {
+      console.error('Validation failed: teamA or teamB is missing', { teamA: !!match.teamA, teamB: !!match.teamB });
+      return false;
+    }
+
+    if (!match.teamA.name || !match.teamB.name) {
+      console.error('Validation failed: team names are missing', { teamAName: !!match.teamA.name, teamBName: !!match.teamB.name });
+      return false;
+    }
+
+    if (!match.currentSet) {
+      console.error('Validation failed: currentSet is missing');
+      return false;
+    }
+
+    if (!Array.isArray(match.sets)) {
+      console.error('Validation failed: sets is not an array', typeof match.sets);
+      return false;
+    }
+
+    if (!match.statistics) {
+      console.error('Validation failed: statistics is missing');
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Validation error:', error);
     return false;
   }
-
-  if (!match.matchId || typeof match.matchId !== "string") {
-    return false;
-  }
-
-  if (!match.teamA || !match.teamB) {
-    return false;
-  }
-
-  if (!match.teamA.name || !match.teamB.name) {
-    return false;
-  }
-
-  if (!match.currentSet) {
-    return false;
-  }
-
-  if (!Array.isArray(match.sets)) {
-    return false;
-  }
-
-  if (!match.statistics) {
-    return false;
-  }
-
-  return true;
 }
 
 /**

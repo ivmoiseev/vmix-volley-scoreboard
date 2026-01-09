@@ -3,12 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useVMix } from '../hooks/useVMix';
 
 const POSITIONS = [
+  'Не указано',
   'Нападающий',
   'Связующий',
   'Доигровщик',
   'Центральный блокирующий',
   'Либеро',
-  'Другое',
 ];
 
 function RosterManagementPage({ match: propMatch, onMatchChange }) {
@@ -24,6 +24,8 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
   
   const [selectedTeam, setSelectedTeam] = useState('A');
   const [roster, setRoster] = useState([]);
+  const [draggedIndex, setDraggedIndex] = useState(null); // Для стартового состава
+  const [draggedRosterIndex, setDraggedRosterIndex] = useState(null); // Для основного списка
 
   // Обновляем match при изменении propMatch или matchFromState
   useEffect(() => {
@@ -53,6 +55,38 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
     setRoster(team.roster || []);
   };
 
+  // Получает стартовый состав с учетом порядка из startingLineupOrder
+  const getOrderedStarters = () => {
+    const team = selectedTeam === 'A' ? match.teamA : match.teamB;
+    const teamRoster = team.roster || [];
+    const starters = teamRoster.filter(p => p.isStarter);
+    
+    // Если есть сохраненный порядок, используем его
+    if (team.startingLineupOrder && Array.isArray(team.startingLineupOrder) && team.startingLineupOrder.length > 0) {
+      // startingLineupOrder содержит индексы игроков из roster в порядке стартового состава
+      const orderedStarters = team.startingLineupOrder
+        .map(index => teamRoster[index])
+        .filter(player => player && player.isStarter); // Фильтруем только стартовых
+      
+      // Добавляем стартовых игроков, которых нет в startingLineupOrder (на случай добавления новых)
+      starters.forEach(player => {
+        const rosterIndex = teamRoster.findIndex(p => 
+          p.number === player.number && 
+          p.name === player.name && 
+          p.isStarter === true
+        );
+        if (rosterIndex !== -1 && !team.startingLineupOrder.includes(rosterIndex)) {
+          orderedStarters.push(player);
+        }
+      });
+      
+      return orderedStarters;
+    }
+    
+    // Если порядка нет, возвращаем стартовых игроков в порядке их появления в roster
+    return starters;
+  };
+
   const handleAddPlayer = () => {
     // Генерируем следующий номер, учитывая, что могут быть игроки без номера (null/undefined)
     let nextNumber = 1;
@@ -78,7 +112,15 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
 
   const handleRemovePlayer = (index) => {
     const updatedRoster = roster.filter((_, i) => i !== index);
-    updateTeamRoster(updatedRoster);
+    
+    // Обновляем startingLineupOrder: уменьшаем индексы больше удаленного, убираем сам удаленный индекс
+    const team = selectedTeam === 'A' ? match.teamA : match.teamB;
+    const currentStartingLineupOrder = team.startingLineupOrder || [];
+    const newStartingLineupOrder = currentStartingLineupOrder
+      .filter(i => i !== index) // Убираем удаленный индекс
+      .map(i => i > index ? i - 1 : i); // Уменьшаем индексы после удаленного
+    
+    updateTeamRoster(updatedRoster, newStartingLineupOrder);
   };
 
   const handlePlayerChange = (index, field, value) => {
@@ -111,22 +153,267 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
       }
       return player;
     });
-    updateTeamRoster(updatedRoster);
+    
+    // Обновляем startingLineupOrder при изменении статуса стартового игрока
+    const team = selectedTeam === 'A' ? match.teamA : match.teamB;
+    let newStartingLineupOrder = team.startingLineupOrder || [];
+    
+    const player = updatedRoster[index];
+    if (player.isStarter) {
+      // Игрок добавлен в стартовый состав - добавляем его индекс в конец
+      if (!newStartingLineupOrder.includes(index)) {
+        newStartingLineupOrder = [...newStartingLineupOrder, index];
+      }
+    } else {
+      // Игрок удален из стартового состава - убираем его индекс
+      newStartingLineupOrder = newStartingLineupOrder.filter(i => i !== index);
+    }
+    
+    updateTeamRoster(updatedRoster, newStartingLineupOrder);
   };
 
-  const updateTeamRoster = (newRoster) => {
-    setRoster(newRoster);
+  // Функции для drag and drop стартового состава
+  const handleDragStart = (e, cellIndex) => {
+    setDraggedIndex(cellIndex);
+    e.dataTransfer.effectAllowed = 'move';
+    // Добавляем стиль для drag элемента
+    if (e.target.style) {
+      e.target.style.opacity = '0.5';
+    }
+  };
+
+  const handleDragEnd = (e) => {
+    if (e.target.style) {
+      e.target.style.opacity = '1';
+    }
+    setDraggedIndex(null);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDropOnCell = (targetCellIndex) => {
+    if (draggedIndex === null || draggedIndex === targetCellIndex) {
+      return;
+    }
+
+    // Создаем массив из 8 слотов для стартовых игроков
+    const slots = Array(8).fill(null);
     
+    // Заполняем слоты текущими стартовыми игроками
+    starters.forEach((player, index) => {
+      if (index < 8) {
+        slots[index] = player;
+      }
+    });
+
+    // Перемещаем игрока из одной ячейки в другую
+    const playerToMove = slots[draggedIndex];
+    const playerAtTarget = slots[targetCellIndex];
+    
+    slots[draggedIndex] = playerAtTarget;
+    slots[targetCellIndex] = playerToMove;
+
+    // Находим индексы игроков в roster для сохранения порядка
+    const newStartingLineupOrder = slots
+      .filter(p => p !== null)
+      .map(player => {
+        return roster.findIndex(p => 
+          p.number === player.number && 
+          p.name === player.name && 
+          p.isStarter === true
+        );
+      })
+      .filter(index => index !== -1);
+
+    // Обновляем только startingLineupOrder, не меняя порядок в roster
     const updatedMatch = { ...match };
     if (selectedTeam === 'A') {
       updatedMatch.teamA = {
         ...updatedMatch.teamA,
-        roster: newRoster,
+        startingLineupOrder: newStartingLineupOrder,
       };
     } else {
       updatedMatch.teamB = {
         ...updatedMatch.teamB,
-        roster: newRoster,
+        startingLineupOrder: newStartingLineupOrder,
+      };
+    }
+    updatedMatch.updatedAt = new Date().toISOString();
+    setMatch(updatedMatch);
+    
+    // Обновляем матч в родительском компоненте и Electron API
+    if (onMatchChange) {
+      onMatchChange(updatedMatch);
+    }
+    
+    if (window.electronAPI) {
+      window.electronAPI.setCurrentMatch(updatedMatch).catch(err => {
+        console.error('Ошибка при обновлении матча:', err);
+      });
+      window.electronAPI.setMobileMatch(updatedMatch).catch(err => {
+        console.error('Ошибка при обновлении мобильного матча:', err);
+      });
+    }
+
+    setDraggedIndex(null);
+  };
+
+  // Функции для drag and drop основного списка игроков
+  const handleRosterDragStart = (e, index) => {
+    setDraggedRosterIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    // Добавляем стиль для drag элемента
+    if (e.currentTarget.parentElement && e.currentTarget.parentElement.style) {
+      e.currentTarget.parentElement.style.opacity = '0.5';
+    }
+  };
+
+  const handleRosterDragEnd = (e) => {
+    if (e.currentTarget.parentElement && e.currentTarget.parentElement.style) {
+      e.currentTarget.parentElement.style.opacity = '1';
+    }
+    setDraggedRosterIndex(null);
+  };
+
+  const handleRosterDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    // Добавляем визуальную обратную связь
+    if (e.currentTarget && e.currentTarget.style) {
+      e.currentTarget.style.backgroundColor = '#e8f5e9';
+    }
+  };
+
+  const handleRosterDragLeave = (e) => {
+    // Убираем визуальную обратную связь
+    if (e.currentTarget && e.currentTarget.style) {
+      e.currentTarget.style.backgroundColor = '';
+    }
+  };
+
+  const handleRosterDrop = (e, targetIndex) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (draggedRosterIndex === null || draggedRosterIndex === targetIndex) {
+      return;
+    }
+
+    const team = selectedTeam === 'A' ? match.teamA : match.teamB;
+    const oldStartingLineupOrder = team.startingLineupOrder || [];
+
+    // Создаем новый массив с переупорядоченными игроками
+    const newRoster = [...roster];
+    
+    // Удаляем элемент из исходной позиции
+    const [draggedPlayer] = newRoster.splice(draggedRosterIndex, 1);
+    
+    // Вычисляем позицию вставки
+    // Цель: элемент должен оказаться на позиции targetIndex в итоговом массиве
+    // splice(index, 0, element) вставляет элемент ПЕРЕД позицией index
+    //
+    // Пример: [A(0), B(1), C(2)], перетаскиваем A на позицию 1 (на строку с B)
+    // Ожидаем: [B(0), A(1), C(2)]
+    // 1. Удаляем A: [B(0), C(1)] - индексы сдвинулись влево
+    // 2. После удаления B теперь на позиции 0, но нам нужно, чтобы A был на позиции 1
+    // 3. Вставляем на позицию 1 (перед C): [B(0), A(1), C(2)] ✓
+    //
+    // Пример: [A(0), B(1), C(2)], перетаскиваем C на позицию 0 (на строку с A)
+    // Ожидаем: [C(0), A(1), B(2)]
+    // 1. Удаляем C: [A(0), B(1)] - индексы до C не меняются
+    // 2. Вставляем на позицию 0 (перед A): [C(0), A(1), B(2)] ✓
+    //
+    // Вывод: после удаления элемента, для вставки на позицию targetIndex
+    // нужно использовать splice(targetIndex, 0, element) в обоих случаях
+    const insertIndex = targetIndex;
+    
+    newRoster.splice(insertIndex, 0, draggedPlayer);
+
+    // Проверяем: элемент должен быть на позиции targetIndex в newRoster
+    // Обновляем startingLineupOrder: создаем мапу старых индексов на новые
+    const indexMap = new Map();
+    
+    for (let oldIndex = 0; oldIndex < roster.length; oldIndex++) {
+      let newIndex;
+      
+      if (oldIndex === draggedRosterIndex) {
+        // Сам перетаскиваемый элемент - он попадает на targetIndex
+        newIndex = targetIndex;
+      } else if (targetIndex > draggedRosterIndex) {
+        // Перетаскиваем вниз (вправо по массиву)
+        if (oldIndex < draggedRosterIndex) {
+          newIndex = oldIndex; // До исходной позиции - без изменений
+        } else if (oldIndex > draggedRosterIndex && oldIndex <= targetIndex) {
+          // Между исходной и целевой (включая целевую) - сдвигаются влево на 1
+          newIndex = oldIndex - 1;
+        } else {
+          // oldIndex > targetIndex - остаются на своих местах
+          newIndex = oldIndex;
+        }
+      } else {
+        // targetIndex < draggedRosterIndex - перетаскиваем вверх (влево по массиву)
+        if (oldIndex < targetIndex) {
+          newIndex = oldIndex; // До целевой позиции - без изменений
+        } else if (oldIndex >= targetIndex && oldIndex < draggedRosterIndex) {
+          // Между целевой (включая) и исходной - сдвигаются вправо на 1
+          newIndex = oldIndex + 1;
+        } else {
+          // oldIndex > draggedRosterIndex - остаются на своих местах
+          newIndex = oldIndex;
+        }
+      }
+      
+      indexMap.set(oldIndex, newIndex);
+    }
+    
+    // Обновляем startingLineupOrder с новыми индексами
+    const newStartingLineupOrder = oldStartingLineupOrder
+      .map(oldIndex => indexMap.get(oldIndex))
+      .filter(newIndex => newIndex !== undefined && newIndex >= 0 && newIndex < newRoster.length)
+      .filter(newIndex => newRoster[newIndex] && newRoster[newIndex].isStarter);
+
+    // Обновляем состав
+    updateTeamRoster(newRoster, newStartingLineupOrder);
+    setDraggedRosterIndex(null);
+  };
+
+  const updateTeamRoster = (newRoster, newStartingLineupOrder = null) => {
+    setRoster(newRoster);
+    
+    const updatedMatch = { ...match };
+    const teamData = {
+      roster: newRoster,
+    };
+    
+    // Обновляем startingLineupOrder только если он передан явно
+    // Если не передан, проверяем и очищаем невалидные индексы
+    if (newStartingLineupOrder !== null) {
+      teamData.startingLineupOrder = newStartingLineupOrder;
+    } else {
+      // Проверяем валидность существующего startingLineupOrder
+      const currentStartingLineupOrder = (selectedTeam === 'A' ? match.teamA : match.teamB).startingLineupOrder || [];
+      const validStartingLineupOrder = currentStartingLineupOrder.filter(index => 
+        index >= 0 && 
+        index < newRoster.length && 
+        newRoster[index].isStarter
+      );
+      if (validStartingLineupOrder.length !== currentStartingLineupOrder.length) {
+        teamData.startingLineupOrder = validStartingLineupOrder;
+      }
+    }
+    
+    if (selectedTeam === 'A') {
+      updatedMatch.teamA = {
+        ...updatedMatch.teamA,
+        ...teamData,
+      };
+    } else {
+      updatedMatch.teamB = {
+        ...updatedMatch.teamB,
+        ...teamData,
       };
     }
     updatedMatch.updatedAt = new Date().toISOString();
@@ -209,24 +496,32 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
         const importedRoster = importedData.roster;
         const importedCoach = importedData.coach || '';
         
-        // Обновляем состав
-        updateTeamRoster(importedRoster);
+        // Инициализируем startingLineupOrder для импортированного состава
+        // Порядок определяется по порядку игроков в массиве, где isStarter === true
+        const importedStartingLineupOrder = importedRoster
+          .map((player, index) => player.isStarter ? index : null)
+          .filter(index => index !== null);
         
-        // Обновляем тренера
+        // Обновляем состав и тренера одновременно
         const updatedMatch = { ...match };
         if (selectedTeam === 'A') {
           updatedMatch.teamA = {
             ...updatedMatch.teamA,
+            roster: importedRoster,
+            startingLineupOrder: importedStartingLineupOrder,
             coach: importedCoach,
           };
         } else {
           updatedMatch.teamB = {
             ...updatedMatch.teamB,
+            roster: importedRoster,
+            startingLineupOrder: importedStartingLineupOrder,
             coach: importedCoach,
           };
         }
         updatedMatch.updatedAt = new Date().toISOString();
         setMatch(updatedMatch);
+        setRoster(importedRoster); // Обновляем локальное состояние ростра
         
         // Обновляем матч в родительском компоненте и Electron API
         if (onMatchChange) {
@@ -255,7 +550,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
   }
 
   const team = selectedTeam === 'A' ? match.teamA : match.teamB;
-  const starters = roster.filter(p => p.isStarter);
+  const starters = getOrderedStarters();
 
   return (
     <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto' }}>
@@ -368,6 +663,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
           }}>
             <thead>
               <tr style={{ backgroundColor: '#34495e', color: 'white' }}>
+                <th style={{ padding: '0.75rem', textAlign: 'left', width: '30px' }}></th>
                 <th style={{ padding: '0.75rem', textAlign: 'left' }}>№</th>
                 <th style={{ padding: '0.75rem', textAlign: 'left' }}>Имя</th>
                 <th style={{ padding: '0.75rem', textAlign: 'left' }}>Позиция</th>
@@ -377,7 +673,60 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
             </thead>
             <tbody>
               {roster.map((player, index) => (
-                <tr key={index} style={{ borderBottom: '1px solid #ecf0f1' }}>
+                <tr 
+                  key={index} 
+                  style={{ 
+                    borderBottom: '1px solid #ecf0f1',
+                    opacity: draggedRosterIndex === index ? 0.5 : 1,
+                    cursor: 'move',
+                  }}
+                  draggable
+                  onDragStart={(e) => handleRosterDragStart(e, index)}
+                  onDragEnd={handleRosterDragEnd}
+                  onDragOver={handleRosterDragOver}
+                  onDragLeave={handleRosterDragLeave}
+                  onDrop={(e) => {
+                    handleRosterDrop(e, index);
+                    handleRosterDragLeave(e);
+                  }}
+                >
+                  <td 
+                    style={{ 
+                      padding: '0.75rem',
+                      textAlign: 'center',
+                      cursor: 'grab',
+                      userSelect: 'none',
+                      color: '#7f8c8d',
+                    }}
+                    title="Перетащите для изменения порядка"
+                  >
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <div style={{
+                        width: '16px',
+                        height: '2px',
+                        backgroundColor: '#7f8c8d',
+                        borderRadius: '1px',
+                      }}></div>
+                      <div style={{
+                        width: '16px',
+                        height: '2px',
+                        backgroundColor: '#7f8c8d',
+                        borderRadius: '1px',
+                      }}></div>
+                      <div style={{
+                        width: '16px',
+                        height: '2px',
+                        backgroundColor: '#7f8c8d',
+                        borderRadius: '1px',
+                      }}></div>
+                    </div>
+                  </td>
                   <td style={{ padding: '0.75rem' }}>
                     <input
                       type="number"
@@ -538,25 +887,101 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
           marginBottom: '1.5rem',
         }}>
           <h3 style={{ marginTop: 0 }}>Стартовый состав</h3>
+          <p style={{ marginTop: '-0.5rem', marginBottom: '1rem', fontSize: '0.9rem', color: '#7f8c8d' }}>
+            Перетащите игроков для изменения порядка
+          </p>
           <div style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '0.5rem',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '1rem',
           }}>
-            {starters.map((player, index) => (
-              <div
-                key={index}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#27ae60',
-                  color: 'white',
-                  borderRadius: '4px',
-                  fontWeight: 'bold',
-                }}
-              >
-                {player.number != null ? `№${player.number}` : 'Без номера'} {player.name}
-              </div>
-            ))}
+            {Array.from({ length: 8 }).map((_, cellIndex) => {
+              const player = starters[cellIndex] || null;
+              const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+              const isReserve = cellIndex >= 6;
+
+              return (
+                <div
+                  key={`cell-${cellIndex}`}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (draggedIndex !== null) {
+                      handleDropOnCell(cellIndex);
+                    }
+                  }}
+                  style={{
+                    minHeight: '80px',
+                    border: `2px ${isReserve ? 'solid' : 'dashed'} ${draggedIndex === cellIndex ? '#229954' : '#bdc3c7'}`,
+                    borderRadius: '4px',
+                    padding: '0.75rem',
+                    backgroundColor: player ? (draggedIndex === cellIndex ? '#229954' : '#27ae60') : 'white',
+                    color: player ? 'white' : '#7f8c8d',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'background-color 0.2s, border-color 0.2s',
+                    opacity: draggedIndex === cellIndex ? 0.6 : 1,
+                  }}
+                  onDragEnter={(e) => {
+                    if (!player && draggedIndex !== null) {
+                      e.currentTarget.style.backgroundColor = '#d5f4e6';
+                      e.currentTarget.style.borderColor = '#27ae60';
+                      e.currentTarget.style.borderStyle = 'solid';
+                    }
+                  }}
+                  onDragLeave={(e) => {
+                    if (!player) {
+                      e.currentTarget.style.backgroundColor = 'white';
+                      e.currentTarget.style.borderColor = '#bdc3c7';
+                      e.currentTarget.style.borderStyle = isReserve ? 'solid' : 'dashed';
+                    }
+                  }}
+                >
+                  {/* Подпись ячейки */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '0.25rem',
+                    left: '0.5rem',
+                    fontSize: '0.85rem',
+                    fontWeight: 'bold',
+                    opacity: 0.7,
+                  }}>
+                    {!isReserve ? romanNumerals[cellIndex] : ''}
+                  </div>
+                  
+                  {/* Игрок в ячейке */}
+                  {player ? (
+                    <div
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, cellIndex)}
+                      onDragEnd={handleDragEnd}
+                      style={{
+                        width: '100%',
+                        textAlign: 'center',
+                        fontWeight: 'bold',
+                        cursor: 'move',
+                        userSelect: 'none',
+                      }}
+                    >
+                      {player.number != null ? `№${player.number}` : 'Без номера'} {player.name}
+                    </div>
+                  ) : (
+                    <div style={{
+                      fontSize: '0.85rem',
+                      textAlign: 'center',
+                      opacity: 0.5,
+                    }}>
+                      {isReserve ? 'Запасной' : 'Пусто'}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

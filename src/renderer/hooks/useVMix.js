@@ -37,19 +37,51 @@ export function useVMix(match) {
   const vmixConfigRef = useRef(vmixConfig);
   const updateMatchDataDebouncedRef = useRef(null);
   const connectionStatusRef = useRef(connectionStatus);
-  
+
   // Кэш последних отправленных значений для каждого инпута
   // Структура: { inputKey: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} } }
   const lastSentValuesRef = useRef({
-    currentScore: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
-    lineup: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
-    rosterTeamA: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
-    rosterTeamB: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
+    currentScore: {
+      fields: {},
+      colorFields: {},
+      visibilityFields: {},
+      imageFields: {},
+    },
+    lineup: {
+      fields: {},
+      colorFields: {},
+      visibilityFields: {},
+      imageFields: {},
+    },
+    rosterTeamA: {
+      fields: {},
+      colorFields: {},
+      visibilityFields: {},
+      imageFields: {},
+    },
+    rosterTeamB: {
+      fields: {},
+      colorFields: {},
+      visibilityFields: {},
+      imageFields: {},
+    },
+    startingLineupTeamA: {
+      fields: {},
+      colorFields: {},
+      visibilityFields: {},
+      imageFields: {},
+    },
+    startingLineupTeamB: {
+      fields: {},
+      colorFields: {},
+      visibilityFields: {},
+      imageFields: {},
+    },
   });
-  
+
   // ID текущего матча для отслеживания смены матча
   const currentMatchIdRef = useRef(null);
-  
+
   // Отслеживание активной кнопки для каждого инпута
   // Структура: { inputKey: buttonKey }
   // Например: { referee1: "coachTeamA" }
@@ -109,8 +141,8 @@ export function useVMix(match) {
    */
   const compareValues = useCallback((value1, value2) => {
     // Приводим к строкам для сравнения
-    const str1 = String(value1 || '').trim();
-    const str2 = String(value2 || '').trim();
+    const str1 = String(value1 || "").trim();
+    const str2 = String(value2 || "").trim();
     return str1 === str2;
   }, []);
 
@@ -129,56 +161,68 @@ export function useVMix(match) {
    * @param {Object} lastSentFields - последние отправленные поля
    * @returns {Object} - объект с только измененными полями
    */
-  const filterChangedFields = useCallback((newFields, lastSentFields) => {
-    const changed = {};
-    for (const [key, value] of Object.entries(newFields)) {
-      if (!compareValues(value, lastSentFields[key])) {
-        changed[key] = value;
+  const filterChangedFields = useCallback(
+    (newFields, lastSentFields) => {
+      const changed = {};
+      for (const [key, value] of Object.entries(newFields)) {
+        if (!compareValues(value, lastSentFields[key])) {
+          changed[key] = value;
+        }
       }
-    }
-    return changed;
-  }, [compareValues]);
+      return changed;
+    },
+    [compareValues]
+  );
 
   /**
    * Фильтрует colorFields, оставляя только измененные
    */
-  const filterChangedColorFields = useCallback((newFields, lastSentFields) => {
-    const changed = {};
-    for (const [key, value] of Object.entries(newFields)) {
-      const normalizedNew = normalizeColor(value);
-      const normalizedLast = normalizeColor(lastSentFields[key]);
-      if (normalizedNew !== normalizedLast) {
-        changed[key] = normalizedNew;
+  const filterChangedColorFields = useCallback(
+    (newFields, lastSentFields) => {
+      const changed = {};
+      for (const [key, value] of Object.entries(newFields)) {
+        const normalizedNew = normalizeColor(value);
+        const normalizedLast = normalizeColor(lastSentFields[key]);
+        if (normalizedNew !== normalizedLast) {
+          changed[key] = normalizedNew;
+        }
       }
-    }
-    return changed;
-  }, [normalizeColor]);
+      return changed;
+    },
+    [normalizeColor]
+  );
 
   /**
    * Фильтрует visibilityFields, оставляя только измененные
    */
-  const filterChangedVisibilityFields = useCallback((newFields, lastSentFields) => {
-    const changed = {};
-    for (const [key, value] of Object.entries(newFields)) {
-      if (!compareVisibilityFields(value, lastSentFields[key])) {
-        changed[key] = value;
+  const filterChangedVisibilityFields = useCallback(
+    (newFields, lastSentFields) => {
+      const changed = {};
+      for (const [key, value] of Object.entries(newFields)) {
+        if (!compareVisibilityFields(value, lastSentFields[key])) {
+          changed[key] = value;
+        }
       }
-    }
-    return changed;
-  }, [compareVisibilityFields]);
+      return changed;
+    },
+    [compareVisibilityFields]
+  );
 
   /**
    * Фильтрует imageFields, оставляя только измененные
    */
-  const filterChangedImageFields = useCallback((newFields, lastSentFields) => {
-    const changed = {};
-    for (const [key, value] of Object.entries(newFields)) {
-      if (!compareValues(value, lastSentFields[key])) {
-        changed[key] = value;
+  const filterChangedImageFields = useCallback(
+    (newFields, lastSentFields) => {
+      const changed = {};
+      for (const [key, value] of Object.entries(newFields)) {
+        if (!compareValues(value, lastSentFields[key])) {
+          changed[key] = value;
+        }
       }
-    }
-    return changed;
-  }, [compareValues]);
+      return changed;
+    },
+    [compareValues]
+  );
 
   /**
    * Сбрасывает кэш для указанного инпута или всех инпутов
@@ -193,10 +237,42 @@ export function useVMix(match) {
       };
     } else {
       lastSentValuesRef.current = {
-        currentScore: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
-        lineup: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
-        rosterTeamA: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
-        rosterTeamB: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} },
+        currentScore: {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+        },
+        lineup: {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+        },
+        rosterTeamA: {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+        },
+        rosterTeamB: {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+        },
+        startingLineupTeamA: {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+        },
+        startingLineupTeamB: {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+        },
       };
     }
   }, []);
@@ -215,35 +291,56 @@ export function useVMix(match) {
     if (lastSentValuesRef.current.rosterTeamB) {
       lastSentValuesRef.current.rosterTeamB.imageFields = {};
     }
+    if (lastSentValuesRef.current.startingLineupTeamA) {
+      lastSentValuesRef.current.startingLineupTeamA.imageFields = {};
+    }
+    if (lastSentValuesRef.current.startingLineupTeamB) {
+      lastSentValuesRef.current.startingLineupTeamB.imageFields = {};
+    }
   }, []);
 
   /**
    * Обновляет кэш для указанного инпута
    */
-  const updateLastSentValues = useCallback((inputKey, fields, colorFields, visibilityFields, imageFields) => {
-    if (!lastSentValuesRef.current[inputKey]) {
-      lastSentValuesRef.current[inputKey] = {
-        fields: {},
-        colorFields: {},
-        visibilityFields: {},
-        imageFields: {},
-      };
-    }
-    
-    // Обновляем только те поля, которые были отправлены
-    if (fields) {
-      lastSentValuesRef.current[inputKey].fields = { ...lastSentValuesRef.current[inputKey].fields, ...fields };
-    }
-    if (colorFields) {
-      lastSentValuesRef.current[inputKey].colorFields = { ...lastSentValuesRef.current[inputKey].colorFields, ...colorFields };
-    }
-    if (visibilityFields) {
-      lastSentValuesRef.current[inputKey].visibilityFields = { ...lastSentValuesRef.current[inputKey].visibilityFields, ...visibilityFields };
-    }
-    if (imageFields) {
-      lastSentValuesRef.current[inputKey].imageFields = { ...lastSentValuesRef.current[inputKey].imageFields, ...imageFields };
-    }
-  }, []);
+  const updateLastSentValues = useCallback(
+    (inputKey, fields, colorFields, visibilityFields, imageFields) => {
+      if (!lastSentValuesRef.current[inputKey]) {
+        lastSentValuesRef.current[inputKey] = {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+        };
+      }
+
+      // Обновляем только те поля, которые были отправлены
+      if (fields) {
+        lastSentValuesRef.current[inputKey].fields = {
+          ...lastSentValuesRef.current[inputKey].fields,
+          ...fields,
+        };
+      }
+      if (colorFields) {
+        lastSentValuesRef.current[inputKey].colorFields = {
+          ...lastSentValuesRef.current[inputKey].colorFields,
+          ...colorFields,
+        };
+      }
+      if (visibilityFields) {
+        lastSentValuesRef.current[inputKey].visibilityFields = {
+          ...lastSentValuesRef.current[inputKey].visibilityFields,
+          ...visibilityFields,
+        };
+      }
+      if (imageFields) {
+        lastSentValuesRef.current[inputKey].imageFields = {
+          ...lastSentValuesRef.current[inputKey].imageFields,
+          ...imageFields,
+        };
+      }
+    },
+    []
+  );
 
   const updateOverlayStates = useCallback(async () => {
     try {
@@ -261,17 +358,21 @@ export function useVMix(match) {
         const currentConfig = vmixConfigRef.current;
         if (currentConfig && currentConfig.inputs && result.inputsMap) {
           const tempInputsMap = result.inputsMap;
-          
+
           // Проверяем все инпуты в конфигурации
-          for (const [inputKey, inputConfig] of Object.entries(currentConfig.inputs)) {
+          for (const [inputKey, inputConfig] of Object.entries(
+            currentConfig.inputs
+          )) {
             if (!inputConfig) continue;
-            
-            const overlay = (typeof inputConfig === "object" && inputConfig.overlay) || 1;
+
+            const overlay =
+              (typeof inputConfig === "object" && inputConfig.overlay) || 1;
             const overlayState = result.overlays[overlay];
-            
+
             // Проверяем, активен ли оверлей
-            const isOverlayActiveInVMix = overlayState && overlayState.active === true;
-            
+            const isOverlayActiveInVMix =
+              overlayState && overlayState.active === true;
+
             if (!isOverlayActiveInVMix) {
               // Оверлей неактивен - очищаем активную кнопку для этого инпута
               if (activeButtonRef.current[inputKey]) {
@@ -280,19 +381,20 @@ export function useVMix(match) {
             } else {
               // Оверлей активен - проверяем, активен ли именно наш инпут
               // Получаем идентификатор инпута из конфигурации
-              const inputIdentifier = typeof inputConfig === "string"
-                ? inputConfig
-                : (inputConfig.inputIdentifier || inputConfig.name);
-              
+              const inputIdentifier =
+                typeof inputConfig === "string"
+                  ? inputConfig
+                  : inputConfig.inputIdentifier || inputConfig.name;
+
               if (!inputIdentifier) continue;
-              
+
               // Получаем номер инпута из оверлея
               const overlayInputValue = overlayState.input
                 ? String(overlayState.input).trim()
                 : null;
-              
+
               if (!overlayInputValue) continue;
-              
+
               // Функция для поиска инпута в карте (локальная копия логики из findInputInMap)
               const findInputInTempMap = (id) => {
                 const trimmed = String(id).trim();
@@ -300,30 +402,43 @@ export function useVMix(match) {
                   return tempInputsMap[trimmed] || null;
                 }
                 for (const [num, data] of Object.entries(tempInputsMap)) {
-                  if (data.key && data.key.toLowerCase() === trimmed.toLowerCase()) {
+                  if (
+                    data.key &&
+                    data.key.toLowerCase() === trimmed.toLowerCase()
+                  ) {
                     return data;
                   }
-                  if (data.title && data.title.toLowerCase() === trimmed.toLowerCase()) {
+                  if (
+                    data.title &&
+                    data.title.toLowerCase() === trimmed.toLowerCase()
+                  ) {
                     return data;
                   }
-                  if (data.shortTitle && data.shortTitle.toLowerCase() === trimmed.toLowerCase()) {
+                  if (
+                    data.shortTitle &&
+                    data.shortTitle.toLowerCase() === trimmed.toLowerCase()
+                  ) {
                     return data;
                   }
                 }
                 return null;
               };
-              
+
               // Сравниваем инпуты по номерам
               let isOurInputActive = false;
               const overlayInputData = findInputInTempMap(overlayInputValue);
               const configInputData = findInputInTempMap(inputIdentifier);
-              
+
               if (overlayInputData && configInputData) {
-                isOurInputActive = overlayInputData.number === configInputData.number;
-              } else if (overlayInputValue.toLowerCase() === inputIdentifier.trim().toLowerCase()) {
+                isOurInputActive =
+                  overlayInputData.number === configInputData.number;
+              } else if (
+                overlayInputValue.toLowerCase() ===
+                inputIdentifier.trim().toLowerCase()
+              ) {
                 isOurInputActive = true;
               }
-              
+
               if (!isOurInputActive) {
                 // В оверлее активен другой инпут - очищаем активную кнопку
                 if (activeButtonRef.current[inputKey]) {
@@ -334,7 +449,7 @@ export function useVMix(match) {
                 // Если активная кнопка не установлена, значит инпут был активирован через vMix напрямую
                 if (!activeButtonRef.current[inputKey]) {
                   // Устанавливаем специальный маркер для обозначения внешней активации
-                  activeButtonRef.current[inputKey] = '__EXTERNAL__';
+                  activeButtonRef.current[inputKey] = "__EXTERNAL__";
                 }
               }
             }
@@ -377,13 +492,14 @@ export function useVMix(match) {
       if (config) {
         // Сохраняем старую конфигурацию перед обновлением для сравнения
         const oldConfig = vmixConfigRef.current;
-        
+
         // Проверяем, изменилась ли конфигурация (особенно структура инпутов)
-        const configChanged = oldConfig && 
+        const configChanged =
+          oldConfig &&
           JSON.stringify(oldConfig.inputs) !== JSON.stringify(config.inputs);
-        
+
         setVMixConfig(config);
-        
+
         // Если конфигурация изменилась (особенно структура инпутов), сбрасываем кэш
         // Это важно, так как структура полей может измениться
         if (configChanged) {
@@ -391,7 +507,7 @@ export function useVMix(match) {
           // Очищаем активные кнопки при изменении конфигурации
           activeButtonRef.current = {};
         }
-        
+
         checkConnection(config.host, config.port);
       }
     } catch (error) {
@@ -492,6 +608,8 @@ export function useVMix(match) {
   /**
    * Скрывает оверлей
    * Примечание: hideOverlay не проверяет enabled, так как нужно иметь возможность скрыть оверлей даже если инпут отключен
+   * Примечание: activeButtonRef НЕ очищается сразу, так как vMix может скрывать инпут с задержкой (анимация)
+   * Состояние кнопки обновится автоматически через периодический опрос vMix API в updateOverlayStates()
    */
   const hideOverlay = useCallback(
     async (inputKey) => {
@@ -503,8 +621,9 @@ export function useVMix(match) {
         const result = await window.electronAPI.hideVMixOverlay(inputKey);
 
         if (result.success) {
-          // Очищаем активную кнопку для этого инпута
-          delete activeButtonRef.current[inputKey];
+          // НЕ очищаем activeButtonRef сразу - дождемся подтверждения через vMix API
+          // Это важно, так как vMix может скрывать инпут с задержкой из-за анимации
+          // Планируем обновление состояния через периодический опрос
           scheduleOverlayUpdate();
         }
 
@@ -521,23 +640,30 @@ export function useVMix(match) {
    * @param {Object} matchData - данные матча
    * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
    */
-  const updateMatchData = useCallback((matchData, forceUpdate = false) => {
-    // Проверяем, сменился ли матч (по matchId)
-    if (matchData && matchData.matchId && currentMatchIdRef.current !== matchData.matchId) {
-      // Матч сменился - сбрасываем кэш и активные кнопки
-      resetLastSentValues();
-      activeButtonRef.current = {};
-      currentMatchIdRef.current = matchData.matchId;
-    } else if (!matchData) {
-      // Матч был сброшен
-      currentMatchIdRef.current = null;
-      activeButtonRef.current = {};
-    }
+  const updateMatchData = useCallback(
+    (matchData, forceUpdate = false) => {
+      // Проверяем, сменился ли матч (по matchId)
+      if (
+        matchData &&
+        matchData.matchId &&
+        currentMatchIdRef.current !== matchData.matchId
+      ) {
+        // Матч сменился - сбрасываем кэш и активные кнопки
+        resetLastSentValues();
+        activeButtonRef.current = {};
+        currentMatchIdRef.current = matchData.matchId;
+      } else if (!matchData) {
+        // Матч был сброшен
+        currentMatchIdRef.current = null;
+        activeButtonRef.current = {};
+      }
 
-    if (updateMatchDataDebouncedRef.current) {
-      updateMatchDataDebouncedRef.current(matchData, forceUpdate);
-    }
-  }, [resetLastSentValues]);
+      if (updateMatchDataDebouncedRef.current) {
+        updateMatchDataDebouncedRef.current(matchData, forceUpdate);
+      }
+    },
+    [resetLastSentValues]
+  );
 
   /**
    * Рассчитывает счет по сетам для команды
@@ -678,8 +804,14 @@ export function useVMix(match) {
         if (!forceUpdate) {
           const lastSent = lastSentValuesRef.current.currentScore;
           fieldsToSend = filterChangedFields(fields, lastSent.fields);
-          colorFieldsToSend = filterChangedColorFields(colorFields, lastSent.colorFields);
-          visibilityFieldsToSend = filterChangedVisibilityFields(visibilityFields, lastSent.visibilityFields);
+          colorFieldsToSend = filterChangedColorFields(
+            colorFields,
+            lastSent.colorFields
+          );
+          visibilityFieldsToSend = filterChangedVisibilityFields(
+            visibilityFields,
+            lastSent.visibilityFields
+          );
         }
 
         const hasFields =
@@ -688,7 +820,11 @@ export function useVMix(match) {
           Object.keys(visibilityFieldsToSend).length > 0;
 
         if (!hasFields) {
-          return { success: true, skipped: true, message: "Нет измененных полей для обновления" };
+          return {
+            success: true,
+            skipped: true,
+            message: "Нет измененных полей для обновления",
+          };
         }
 
         const result = await window.electronAPI.updateVMixInputFields(
@@ -700,7 +836,13 @@ export function useVMix(match) {
 
         // Обновляем кэш только при успешной отправке
         if (result.success) {
-          updateLastSentValues('currentScore', fieldsToSend, colorFieldsToSend, visibilityFieldsToSend, {});
+          updateLastSentValues(
+            "currentScore",
+            fieldsToSend,
+            colorFieldsToSend,
+            visibilityFieldsToSend,
+            {}
+          );
         }
 
         return result;
@@ -709,7 +851,15 @@ export function useVMix(match) {
         return { success: false, error: error.message };
       }
     },
-    [isVMixReady, validateInputConfig, formatCurrentScoreData, filterChangedFields, filterChangedColorFields, filterChangedVisibilityFields, updateLastSentValues]
+    [
+      isVMixReady,
+      validateInputConfig,
+      formatCurrentScoreData,
+      filterChangedFields,
+      filterChangedColorFields,
+      filterChangedVisibilityFields,
+      updateLastSentValues,
+    ]
   );
 
   // Форматирует дату и время в формат ДД.ММ.ГГГГ ЧЧ:ММ
@@ -880,8 +1030,13 @@ export function useVMix(match) {
 
         // Если это поле логотипа и forceUpdate=true, добавляем timestamp к URL
         // чтобы заставить vMix перезагрузить изображение
-        if (isLogoField && fieldConfig.type === FIELD_TYPES.IMAGE && value && forceUpdate) {
-          const separator = value.includes('?') ? '&' : '?';
+        if (
+          isLogoField &&
+          fieldConfig.type === FIELD_TYPES.IMAGE &&
+          value &&
+          forceUpdate
+        ) {
+          const separator = value.includes("?") ? "&" : "?";
           value = `${value}${separator}t=${Date.now()}`;
         }
 
@@ -927,7 +1082,10 @@ export function useVMix(match) {
           return { success: false, error: validation.error };
         }
 
-        const { fields, imageFields } = await formatLineupData(match, forceUpdate);
+        const { fields, imageFields } = await formatLineupData(
+          match,
+          forceUpdate
+        );
 
         // Фильтруем только измененные поля, если не forceUpdate
         let fieldsToSend = fields;
@@ -936,14 +1094,22 @@ export function useVMix(match) {
         if (!forceUpdate) {
           const lastSent = lastSentValuesRef.current.lineup;
           fieldsToSend = filterChangedFields(fields, lastSent.fields);
-          imageFieldsToSend = filterChangedImageFields(imageFields, lastSent.imageFields);
+          imageFieldsToSend = filterChangedImageFields(
+            imageFields,
+            lastSent.imageFields
+          );
         }
 
         const hasFields =
-          Object.keys(fieldsToSend).length > 0 || Object.keys(imageFieldsToSend).length > 0;
+          Object.keys(fieldsToSend).length > 0 ||
+          Object.keys(imageFieldsToSend).length > 0;
 
         if (!hasFields) {
-          return { success: true, skipped: true, message: "Нет измененных полей для обновления" };
+          return {
+            success: true,
+            skipped: true,
+            message: "Нет измененных полей для обновления",
+          };
         }
 
         const result = await window.electronAPI.updateVMixInputFields(
@@ -956,7 +1122,13 @@ export function useVMix(match) {
 
         // Обновляем кэш только при успешной отправке
         if (result.success) {
-          updateLastSentValues('lineup', fieldsToSend, {}, {}, imageFieldsToSend);
+          updateLastSentValues(
+            "lineup",
+            fieldsToSend,
+            {},
+            {},
+            imageFieldsToSend
+          );
         }
 
         return result;
@@ -965,7 +1137,14 @@ export function useVMix(match) {
         return { success: false, error: error.message };
       }
     },
-    [isVMixReady, validateInputConfig, formatLineupData, filterChangedFields, filterChangedImageFields, updateLastSentValues]
+    [
+      isVMixReady,
+      validateInputConfig,
+      formatLineupData,
+      filterChangedFields,
+      filterChangedImageFields,
+      updateLastSentValues,
+    ]
   );
 
   /**
@@ -976,7 +1155,7 @@ export function useVMix(match) {
    * @returns {Promise<Object>} результат обновления
    */
   const updateCoachData = useCallback(
-    async (match, team, inputKey = 'referee1') => {
+    async (match, team, inputKey = "referee1") => {
       if (!isVMixReady()) {
         return { success: false, error: "vMix не подключен" };
       }
@@ -993,9 +1172,8 @@ export function useVMix(match) {
         }
 
         // Получаем имя тренера
-        const coachName = team === 'A' 
-          ? (match.teamA?.coach || '') 
-          : (match.teamB?.coach || '');
+        const coachName =
+          team === "A" ? match.teamA?.coach || "" : match.teamB?.coach || "";
 
         if (!coachName) {
           return { success: false, error: `Тренер команды ${team} не указан` };
@@ -1007,11 +1185,12 @@ export function useVMix(match) {
 
         // Находим поля name и position в конфигурации
         if (fieldsConfig.name && fieldsConfig.name.enabled) {
-          fields[fieldsConfig.name.fieldIdentifier || 'Name'] = coachName;
+          fields[fieldsConfig.name.fieldIdentifier || "Name"] = coachName;
         }
 
         if (fieldsConfig.position && fieldsConfig.position.enabled) {
-          fields[fieldsConfig.position.fieldIdentifier || 'Position'] = 'Тренер';
+          fields[fieldsConfig.position.fieldIdentifier || "Position"] =
+            "Тренер";
         }
 
         if (Object.keys(fields).length === 0) {
@@ -1024,11 +1203,14 @@ export function useVMix(match) {
           fields,
           {}, // colorFields
           {}, // visibilityFields
-          {}  // imageFields
+          {} // imageFields
         );
 
         if (result.success) {
-          console.log(`[updateCoachData] Данные тренера команды ${team} обновлены:`, fields);
+          console.log(
+            `[updateCoachData] Данные тренера команды ${team} обновлены:`,
+            fields
+          );
         }
 
         return result;
@@ -1047,7 +1229,7 @@ export function useVMix(match) {
    * @returns {Promise<Object>} результат обновления
    */
   const updateReferee1Data = useCallback(
-    async (match, inputKey = 'referee1') => {
+    async (match, inputKey = "referee1") => {
       if (!isVMixReady()) {
         return { success: false, error: "vMix не подключен" };
       }
@@ -1064,7 +1246,7 @@ export function useVMix(match) {
         }
 
         // Получаем имя первого судьи
-        const referee1Name = match.officials?.referee1 || '';
+        const referee1Name = match.officials?.referee1 || "";
 
         if (!referee1Name) {
           return { success: false, error: "Первый судья не указан" };
@@ -1076,15 +1258,19 @@ export function useVMix(match) {
 
         // Находим поля name и position в конфигурации
         if (fieldsConfig.name && fieldsConfig.name.enabled) {
-          fields[fieldsConfig.name.fieldIdentifier || 'Name'] = referee1Name;
+          fields[fieldsConfig.name.fieldIdentifier || "Name"] = referee1Name;
         }
 
         if (fieldsConfig.position && fieldsConfig.position.enabled) {
-          fields[fieldsConfig.position.fieldIdentifier || 'Position'] = 'Первый судья';
+          fields[fieldsConfig.position.fieldIdentifier || "Position"] =
+            "Первый судья";
         }
 
         if (Object.keys(fields).length === 0) {
-          return { success: false, error: "Поля для первого судьи не настроены" };
+          return {
+            success: false,
+            error: "Поля для первого судьи не настроены",
+          };
         }
 
         // Отправляем данные в vMix (всегда forceUpdate для первого судьи, так как это разовое действие)
@@ -1093,11 +1279,14 @@ export function useVMix(match) {
           fields,
           {}, // colorFields
           {}, // visibilityFields
-          {}  // imageFields
+          {} // imageFields
         );
 
         if (result.success) {
-          console.log(`[updateReferee1Data] Данные первого судьи обновлены:`, fields);
+          console.log(
+            `[updateReferee1Data] Данные первого судьи обновлены:`,
+            fields
+          );
         }
 
         return result;
@@ -1116,7 +1305,7 @@ export function useVMix(match) {
    * @returns {Promise<Object>} результат обновления
    */
   const updateReferee2ShowData = useCallback(
-    async (match, inputKey = 'referee1') => {
+    async (match, inputKey = "referee1") => {
       if (!isVMixReady()) {
         return { success: false, error: "vMix не подключен" };
       }
@@ -1133,7 +1322,7 @@ export function useVMix(match) {
         }
 
         // Получаем имя второго судьи
-        const referee2Name = match.officials?.referee2 || '';
+        const referee2Name = match.officials?.referee2 || "";
 
         if (!referee2Name) {
           return { success: false, error: "Второй судья не указан" };
@@ -1145,15 +1334,19 @@ export function useVMix(match) {
 
         // Находим поля name и position в конфигурации
         if (fieldsConfig.name && fieldsConfig.name.enabled) {
-          fields[fieldsConfig.name.fieldIdentifier || 'Name'] = referee2Name;
+          fields[fieldsConfig.name.fieldIdentifier || "Name"] = referee2Name;
         }
 
         if (fieldsConfig.position && fieldsConfig.position.enabled) {
-          fields[fieldsConfig.position.fieldIdentifier || 'Position'] = 'Второй судья';
+          fields[fieldsConfig.position.fieldIdentifier || "Position"] =
+            "Второй судья";
         }
 
         if (Object.keys(fields).length === 0) {
-          return { success: false, error: "Поля для второго судьи не настроены" };
+          return {
+            success: false,
+            error: "Поля для второго судьи не настроены",
+          };
         }
 
         // Отправляем данные в vMix (всегда forceUpdate для второго судьи, так как это разовое действие)
@@ -1162,11 +1355,14 @@ export function useVMix(match) {
           fields,
           {}, // colorFields
           {}, // visibilityFields
-          {}  // imageFields
+          {} // imageFields
         );
 
         if (result.success) {
-          console.log(`[updateReferee2ShowData] Данные второго судьи обновлены:`, fields);
+          console.log(
+            `[updateReferee2ShowData] Данные второго судьи обновлены:`,
+            fields
+          );
         }
 
         return result;
@@ -1194,7 +1390,7 @@ export function useVMix(match) {
       }
 
       try {
-        const inputKey = 'referee2';
+        const inputKey = "referee2";
         const inputConfig = vmixConfigRef.current.inputs?.[inputKey];
         const validation = validateInputConfig(inputConfig);
         if (!validation.valid) {
@@ -1202,8 +1398,8 @@ export function useVMix(match) {
         }
 
         // Получаем имена судей
-        const referee1Name = match.officials?.referee1 || '';
-        const referee2Name = match.officials?.referee2 || '';
+        const referee1Name = match.officials?.referee1 || "";
+        const referee2Name = match.officials?.referee2 || "";
 
         // Форматируем данные для полей
         const fields = {};
@@ -1211,11 +1407,13 @@ export function useVMix(match) {
 
         // Находим поля referee1Name и referee2Name в конфигурации
         if (fieldsConfig.referee1Name && fieldsConfig.referee1Name.enabled) {
-          fields[fieldsConfig.referee1Name.fieldIdentifier || 'Referee1Name'] = referee1Name;
+          fields[fieldsConfig.referee1Name.fieldIdentifier || "Referee1Name"] =
+            referee1Name;
         }
 
         if (fieldsConfig.referee2Name && fieldsConfig.referee2Name.enabled) {
-          fields[fieldsConfig.referee2Name.fieldIdentifier || 'Referee2Name'] = referee2Name;
+          fields[fieldsConfig.referee2Name.fieldIdentifier || "Referee2Name"] =
+            referee2Name;
         }
 
         if (Object.keys(fields).length === 0) {
@@ -1228,7 +1426,7 @@ export function useVMix(match) {
           fields,
           {}, // colorFields
           {}, // visibilityFields
-          {}  // imageFields
+          {} // imageFields
         );
 
         if (result.success) {
@@ -1290,13 +1488,24 @@ export function useVMix(match) {
         }
 
         const fieldIdentifier = fieldConfig.fieldIdentifier;
-        let value = getRosterFieldValue(fieldKey, match, teamKey, roster, logoBaseUrl);
+        let value = getRosterFieldValue(
+          fieldKey,
+          match,
+          teamKey,
+          roster,
+          logoBaseUrl
+        );
         const isLogoField = fieldKey === "teamLogo";
 
         // Если это поле логотипа и forceUpdate=true, добавляем timestamp к URL
         // чтобы заставить vMix перезагрузить изображение
-        if (isLogoField && fieldConfig.type === FIELD_TYPES.IMAGE && value && forceUpdate) {
-          const separator = value.includes('?') ? '&' : '?';
+        if (
+          isLogoField &&
+          fieldConfig.type === FIELD_TYPES.IMAGE &&
+          value &&
+          forceUpdate
+        ) {
+          const separator = value.includes("?") ? "&" : "?";
           value = `${value}${separator}t=${Date.now()}`;
         }
 
@@ -1325,6 +1534,416 @@ export function useVMix(match) {
   );
 
   /**
+   * Получает стартовый состав команды с учетом порядка из startingLineupOrder
+   * @param {Object} team - данные команды
+   * @returns {Array} - массив игроков стартового состава (максимум 8)
+   */
+  const getStartingLineup = useCallback((team) => {
+    const teamRoster = team?.roster || [];
+    const starters = teamRoster.filter((p) => p.isStarter);
+
+    // Если есть сохраненный порядок, используем его
+    if (
+      team.startingLineupOrder &&
+      Array.isArray(team.startingLineupOrder) &&
+      team.startingLineupOrder.length > 0
+    ) {
+      // startingLineupOrder содержит индексы игроков из roster в порядке стартового состава
+      const orderedStarters = team.startingLineupOrder
+        .map((index) => teamRoster[index])
+        .filter((player) => player && player.isStarter); // Фильтруем только стартовых
+
+      // Добавляем стартовых игроков, которых нет в startingLineupOrder (на случай добавления новых)
+      starters.forEach((player) => {
+        const rosterIndex = teamRoster.findIndex(
+          (p) =>
+            p.number === player.number &&
+            p.name === player.name &&
+            p.isStarter === true
+        );
+        if (
+          rosterIndex !== -1 &&
+          !team.startingLineupOrder.includes(rosterIndex)
+        ) {
+          orderedStarters.push(player);
+        }
+      });
+
+      // Возвращаем первые 8 игроков
+      return orderedStarters.slice(0, 8);
+    }
+
+    // Если порядка нет, возвращаем стартовых игроков в порядке их появления в roster
+    // Возвращаем первые 8 игроков
+    return starters.slice(0, 8);
+  }, []);
+
+  /**
+   * Получает значение поля для стартового состава
+   * @param {string} fieldKey - ключ поля
+   * @param {Object} match - данные матча
+   * @param {string} teamKey - 'A' или 'B'
+   * @param {Array} startingLineup - массив игроков стартового состава
+   * @param {string} logoBaseUrl - базовый URL для логотипов
+   * @returns {string} - значение поля
+   */
+  const getStartingLineupFieldValue = useCallback(
+    (fieldKey, match, teamKey, startingLineup, logoBaseUrl) => {
+      const team = teamKey === "A" ? match.teamA : match.teamB;
+      const logoFileName = teamKey === "A" ? "logo_a.png" : "logo_b.png";
+
+      // Общие поля (из матча) - совпадают с полными составами
+      if (fieldKey === "title") {
+        return match.tournament || "";
+      }
+      if (fieldKey === "subtitle") {
+        return match.tournamentSubtitle || "";
+      }
+
+      // Поля команды - совпадают с полными составами
+      if (fieldKey === "teamName") {
+        return team?.name || "";
+      }
+      if (fieldKey === "teamCity") {
+        return team?.city || "";
+      }
+      if (fieldKey === "teamLogo") {
+        return logoBaseUrl && team?.logo
+          ? `${logoBaseUrl}/logos/${logoFileName}`
+          : "";
+      }
+
+      // Поля игроков (player1Number, player1Name, ... player8Number, player8Name)
+      // Берем из стартового состава
+      const playerMatch = fieldKey.match(/^player(\d+)(Number|Name)$/);
+      if (playerMatch) {
+        const playerIndex = parseInt(playerMatch[1]) - 1; // Индекс в массиве (0-based)
+        const fieldType = playerMatch[2]; // "Number" или "Name"
+
+        if (
+          !startingLineup ||
+          !Array.isArray(startingLineup) ||
+          playerIndex >= startingLineup.length
+        ) {
+          // Если игрока нет, возвращаем пустую строку
+          return "";
+        }
+
+        const player = startingLineup[playerIndex];
+        if (!player) {
+          return "";
+        }
+
+        if (fieldType === "Number") {
+          return player.number ? String(player.number) : "";
+        }
+        if (fieldType === "Name") {
+          return player.name || "";
+        }
+      }
+
+      // Поля либеро (libero1Number, libero1Name, libero2Number, libero2Name)
+      // Берем из всего состава команды, фильтруя по позиции "Либеро"
+      const liberoMatch = fieldKey.match(/^libero(\d+)(Number|Name)$/);
+      if (liberoMatch) {
+        const liberoIndex = parseInt(liberoMatch[1]) - 1; // Индекс либеро (0-based)
+        const fieldType = liberoMatch[2]; // "Number" или "Name"
+
+        // Находим всех либеро из состава команды
+        const teamRoster = team?.roster || [];
+        const liberos = teamRoster.filter(
+          (player) => player.position === "Либеро"
+        );
+
+        if (!liberos || liberos.length === 0 || liberoIndex >= liberos.length) {
+          // Если либеро нет, возвращаем пустую строку
+          return "";
+        }
+
+        const libero = liberos[liberoIndex];
+        if (!libero) {
+          return "";
+        }
+
+        if (fieldType === "Number") {
+          return libero.number ? String(libero.number) : "";
+        }
+        if (fieldType === "Name") {
+          return libero.name || "";
+        }
+      }
+
+      return "";
+    },
+    []
+  );
+
+  /**
+   * Форматирует данные стартового состава для vMix в виде объекта полей
+   * @param {Object} match - данные матча
+   * @param {string} teamKey - 'A' или 'B'
+   * @param {boolean} forceUpdate - принудительное обновление (добавляет timestamp к URL логотипов)
+   * @returns {Object} - объект с полями { fields, imageFields }
+   */
+  const formatStartingLineupData = useCallback(
+    async (match, teamKey, forceUpdate = false) => {
+      if (!match) return { fields: {}, imageFields: {} };
+
+      const inputKey =
+        teamKey === "A" ? "startingLineupTeamA" : "startingLineupTeamB";
+      const inputConfig = vmixConfigRef.current?.inputs?.[inputKey];
+      if (!inputConfig?.fields) {
+        return { fields: {}, imageFields: {} };
+      }
+
+      const team = teamKey === "A" ? match.teamA : match.teamB;
+      const startingLineup = getStartingLineup(team);
+
+      const fields = {};
+      const imageFields = {};
+
+      // Получаем информацию о мобильном сервере для формирования URL логотипов
+      let logoBaseUrl = null;
+      if (window.electronAPI) {
+        try {
+          const serverInfo = await window.electronAPI.getMobileServerInfo();
+          if (serverInfo?.ip && serverInfo?.port) {
+            logoBaseUrl = `http://${serverInfo.ip}:${serverInfo.port}`;
+          }
+        } catch (error) {
+          console.error(
+            "Не удалось получить информацию о мобильном сервере для логотипов:",
+            error
+          );
+        }
+      }
+
+      // Проходим по всем полям конфигурации и формируем значения
+      Object.entries(inputConfig.fields).forEach(([fieldKey, fieldConfig]) => {
+        if (fieldConfig.enabled === false || !fieldConfig.fieldIdentifier) {
+          return;
+        }
+
+        const fieldIdentifier = fieldConfig.fieldIdentifier;
+        let value = getStartingLineupFieldValue(
+          fieldKey,
+          match,
+          teamKey,
+          startingLineup,
+          logoBaseUrl
+        );
+        const isLogoField = fieldKey === "teamLogo";
+
+        // Если это поле логотипа и forceUpdate=true, добавляем timestamp к URL
+        // чтобы заставить vMix перезагрузить изображение
+        if (
+          isLogoField &&
+          fieldConfig.type === FIELD_TYPES.IMAGE &&
+          value &&
+          forceUpdate
+        ) {
+          const separator = value.includes("?") ? "&" : "?";
+          value = `${value}${separator}t=${Date.now()}`;
+        }
+
+        // Разделяем поля по типам
+        if (fieldConfig.type === FIELD_TYPES.IMAGE) {
+          if (value !== "") {
+            imageFields[fieldIdentifier] = value;
+          }
+        } else if (fieldConfig.type === FIELD_TYPES.TEXT) {
+          // Для текстовых полей отправляем значение, даже если оно пустое
+          fields[fieldIdentifier] = value;
+
+          if (isLogoField) {
+            console.warn(
+              `[formatStartingLineupData] Поле ${fieldKey} имеет тип "text" вместо "image"!`,
+              { fieldKey, fieldIdentifier, type: fieldConfig.type, value }
+            );
+          }
+        }
+      });
+
+      return { fields, imageFields };
+    },
+    [getStartingLineup, getStartingLineupFieldValue]
+  );
+
+  /**
+   * Обновляет инпут стартового состава команды А в vMix
+   * @param {Object} match - данные матча
+   * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
+   */
+  const updateStartingLineupTeamAInput = useCallback(
+    async (match, forceUpdate = false) => {
+      if (!isVMixReady()) {
+        return { success: false, error: "vMix не подключен" };
+      }
+
+      try {
+        const inputConfig = vmixConfigRef.current.inputs?.startingLineupTeamA;
+        const validation = validateInputConfig(inputConfig);
+        if (!validation.valid) {
+          return { success: false, error: validation.error };
+        }
+
+        const { fields, imageFields } = await formatStartingLineupData(
+          match,
+          "A",
+          forceUpdate
+        );
+
+        // Фильтруем только измененные поля, если не forceUpdate
+        let fieldsToSend = fields;
+        let imageFieldsToSend = imageFields;
+
+        if (!forceUpdate) {
+          const lastSent = lastSentValuesRef.current.startingLineupTeamA;
+          fieldsToSend = filterChangedFields(fields, lastSent.fields);
+          imageFieldsToSend = filterChangedImageFields(
+            imageFields,
+            lastSent.imageFields
+          );
+        }
+
+        const hasFields =
+          Object.keys(fieldsToSend).length > 0 ||
+          Object.keys(imageFieldsToSend).length > 0;
+
+        if (!hasFields) {
+          return {
+            success: true,
+            skipped: true,
+            message: "Нет измененных полей для обновления",
+          };
+        }
+
+        const result = await window.electronAPI.updateVMixInputFields(
+          validation.inputIdentifier,
+          fieldsToSend,
+          {},
+          {},
+          imageFieldsToSend
+        );
+
+        // Обновляем кэш только при успешной отправке
+        if (result.success) {
+          updateLastSentValues(
+            "startingLineupTeamA",
+            fieldsToSend,
+            {},
+            {},
+            imageFieldsToSend
+          );
+        }
+
+        return result;
+      } catch (error) {
+        console.error(
+          "Ошибка при обновлении стартового состава команды А:",
+          error
+        );
+        return { success: false, error: error.message };
+      }
+    },
+    [
+      isVMixReady,
+      validateInputConfig,
+      formatStartingLineupData,
+      filterChangedFields,
+      filterChangedImageFields,
+      updateLastSentValues,
+    ]
+  );
+
+  /**
+   * Обновляет инпут стартового состава команды Б в vMix
+   * @param {Object} match - данные матча
+   * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
+   */
+  const updateStartingLineupTeamBInput = useCallback(
+    async (match, forceUpdate = false) => {
+      if (!isVMixReady()) {
+        return { success: false, error: "vMix не подключен" };
+      }
+
+      try {
+        const inputConfig = vmixConfigRef.current.inputs?.startingLineupTeamB;
+        const validation = validateInputConfig(inputConfig);
+        if (!validation.valid) {
+          return { success: false, error: validation.error };
+        }
+
+        const { fields, imageFields } = await formatStartingLineupData(
+          match,
+          "B",
+          forceUpdate
+        );
+
+        // Фильтруем только измененные поля, если не forceUpdate
+        let fieldsToSend = fields;
+        let imageFieldsToSend = imageFields;
+
+        if (!forceUpdate) {
+          const lastSent = lastSentValuesRef.current.startingLineupTeamB;
+          fieldsToSend = filterChangedFields(fields, lastSent.fields);
+          imageFieldsToSend = filterChangedImageFields(
+            imageFields,
+            lastSent.imageFields
+          );
+        }
+
+        const hasFields =
+          Object.keys(fieldsToSend).length > 0 ||
+          Object.keys(imageFieldsToSend).length > 0;
+
+        if (!hasFields) {
+          return {
+            success: true,
+            skipped: true,
+            message: "Нет измененных полей для обновления",
+          };
+        }
+
+        const result = await window.electronAPI.updateVMixInputFields(
+          validation.inputIdentifier,
+          fieldsToSend,
+          {},
+          {},
+          imageFieldsToSend
+        );
+
+        // Обновляем кэш только при успешной отправке
+        if (result.success) {
+          updateLastSentValues(
+            "startingLineupTeamB",
+            fieldsToSend,
+            {},
+            {},
+            imageFieldsToSend
+          );
+        }
+
+        return result;
+      } catch (error) {
+        console.error(
+          "Ошибка при обновлении стартового состава команды Б:",
+          error
+        );
+        return { success: false, error: error.message };
+      }
+    },
+    [
+      isVMixReady,
+      validateInputConfig,
+      formatStartingLineupData,
+      filterChangedFields,
+      filterChangedImageFields,
+      updateLastSentValues,
+    ]
+  );
+
+  /**
    * Обновляет инпут состава команды А в vMix
    * @param {Object} match - данные матча
    * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
@@ -1342,7 +1961,11 @@ export function useVMix(match) {
           return { success: false, error: validation.error };
         }
 
-        const { fields, imageFields } = await formatRosterData(match, "A", forceUpdate);
+        const { fields, imageFields } = await formatRosterData(
+          match,
+          "A",
+          forceUpdate
+        );
 
         // Фильтруем только измененные поля, если не forceUpdate
         let fieldsToSend = fields;
@@ -1351,14 +1974,22 @@ export function useVMix(match) {
         if (!forceUpdate) {
           const lastSent = lastSentValuesRef.current.rosterTeamA;
           fieldsToSend = filterChangedFields(fields, lastSent.fields);
-          imageFieldsToSend = filterChangedImageFields(imageFields, lastSent.imageFields);
+          imageFieldsToSend = filterChangedImageFields(
+            imageFields,
+            lastSent.imageFields
+          );
         }
 
         const hasFields =
-          Object.keys(fieldsToSend).length > 0 || Object.keys(imageFieldsToSend).length > 0;
+          Object.keys(fieldsToSend).length > 0 ||
+          Object.keys(imageFieldsToSend).length > 0;
 
         if (!hasFields) {
-          return { success: true, skipped: true, message: "Нет измененных полей для обновления" };
+          return {
+            success: true,
+            skipped: true,
+            message: "Нет измененных полей для обновления",
+          };
         }
 
         const result = await window.electronAPI.updateVMixInputFields(
@@ -1371,7 +2002,13 @@ export function useVMix(match) {
 
         // Обновляем кэш только при успешной отправке
         if (result.success) {
-          updateLastSentValues('rosterTeamA', fieldsToSend, {}, {}, imageFieldsToSend);
+          updateLastSentValues(
+            "rosterTeamA",
+            fieldsToSend,
+            {},
+            {},
+            imageFieldsToSend
+          );
         }
 
         return result;
@@ -1380,7 +2017,14 @@ export function useVMix(match) {
         return { success: false, error: error.message };
       }
     },
-    [isVMixReady, validateInputConfig, formatRosterData, filterChangedFields, filterChangedImageFields, updateLastSentValues]
+    [
+      isVMixReady,
+      validateInputConfig,
+      formatRosterData,
+      filterChangedFields,
+      filterChangedImageFields,
+      updateLastSentValues,
+    ]
   );
 
   /**
@@ -1401,7 +2045,11 @@ export function useVMix(match) {
           return { success: false, error: validation.error };
         }
 
-        const { fields, imageFields } = await formatRosterData(match, "B", forceUpdate);
+        const { fields, imageFields } = await formatRosterData(
+          match,
+          "B",
+          forceUpdate
+        );
 
         // Фильтруем только измененные поля, если не forceUpdate
         let fieldsToSend = fields;
@@ -1410,14 +2058,22 @@ export function useVMix(match) {
         if (!forceUpdate) {
           const lastSent = lastSentValuesRef.current.rosterTeamB;
           fieldsToSend = filterChangedFields(fields, lastSent.fields);
-          imageFieldsToSend = filterChangedImageFields(imageFields, lastSent.imageFields);
+          imageFieldsToSend = filterChangedImageFields(
+            imageFields,
+            lastSent.imageFields
+          );
         }
 
         const hasFields =
-          Object.keys(fieldsToSend).length > 0 || Object.keys(imageFieldsToSend).length > 0;
+          Object.keys(fieldsToSend).length > 0 ||
+          Object.keys(imageFieldsToSend).length > 0;
 
         if (!hasFields) {
-          return { success: true, skipped: true, message: "Нет измененных полей для обновления" };
+          return {
+            success: true,
+            skipped: true,
+            message: "Нет измененных полей для обновления",
+          };
         }
 
         const result = await window.electronAPI.updateVMixInputFields(
@@ -1430,7 +2086,13 @@ export function useVMix(match) {
 
         // Обновляем кэш только при успешной отправке
         if (result.success) {
-          updateLastSentValues('rosterTeamB', fieldsToSend, {}, {}, imageFieldsToSend);
+          updateLastSentValues(
+            "rosterTeamB",
+            fieldsToSend,
+            {},
+            {},
+            imageFieldsToSend
+          );
         }
 
         return result;
@@ -1439,43 +2101,64 @@ export function useVMix(match) {
         return { success: false, error: error.message };
       }
     },
-    [isVMixReady, validateInputConfig, formatRosterData, filterChangedFields, filterChangedImageFields, updateLastSentValues]
+    [
+      isVMixReady,
+      validateInputConfig,
+      formatRosterData,
+      filterChangedFields,
+      filterChangedImageFields,
+      updateLastSentValues,
+    ]
   );
 
   // Инициализируем debounced функцию для обновления данных
   useEffect(() => {
-    updateMatchDataDebouncedRef.current = debounce(async (matchData, forceUpdate = false) => {
-      const currentConfig = vmixConfigRef.current;
-      const currentStatus = connectionStatusRef.current;
+    updateMatchDataDebouncedRef.current = debounce(
+      async (matchData, forceUpdate = false) => {
+        const currentConfig = vmixConfigRef.current;
+        const currentStatus = connectionStatusRef.current;
 
-      if (!currentConfig || !currentStatus.connected || !matchData) {
-        return;
-      }
-
-      try {
-        await updateCurrentScoreInput(matchData, forceUpdate);
-        await updateLineupInput(matchData, forceUpdate);
-        
-        // Обновляем составы команд
-        await updateRosterTeamAInput(matchData, forceUpdate);
-        await updateRosterTeamBInput(matchData, forceUpdate);
-
-        // Обновляем счет по партиям
-        matchData.sets?.forEach((set) => {
-          if (set.completed) {
-            // TODO: Реализовать для set scores позже
-          }
-        });
-
-        // Обновляем статистику, если включена
-        if (matchData.statistics?.enabled) {
-          // TODO: Реализовать для statistics позже
+        if (!currentConfig || !currentStatus.connected || !matchData) {
+          return;
         }
-      } catch (error) {
-        console.error("Ошибка при обновлении данных в vMix:", error);
-      }
-    }, DEBOUNCE_DELAY);
-  }, [updateCurrentScoreInput, updateLineupInput, updateRosterTeamAInput, updateRosterTeamBInput]);
+
+        try {
+          await updateCurrentScoreInput(matchData, forceUpdate);
+          await updateLineupInput(matchData, forceUpdate);
+
+          // Обновляем составы команд
+          await updateRosterTeamAInput(matchData, forceUpdate);
+          await updateRosterTeamBInput(matchData, forceUpdate);
+
+          // Обновляем стартовые составы команд
+          await updateStartingLineupTeamAInput(matchData, forceUpdate);
+          await updateStartingLineupTeamBInput(matchData, forceUpdate);
+
+          // Обновляем счет по партиям
+          matchData.sets?.forEach((set) => {
+            if (set.completed) {
+              // TODO: Реализовать для set scores позже
+            }
+          });
+
+          // Обновляем статистику, если включена
+          if (matchData.statistics?.enabled) {
+            // TODO: Реализовать для statistics позже
+          }
+        } catch (error) {
+          console.error("Ошибка при обновлении данных в vMix:", error);
+        }
+      },
+      DEBOUNCE_DELAY
+    );
+  }, [
+    updateCurrentScoreInput,
+    updateLineupInput,
+    updateRosterTeamAInput,
+    updateRosterTeamBInput,
+    updateStartingLineupTeamAInput,
+    updateStartingLineupTeamBInput,
+  ]);
 
   /**
    * Форматирует данные счета партии для vMix
@@ -1518,12 +2201,16 @@ export function useVMix(match) {
    */
   const findInputInMap = useCallback(
     (inputIdentifier) => {
-      if (!inputIdentifier || !inputsMap || Object.keys(inputsMap).length === 0) {
+      if (
+        !inputIdentifier ||
+        !inputsMap ||
+        Object.keys(inputsMap).length === 0
+      ) {
         return null;
       }
 
       const trimmed = inputIdentifier.trim();
-      
+
       // 1. Если это число (порядковый номер) - ищем напрямую
       if (/^\d+$/.test(trimmed)) {
         const inputData = inputsMap[trimmed];
@@ -1541,7 +2228,10 @@ export function useVMix(match) {
 
       // 2. Если это ID инпута (key) - ищем по key
       for (const [number, inputData] of Object.entries(inputsMap)) {
-        if (inputData.key && inputData.key.toLowerCase() === trimmed.toLowerCase()) {
+        if (
+          inputData.key &&
+          inputData.key.toLowerCase() === trimmed.toLowerCase()
+        ) {
           return {
             number: inputData.number,
             key: inputData.key,
@@ -1666,14 +2356,15 @@ export function useVMix(match) {
           // vMix API вернул номер инпута в оверлее
           // Найдем инпут с этим номером в inputsMap
           const overlayInputData = inputsMap && inputsMap[overlayInputValue];
-          
+
           if (overlayInputData) {
             // Теперь найдем инпут из конфига в inputsMap
             const configInputData = findInputInMap(trimmedIdentifier);
-            
+
             if (configInputData) {
               // Сравниваем номера инпутов - если они совпадают, это один и тот же инпут
-              isInputActive = configInputData.number === overlayInputData.number;
+              isInputActive =
+                configInputData.number === overlayInputData.number;
             }
           }
         } else {
@@ -1701,26 +2392,33 @@ export function useVMix(match) {
       if (buttonKey !== null) {
         // Для кнопок, использующих один инпут, проверяем активную кнопку
         let activeButton = activeButtonRef.current[inputKey];
-        
+
         // Если активная кнопка имеет специальное значение '__EXTERNAL__',
         // значит инпут был активирован через vMix напрямую
         // В этом случае устанавливаем текущую кнопку как активную при первом вызове
         // Используем атомарную проверку для предотвращения гонки условий
-        if (activeButton === '__EXTERNAL__') {
+        if (activeButton === "__EXTERNAL__") {
           // Атомарно устанавливаем buttonKey как активную кнопку только если она еще '__EXTERNAL__'
           activeButtonRef.current[inputKey] = buttonKey;
           activeButton = buttonKey;
         }
-        
+
         // Если активная кнопка не установлена (undefined или null), но инпут активен в vMix,
         // значит это первый раз, когда мы проверяем этот инпут после активации через vMix
         // Устанавливаем текущую кнопку как активную
         // Это может произойти, если updateOverlayStates еще не успел установить '__EXTERNAL__'
-        if ((activeButton === undefined || activeButton === null) && isInputActive) {
+        if (
+          (activeButton === undefined || activeButton === null) &&
+          isInputActive
+        ) {
           // Двойная проверка для атомарности (избегаем гонки условий)
           // Если между проверками другая кнопка установилась, используем её
           const currentActive = activeButtonRef.current[inputKey];
-          if (currentActive === undefined || currentActive === null || currentActive === '__EXTERNAL__') {
+          if (
+            currentActive === undefined ||
+            currentActive === null ||
+            currentActive === "__EXTERNAL__"
+          ) {
             activeButtonRef.current[inputKey] = buttonKey;
             activeButton = buttonKey;
           } else {
@@ -1728,15 +2426,19 @@ export function useVMix(match) {
             activeButton = currentActive;
           }
         }
-        
+
         // Обновляем локальную переменную после возможных изменений
         activeButton = activeButtonRef.current[inputKey];
-        
+
         // Если активная кнопка все еще не установлена или имеет маркер внешней активации, возвращаем false
-        if (activeButton === undefined || activeButton === null || activeButton === '__EXTERNAL__') {
+        if (
+          activeButton === undefined ||
+          activeButton === null ||
+          activeButton === "__EXTERNAL__"
+        ) {
           return false;
         }
-        
+
         return activeButton === buttonKey;
       }
 

@@ -8,6 +8,7 @@ const vmixConfig = require('./vmix-config');
 const { getMobileServer } = require('./server');
 const settingsManager = require('./settingsManager');
 const logoManager = require('./logoManager');
+const errorHandler = require('../shared/errorHandler');
 
 let mainWindow;
 let currentMatch = null;
@@ -486,7 +487,6 @@ ipcMain.handle('match:create', async () => {
     return await fileManager.createMatch();
   } catch (error) {
     console.error('Error creating match:', error);
-    const errorHandler = require('../shared/errorHandler');
     const friendlyError = errorHandler.handleError(error, 'match:create');
     throw new Error(friendlyError);
   }

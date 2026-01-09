@@ -15,6 +15,7 @@ export interface Team {
   logo?: string; // base64 или путь к файлу
   coach?: string;
   roster?: Player[];
+  startingLineupOrder?: number[]; // Индексы игроков из roster в порядке стартового состава
 }
 
 export interface Officials {

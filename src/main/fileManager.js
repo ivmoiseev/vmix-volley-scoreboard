@@ -86,9 +86,35 @@ async function openMatchDialog() {
 async function openMatch(filePath) {
   try {
     const data = await fs.readFile(filePath, 'utf-8');
-    const match = JSON.parse(data);
+    let match;
+    
+    try {
+      match = JSON.parse(data);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      throw new Error('Ошибка чтения JSON файла. Файл поврежден или имеет неверный формат.');
+    }
+
+    // Миграция: заменяем позицию "Другое" на "Не указано" в рострах команд
+    if (match.teamA && Array.isArray(match.teamA.roster)) {
+      match.teamA.roster = match.teamA.roster.map(player => {
+        if (player.position === 'Другое') {
+          return { ...player, position: 'Не указано' };
+        }
+        return player;
+      });
+    }
+    if (match.teamB && Array.isArray(match.teamB.roster)) {
+      match.teamB.roster = match.teamB.roster.map(player => {
+        if (player.position === 'Другое') {
+          return { ...player, position: 'Не указано' };
+        }
+        return player;
+      });
+    }
 
     if (!validateMatch(match)) {
+      console.error('Validation failed for match:', match);
       throw new Error('Файл содержит некорректные данные матча');
     }
 
@@ -99,14 +125,18 @@ async function openMatch(filePath) {
 
     return matchToLoad;
   } catch (error) {
-    const friendlyError = errorHandler.handleError(error, 'openMatch');
     if (error.code === 'ENOENT') {
       throw new Error('Файл не найден');
     }
-    if (error instanceof SyntaxError) {
+    if (error instanceof SyntaxError || error.message.includes('JSON')) {
       throw new Error('Ошибка чтения JSON файла. Файл поврежден или имеет неверный формат.');
     }
-    throw new Error(friendlyError);
+    // Если ошибка уже имеет понятное сообщение, используем его
+    if (error.message && error.message !== 'Файл содержит некорректные данные матча') {
+      const friendlyError = errorHandler.handleError(error, 'openMatch');
+      throw new Error(friendlyError);
+    }
+    throw error;
   }
 }
 
