@@ -7,16 +7,55 @@ function MobileAccessPage() {
   const [sessionData, setSessionData] = useState(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [networkInterfaces, setNetworkInterfaces] = useState([]);
+  const [selectedIP, setSelectedIP] = useState(null);
+  const [savingIP, setSavingIP] = useState(false);
   const sessionLoadedRef = useRef(false);
 
   useEffect(() => {
     loadServerInfo();
+    loadNetworkInterfaces();
     // Обновляем информацию о сервере каждые 2 секунды
     const interval = setInterval(() => {
       loadServerInfo();
     }, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  // Загружаем выбранный IP из настроек при изменении serverInfo
+  useEffect(() => {
+    if (serverInfo && serverInfo.selectedIP !== undefined) {
+      setSelectedIP(serverInfo.selectedIP);
+    } else if (serverInfo && serverInfo.ip) {
+      // Если нет сохраненного выбранного IP, используем текущий IP
+      setSelectedIP(serverInfo.ip);
+    }
+  }, [serverInfo]);
+
+  // Проверяем, что выбранный IP есть в списке интерфейсов при загрузке списка
+  useEffect(() => {
+    const isServerRunning = serverInfo && serverInfo.running !== false;
+    
+    if (networkInterfaces.length > 0 && selectedIP) {
+      const found = networkInterfaces.find(iface => iface.ip === selectedIP);
+      if (!found) {
+        // Если выбранный IP не найден в списке, показываем предупреждение
+        // и выбираем первый доступный в выпадающем списке (без автоматического сохранения)
+        console.warn('Выбранный IP не найден в списке интерфейсов');
+        const firstInterface = networkInterfaces.find(iface => !iface.isVpn) || networkInterfaces[0];
+        if (firstInterface && !isServerRunning) {
+          // Только если сервер не запущен, обновляем выбор в UI
+          setSelectedIP(firstInterface.ip);
+        }
+      }
+    } else if (networkInterfaces.length > 0 && !selectedIP && !isServerRunning) {
+      // Если нет выбранного IP и сервер не запущен, выбираем первый доступный (не VPN)
+      const firstInterface = networkInterfaces.find(iface => !iface.isVpn) || networkInterfaces[0];
+      if (firstInterface) {
+        setSelectedIP(firstInterface.ip);
+      }
+    }
+  }, [networkInterfaces, selectedIP, serverInfo]);
 
   // Загружаем сохраненную сессию при изменении состояния сервера
   useEffect(() => {
@@ -32,8 +71,58 @@ function MobileAccessPage() {
       }
       const info = await window.electronAPI.getMobileServerInfo();
       setServerInfo(info);
+      // Если есть выбранный IP в настройках, обновляем состояние
+      if (info && info.selectedIP !== undefined) {
+        setSelectedIP(info.selectedIP);
+      }
     } catch (error) {
       console.error('Ошибка при загрузке информации о сервере:', error);
+    }
+  };
+
+  const loadNetworkInterfaces = async () => {
+    try {
+      if (!window.electronAPI) {
+        return;
+      }
+      const result = await window.electronAPI.getNetworkInterfaces();
+      if (result.success && result.interfaces) {
+        setNetworkInterfaces(result.interfaces);
+      }
+    } catch (error) {
+      console.error('Ошибка при загрузке сетевых интерфейсов:', error);
+    }
+  };
+
+  const handleSelectIP = async (ip) => {
+    setSelectedIP(ip);
+    setSavingIP(true);
+    try {
+      if (!window.electronAPI) {
+        alert('Electron API недоступен');
+        return;
+      }
+      const result = await window.electronAPI.setSelectedIP(ip);
+      if (result.success) {
+        console.log('Выбранный IP сохранен:', ip);
+        // Обновляем информацию о сервере, чтобы показать новый IP
+        await loadServerInfo();
+      } else {
+        alert('Не удалось сохранить выбранный IP: ' + (result.error || 'Неизвестная ошибка'));
+        // Возвращаем предыдущее значение при ошибке
+        if (serverInfo && serverInfo.selectedIP) {
+          setSelectedIP(serverInfo.selectedIP);
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка при сохранении выбранного IP:', error);
+      alert('Ошибка при сохранении выбранного IP: ' + error.message);
+      // Возвращаем предыдущее значение при ошибке
+      if (serverInfo && serverInfo.selectedIP) {
+        setSelectedIP(serverInfo.selectedIP);
+      }
+    } finally {
+      setSavingIP(false);
     }
   };
 
@@ -206,6 +295,49 @@ function MobileAccessPage() {
           <span style={{ fontWeight: 'bold' }}>
             {isServerRunning ? 'Запущен' : 'Остановлен'}
           </span>
+        </div>
+
+        {/* Выбор сетевого интерфейса */}
+        <div style={{ marginTop: '1rem', marginBottom: '1rem' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '0.5rem',
+            fontWeight: 'bold',
+          }}>
+            Сетевой интерфейс:
+          </label>
+          <select
+            value={selectedIP || ''}
+            onChange={(e) => handleSelectIP(e.target.value)}
+            disabled={savingIP || isServerRunning}
+            style={{
+              width: '100%',
+              maxWidth: '400px',
+              padding: '0.5rem',
+              fontSize: '1rem',
+              border: '1px solid #bdc3c7',
+              borderRadius: '4px',
+              backgroundColor: savingIP || isServerRunning ? '#ecf0f1' : 'white',
+              cursor: savingIP || isServerRunning ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {networkInterfaces.length > 0 ? (
+              networkInterfaces.map((iface, index) => (
+                <option key={index} value={iface.ip}>
+                  {iface.name} {iface.isVpn ? '(VPN)' : ''} {iface.isPrivate ? '' : '(публичный)'}
+                </option>
+              ))
+            ) : (
+              <option value="">Загрузка интерфейсов...</option>
+            )}
+          </select>
+          <div style={{
+            marginTop: '0.5rem',
+            fontSize: '0.85rem',
+            color: '#7f8c8d',
+          }}>
+            {savingIP ? 'Сохранение...' : isServerRunning ? 'Остановите сервер для изменения интерфейса' : 'Выберите сетевой интерфейс для мобильного сервера'}
+          </div>
         </div>
 
         {isServerRunning && serverInfo && (
@@ -403,12 +535,22 @@ function MobileAccessPage() {
       }}>
         <h4 style={{ marginTop: 0 }}>Инструкция:</h4>
         <ol style={{ margin: 0, paddingLeft: '1.5rem' }}>
+          <li><strong>Выберите сетевой интерфейс</strong> в выпадающем списке выше (интерфейс должен быть в той же подсети, что и vMix)</li>
           <li>Запустите сервер, нажав кнопку "Запустить сервер"</li>
           <li>Сгенерируйте уникальную ссылку для доступа</li>
           <li>Скопируйте ссылку или отсканируйте QR-код с мобильного устройства</li>
           <li>Откройте ссылку в браузере мобильного устройства</li>
-          <li>Убедитесь, что мобильное устройство подключено к той же Wi-Fi сети</li>
+          <li>Убедитесь, что мобильное устройство подключено к той же сети, что и выбранный интерфейс</li>
         </ol>
+        <div style={{
+          marginTop: '1rem',
+          padding: '0.75rem',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '4px',
+          fontSize: '0.9rem',
+        }}>
+          <strong>Важно:</strong> Если вы изменили сетевой интерфейс, необходимо остановить и заново запустить сервер для применения изменений.
+        </div>
       </div>
 
       {/* Кнопка возврата */}

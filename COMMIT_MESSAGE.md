@@ -1,9 +1,35 @@
 # Текст коммита
 
 ```
-Исправлена работа приложения в production режиме и улучшена сборка Electron
+Исправлена передача логотипов в vMix и добавлен выбор сетевого интерфейса
 
 Основные изменения:
+
+1. Исправлена передача логотипов в vMix через API команды:
+   - Исправлена проверка наличия логотипов: теперь проверяются logo, logoPath и logoBase64
+   - Исправлено формирование URL для логотипов в getLineupFieldValue, getRosterFieldValue и getStartingLineupFieldValue
+   - Исправлен двойной путь /logos/logos/ в функциях для составов команд
+   - Исправлена функция processTeamLogoForSave: теперь проверяет и logo, и logoBase64
+   - Логотипы теперь корректно передаются в vMix через команду SetImage во всех случаях
+
+2. Исправлена работа логотипов в production режиме:
+   - Логотипы теперь сохраняются в userData/logos/ вместо extraResources/logos/ (доступно для записи)
+   - Добавлена автоматическая миграция логотипов из extraResources в userData при первом запуске в production
+   - Сервер мобильного доступа обслуживает логотипы из userData/logos/ в production режиме
+   - Исправлены пути к логотипам для корректной работы с Electron app.getPath('userData')
+   - Добавлена обработка ошибок при определении путей в случае, если app еще не готов
+
+3. Добавлен выбор сетевого интерфейса для мобильного сервера:
+   - Добавлена функция getNetworkInterfaces() для получения списка всех доступных сетевых интерфейсов
+   - Добавлен выпадающий список выбора сетевого интерфейса на странице "Мобильный доступ"
+   - Выбранный сетевой интерфейс сохраняется в настройках мобильного сервера (mobile.selectedIP)
+   - Мобильный сервер использует выбранный IP адрес вместо автоматического определения
+   - Решена проблема, когда сервер запускался в другой подсети, чем vMix (например, 10.x.x.x vs 192.168.144.x)
+   - Добавлены IPC handlers: mobile:get-network-interfaces и mobile:set-selected-ip
+   - Выбор интерфейса блокируется при запущенном сервере (требуется перезапуск для применения изменений)
+   - Обновлены инструкции на странице мобильного доступа с информацией о выборе интерфейса
+
+Предыдущие изменения:
 
 1. Исправлена работа приложения после компиляции:
    - Исправлены все пути к файлам для корректной работы с ASAR архивом в Electron
@@ -58,15 +84,18 @@
 - DevTools регистрируются через globalShortcut и автоматически отменяются при выходе
 
 Затронутые файлы:
-- src/main/main.js - исправлены пути к dist/index.html, preload.js, иконкам; добавлены DevTools горячие клавиши и меню; улучшено логирование
-- src/main/logoManager.js - обновлена функция getLogosDir() для использования process.resourcesPath в production
-- src/main/fileManager.js - обновлена функция getMatchesDir() для использования process.resourcesPath в production
-- src/main/server.js - исправлен путь к logos для мобильного сервера
-- src/main/settingsManager.js - реализована логика копирования настроек из extraResources в userData при первом запуске
-- src/renderer/index.jsx - добавлено автоматическое переключение между BrowserRouter и HashRouter
-- src/renderer/pages/MatchControlPage.jsx - добавлен useEffect для обновления видимости полей при изменении подачи
-- package.json - добавлена конфигурация electron-builder, extraResources для settings.json, cross-env в devDependencies
-- vite.config.js - добавлены настройки для корректной работы с Electron (assetsDir, rollupOptions)
+- src/main/logoManager.js - обновлена функция getLogosDir() для использования app.getPath('userData') в production; добавлены функции ensureLogosDir() и migrateLogosFromExtraResources(); исправлена processTeamLogoForSave() для проверки logoBase64
+- src/main/server.js - добавлена функция getLogosPath() для динамического определения пути; обновлен setupMiddleware() для использования userData/logos/ в production; добавлены функции getNetworkInterfaces() и обновлен getLocalIP() для использования выбранного IP; обновлен /api/logos/check endpoint
+- src/main/main.js - добавлен вызов ensureLogosDir() при старте приложения; добавлены IPC handlers: mobile:get-network-interfaces и mobile:set-selected-ip
+- src/main/settingsManager.js - добавлено поле selectedIP: null в настройки мобильного сервера (mobile.selectedIP)
+- src/main/preload.js - добавлены методы getNetworkInterfaces() и setSelectedMobileIP() в window.electronAPI
+- src/renderer/hooks/useVMix.js - исправлена проверка наличия логотипов в getLineupFieldValue(), getRosterFieldValue() и getStartingLineupFieldValue(); исправлено формирование URL для логотипов (удален двойной /logos/)
+- src/renderer/pages/MobileAccessPage.jsx - добавлен выпадающий список выбора сетевого интерфейса; добавлена логика сохранения выбранного IP в настройки; обновлены инструкции с информацией о выборе интерфейса
+- docs/ARCHITECTURE.md - обновлена информация о logoManager.js и server.js; добавлена информация о выборе сетевого интерфейса и миграции логотипов
+- docs/ui-structure.md - обновлена информация о странице "Мобильный доступ" с описанием выбора сетевого интерфейса
+- docs/vmix-api-reference.md - обновлена информация о формировании URL логотипов с учетом выбора сетевого интерфейса и production режима
+- docs/logo-fixes-and-network-selection.md - создан новый документ с подробным описанием всех исправлений и изменений
+- CHANGELOG.md - добавлена информация о всех исправлениях и новых функциях
 
 Предыдущие изменения:
 

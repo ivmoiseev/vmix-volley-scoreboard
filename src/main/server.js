@@ -23,6 +23,30 @@ class MobileServer {
   }
 
   /**
+   * Получает путь к папке logos в зависимости от режима
+   * В production - userData (доступно для записи)
+   * В dev режиме - корень проекта
+   */
+  getLogosPath() {
+    try {
+      const { app } = require('electron');
+      const isPackaged = app && app.isPackaged;
+      
+      if (isPackaged) {
+        // Production режим - logos в userData (доступно для записи)
+        const userDataPath = app.getPath('userData');
+        return path.join(userDataPath, 'logos');
+      }
+    } catch (error) {
+      // Если app не доступен, используем dev путь
+      console.warn('[MobileServer] app не доступен, используем dev путь:', error.message);
+    }
+    
+    // Dev режим - обычный путь в корне проекта
+    return path.join(__dirname, '../../logos');
+  }
+
+  /**
    * Настройка middleware
    */
   setupMiddleware() {
@@ -47,16 +71,21 @@ class MobileServer {
     this.app.use(express.static('public'));
     
     // Статические файлы для логотипов
-    // В production logos находится в extraResources (вне ASAR)
-    let logosPath;
-    if (process.resourcesPath) {
-      // Production режим - logos в resources/
-      logosPath = path.join(process.resourcesPath, 'logos');
-    } else {
-      // Dev режим - обычный путь
-      logosPath = path.join(__dirname, '../../logos');
-    }
-    this.app.use('/logos', express.static(logosPath));
+    // Определяем путь динамически при инициализации
+    const logosPath = this.getLogosPath();
+    
+    // Убеждаемся, что папка существует
+    const fs = require('fs').promises;
+    fs.access(logosPath).catch(() => {
+      return fs.mkdir(logosPath, { recursive: true });
+    }).catch(err => {
+      console.error('[MobileServer] Ошибка при создании папки logos:', err);
+    });
+    
+    // Настраиваем express.static для обслуживания логотипов
+    this.app.use('/logos', express.static(logosPath, {
+      maxAge: '1d', // Кэширование на 1 день
+    }));
   }
 
   /**
@@ -91,9 +120,22 @@ class MobileServer {
     });
 
     // API: Проверка доступности логотипов (для отладки)
-    this.app.get('/api/logos/check', (req, res) => {
+    this.app.get('/api/logos/check', async (req, res) => {
       const fs = require('fs').promises;
-      const logosPath = path.join(__dirname, '../../logos');
+      
+      // Используем метод getLogosPath для определения пути
+      const logosPath = this.getLogosPath();
+      
+      // Получаем выбранный IP из настроек
+      let selectedIP = null;
+      try {
+        const mobileSettings = await settingsManager.getMobileSettings();
+        selectedIP = mobileSettings.selectedIP || null;
+      } catch (error) {
+        console.error('Ошибка при получении настроек для /api/logos/check:', error);
+      }
+      
+      const serverIP = this.getLocalIP(selectedIP);
       
       Promise.all([
         fs.access(path.join(logosPath, 'logo_a.png')).then(() => true).catch(() => false),
@@ -101,9 +143,9 @@ class MobileServer {
       ]).then(([logoA, logoB]) => {
         res.json({
           logosPath,
-          logoA: { exists: logoA, url: `${this.getLocalIP()}:${this.port}/logos/logo_a.png` },
-          logoB: { exists: logoB, url: `${this.getLocalIP()}:${this.port}/logos/logo_b.png` },
-          serverIP: this.getLocalIP(),
+          logoA: { exists: logoA, url: `http://${serverIP}:${this.port}/logos/logo_a.png` },
+          logoB: { exists: logoB, url: `http://${serverIP}:${this.port}/logos/logo_b.png` },
+          serverIP: serverIP,
           serverPort: this.port,
         });
       }).catch((error) => {
@@ -1257,10 +1299,10 @@ class MobileServer {
   }
 
   /**
-   * Получает локальный IP адрес
-   * Приоритет отдается локальной сети (LAN), игнорируются VPN интерфейсы
+   * Получает список всех доступных сетевых интерфейсов
+   * @returns {Array} Массив объектов { ip, name, isPrivate, isWireless, isVpn }
    */
-  getLocalIP() {
+  getNetworkInterfaces() {
     const interfaces = os.networkInterfaces();
     
     // Список известных VPN интерфейсов (по имени)
@@ -1299,14 +1341,11 @@ class MobileServer {
       return /^(Wi-Fi|wlan|wifi|en0|en1)/i.test(name);
     };
     
-    const candidates = [];
+    const result = [];
     
-    // Собираем все подходящие интерфейсы
+    // Собираем все интерфейсы
     for (const name of Object.keys(interfaces)) {
-      // Пропускаем VPN интерфейсы
-      if (isVpnInterface(name)) {
-        continue;
-      }
+      const isVpn = isVpnInterface(name);
       
       for (const iface of interfaces[name]) {
         // Пропускаем внутренние и не-IPv4 адреса
@@ -1318,26 +1357,68 @@ class MobileServer {
         const isPrivate = isPrivateIP(ip);
         const isWireless = isWirelessInterface(name);
         
-        // Приоритет 1: Частный IP + Wi-Fi интерфейс
-        // Приоритет 2: Частный IP + любой интерфейс
-        // Приоритет 3: Любой не-внутренний IP (fallback)
-        
-        if (isPrivate && isWireless) {
-          candidates.unshift({ ip, name, priority: 1 }); // Высший приоритет
-        } else if (isPrivate) {
-          candidates.push({ ip, name, priority: 2 }); // Средний приоритет
-        } else {
-          candidates.push({ ip, name, priority: 3 }); // Низкий приоритет (fallback)
-        }
+        result.push({
+          ip,
+          name: `${name} (${ip})`,
+          interfaceName: name,
+          isPrivate,
+          isWireless,
+          isVpn,
+        });
       }
     }
     
-    // Возвращаем первый кандидат (уже отсортирован по приоритету)
+    // Сортируем: сначала частные IP (не VPN), затем остальные
+    result.sort((a, b) => {
+      // Приоритет 1: Частный IP + не VPN
+      // Приоритет 2: Частный IP + VPN
+      // Приоритет 3: Публичный IP
+      if (a.isPrivate && !a.isVpn && (b.isVpn || !b.isPrivate)) return -1;
+      if (b.isPrivate && !b.isVpn && (a.isVpn || !a.isPrivate)) return 1;
+      if (a.isPrivate && !b.isPrivate) return -1;
+      if (b.isPrivate && !a.isPrivate) return 1;
+      return 0;
+    });
+    
+    return result;
+  }
+
+  /**
+   * Получает локальный IP адрес
+   * Использует выбранный IP из настроек или автоматически определяет по приоритету
+   * @param {string} selectedIP - выбранный IP адрес из настроек (опционально)
+   */
+  getLocalIP(selectedIP = null) {
+    // Если указан выбранный IP, проверяем его доступность и возвращаем
+    if (selectedIP) {
+      const interfaces = this.getNetworkInterfaces();
+      const found = interfaces.find(iface => iface.ip === selectedIP);
+      if (found) {
+        return selectedIP;
+      }
+      // Если выбранный IP не найден, продолжаем с автоматическим определением
+    }
+    
+    // Автоматическое определение по старой логике
+    const interfaces = this.getNetworkInterfaces();
+    
+    // Фильтруем VPN интерфейсы для автоматического выбора
+    const candidates = interfaces.filter(iface => !iface.isVpn);
+    
+    // Приоритет: частный IP + беспроводной интерфейс
+    let best = candidates.find(iface => iface.isPrivate && iface.isWireless);
+    if (best) return best.ip;
+    
+    // Затем: частный IP
+    best = candidates.find(iface => iface.isPrivate);
+    if (best) return best.ip;
+    
+    // Fallback: любой доступный IP
     if (candidates.length > 0) {
       return candidates[0].ip;
     }
     
-    // Fallback: если ничего не найдено, возвращаем localhost
+    // Если ничего не найдено, возвращаем localhost
     return 'localhost';
   }
 
@@ -1351,13 +1432,17 @@ class MobileServer {
       this.server = this.app.listen(port, '0.0.0.0', async () => {
         console.log(`Mobile server started on port ${port}`);
         
-        // Сохраняем состояние сервера в настройки
+        // Получаем выбранный IP из настроек
+        let selectedIP = null;
         try {
           const mobileSettings = await settingsManager.getMobileSettings();
+          selectedIP = mobileSettings.selectedIP || null;
+          // Сохраняем состояние сервера в настройки
           await settingsManager.setMobileSettings({
             ...mobileSettings,
             enabled: true,
             port: port,
+            selectedIP: selectedIP, // Сохраняем выбранный IP
           });
         } catch (error) {
           console.error('Ошибка при сохранении состояния сервера:', error);
@@ -1366,10 +1451,11 @@ class MobileServer {
         // Загружаем сохраненную сессию, если она есть
         await this.loadSavedSession();
         
+        const serverIP = this.getLocalIP(selectedIP);
         resolve({
           port,
-          ip: this.getLocalIP(),
-          url: `http://${this.getLocalIP()}:${port}`,
+          ip: serverIP,
+          url: `http://${serverIP}:${port}`,
           sessionId: this.savedSessionId,
         });
       });
@@ -1424,17 +1510,27 @@ class MobileServer {
   /**
    * Получает информацию о сервере
    */
-  getServerInfo() {
+  async getServerInfo() {
     if (!this.isRunning()) {
       return null;
     }
 
-    const ip = this.getLocalIP();
+    // Получаем выбранный IP из настроек
+    let selectedIP = null;
+    try {
+      const mobileSettings = await settingsManager.getMobileSettings();
+      selectedIP = mobileSettings.selectedIP || null;
+    } catch (error) {
+      console.error('Ошибка при получении настроек для getServerInfo:', error);
+    }
+
+    const ip = this.getLocalIP(selectedIP);
     const port = this.port;
     const url = `http://${ip}:${port}`;
     
     console.log('[MobileServer.getServerInfo]', {
       ip,
+      selectedIP,
       port,
       url,
       running: true,

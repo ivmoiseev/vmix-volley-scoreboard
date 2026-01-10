@@ -354,6 +354,19 @@ app.whenReady().then(async () => {
     }
   });
 
+  // Инициализируем папку logos и мигрируем из extraResources при первом запуске
+  try {
+    // ensureLogosDir создаст папку и выполнит миграцию из extraResources в production
+    await logoManager.ensureLogosDir();
+    const logosDir = logoManager.getLogosDir();
+    console.log("[App] Папка logos инициализирована:", logosDir);
+  } catch (error) {
+    console.warn(
+      "[App] Не удалось инициализировать папку logos при старте:",
+      error.message
+    );
+  }
+  
   // Очищаем папку logos от устаревших файлов при старте приложения
   try {
     await logoManager.cleanupLogosDirectory();
@@ -1077,7 +1090,7 @@ ipcMain.handle("mobile:stop-server", async () => {
 });
 
 ipcMain.handle("mobile:get-server-info", async () => {
-  const info = mobileServer.getServerInfo();
+  const info = await mobileServer.getServerInfo();
   if (info) {
     console.log("[IPC mobile:get-server-info] Сервер запущен:", info);
     return info;
@@ -1088,12 +1101,13 @@ ipcMain.handle("mobile:get-server-info", async () => {
   try {
     const mobileSettings = await settingsManager.getMobileSettings();
     if (mobileSettings && mobileSettings.port) {
-      // IP определяется динамически через getLocalIP, но можем вернуть порт из настроек
+      // IP определяется динамически через getLocalIP с учетом выбранного IP из настроек
+      const selectedIP = mobileSettings.selectedIP || null;
       const fallbackInfo = {
         running: false,
         port: mobileSettings.port,
-        // IP будет определен при запуске, но можем попробовать получить через MobileServer
-        ip: mobileServer.getLocalIP ? mobileServer.getLocalIP() : null,
+        ip: mobileServer.getLocalIP ? mobileServer.getLocalIP(selectedIP) : null,
+        selectedIP: selectedIP,
       };
       if (fallbackInfo.ip) {
         fallbackInfo.url = `http://${fallbackInfo.ip}:${fallbackInfo.port}`;
@@ -1115,9 +1129,34 @@ ipcMain.handle("mobile:get-server-info", async () => {
   return { running: false };
 });
 
+ipcMain.handle("mobile:get-network-interfaces", async () => {
+  try {
+    const interfaces = mobileServer.getNetworkInterfaces();
+    return { success: true, interfaces };
+  } catch (error) {
+    console.error("[IPC mobile:get-network-interfaces] Ошибка:", error);
+    return { success: false, error: error.message, interfaces: [] };
+  }
+});
+
+ipcMain.handle("mobile:set-selected-ip", async (event, selectedIP) => {
+  try {
+    const mobileSettings = await settingsManager.getMobileSettings();
+    await settingsManager.setMobileSettings({
+      ...mobileSettings,
+      selectedIP: selectedIP,
+    });
+    console.log("[IPC mobile:set-selected-ip] Выбранный IP сохранен:", selectedIP);
+    return { success: true };
+  } catch (error) {
+    console.error("[IPC mobile:set-selected-ip] Ошибка:", error);
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle("mobile:generate-session", async () => {
   const sessionId = await mobileServer.generateSession();
-  const info = mobileServer.getServerInfo();
+  const info = await mobileServer.getServerInfo();
   return {
     sessionId,
     url: info ? `${info.url}/panel/${sessionId}` : null,
@@ -1127,7 +1166,7 @@ ipcMain.handle("mobile:generate-session", async () => {
 ipcMain.handle("mobile:get-saved-session", async () => {
   try {
     const mobileSettings = await settingsManager.getMobileSettings();
-    const info = mobileServer.getServerInfo();
+    const info = await mobileServer.getServerInfo();
     if (mobileSettings.sessionId && info) {
       return {
         sessionId: mobileSettings.sessionId,

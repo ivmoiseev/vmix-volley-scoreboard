@@ -907,17 +907,25 @@ export function useVMix(match) {
         case "subtitle":
           return match.tournamentSubtitle || "";
         case FIELD_KEYS.TEAM_A_LOGO:
-          return logoBaseUrl && match.teamA?.logo
-            ? `${logoBaseUrl}/logo_a.png`
-            : "";
+          // Проверяем наличие логотипа: logo, logoPath или logoBase64
+          const hasLogoA = logoBaseUrl && (
+            match.teamA?.logo || 
+            match.teamA?.logoPath || 
+            match.teamA?.logoBase64
+          );
+          return hasLogoA ? `${logoBaseUrl}/logo_a.png` : "";
         case "teamAName":
           return match.teamA?.name || "";
         case "teamACity":
           return match.teamA?.city || "";
         case FIELD_KEYS.TEAM_B_LOGO:
-          return logoBaseUrl && match.teamB?.logo
-            ? `${logoBaseUrl}/logo_b.png`
-            : "";
+          // Проверяем наличие логотипа: logo, logoPath или logoBase64
+          const hasLogoB = logoBaseUrl && (
+            match.teamB?.logo || 
+            match.teamB?.logoPath || 
+            match.teamB?.logoBase64
+          );
+          return hasLogoB ? `${logoBaseUrl}/logo_b.png` : "";
         case "teamBName":
           return match.teamB?.name || "";
         case "teamBCity":
@@ -960,9 +968,14 @@ export function useVMix(match) {
         return team?.city || "";
       }
       if (fieldKey === "teamLogo") {
-        return logoBaseUrl && team?.logo
-          ? `${logoBaseUrl}/logos/${logoFileName}`
-          : "";
+        // Проверяем наличие логотипа: logo, logoPath или logoBase64
+        // logoBaseUrl уже содержит /logos, поэтому добавляем только имя файла
+        const hasLogo = logoBaseUrl && (
+          team?.logo || 
+          team?.logoPath || 
+          team?.logoBase64
+        );
+        return hasLogo ? `${logoBaseUrl}/${logoFileName}` : "";
       }
 
       // Поля игроков (player1Number, player1Name, ... player14Number, player14Name)
@@ -1534,7 +1547,7 @@ export function useVMix(match) {
         try {
           const serverInfo = await window.electronAPI.getMobileServerInfo();
           if (serverInfo?.ip && serverInfo?.port) {
-            logoBaseUrl = `http://${serverInfo.ip}:${serverInfo.port}`;
+            logoBaseUrl = `http://${serverInfo.ip}:${serverInfo.port}/logos`;
           }
         } catch (error) {
           console.error(
@@ -1671,9 +1684,14 @@ export function useVMix(match) {
         return team?.city || "";
       }
       if (fieldKey === "teamLogo") {
-        return logoBaseUrl && team?.logo
-          ? `${logoBaseUrl}/logos/${logoFileName}`
-          : "";
+        // Проверяем наличие логотипа: logo, logoPath или logoBase64
+        // logoBaseUrl уже содержит /logos, поэтому добавляем только имя файла
+        const hasLogo = logoBaseUrl && (
+          team?.logo || 
+          team?.logoPath || 
+          team?.logoBase64
+        );
+        return hasLogo ? `${logoBaseUrl}/${logoFileName}` : "";
       }
 
       // Поля игроков (player1Number, player1Name, player1NumberOnCard, ... player6Number, player6Name, player6NumberOnCard)
@@ -1785,7 +1803,7 @@ export function useVMix(match) {
         try {
           const serverInfo = await window.electronAPI.getMobileServerInfo();
           if (serverInfo?.ip && serverInfo?.port) {
-            logoBaseUrl = `http://${serverInfo.ip}:${serverInfo.port}`;
+            logoBaseUrl = `http://${serverInfo.ip}:${serverInfo.port}/logos`;
           }
         } catch (error) {
           console.error(

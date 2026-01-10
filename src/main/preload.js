@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSavedMobileSession: () => ipcRenderer.invoke('mobile:get-saved-session'),
   setMobileMatch: (match) => ipcRenderer.invoke('mobile:set-match', match),
   isMobileServerRunning: () => ipcRenderer.invoke('mobile:is-running'),
+  getNetworkInterfaces: () => ipcRenderer.invoke('mobile:get-network-interfaces'),
+  setSelectedIP: (ip) => ipcRenderer.invoke('mobile:set-selected-ip', ip),
   
   // Match state management
   setCurrentMatch: (match) => ipcRenderer.invoke('match:set-current', match),

@@ -1,23 +1,43 @@
 const fs = require('fs').promises;
 const path = require('path');
+const { app } = require('electron');
 
 // Определяем путь к папке logos с учетом production режима
 // Используем lazy evaluation, так как app может быть не готов при импорте модуля
 function getLogosDir() {
-  // В production logos находится в extraResources (вне ASAR)
-  // process.resourcesPath доступен только в production режиме
+  // В production сохраняем логотипы в userData, так как extraResources доступна только для чтения
+  // В dev режиме используем обычный путь в корне проекта
+  try {
+    const isPackaged = app && app.isPackaged;
+    
+    if (isPackaged) {
+      // В production используем userData для хранения логотипов (доступно для записи)
+      // Это позволяет сохранять и обновлять логотипы между сессиями
+      const userDataPath = app.getPath('userData');
+      return path.join(userDataPath, 'logos');
+    }
+  } catch (error) {
+    // Если app не доступен, используем dev путь
+    console.warn('[logoManager] app не доступен, используем dev путь:', error.message);
+  }
+  
+  // В dev режиме - обычный путь в корне проекта
+  return path.join(__dirname, '../../logos');
+}
+
+// Получаем путь к папке logos в extraResources (только для чтения, для миграции)
+function getExtraResourcesLogosDir() {
   if (process.resourcesPath) {
-    // process.resourcesPath указывает на папку resources/ (где находятся extraResources)
     return path.join(process.resourcesPath, 'logos');
   }
-  // В dev режиме - обычный путь
-  return path.join(__dirname, '../../logos');
+  return null;
 }
 
 // Убираем константу, будем использовать функцию напрямую
 
 /**
  * Убеждается, что папка logos существует
+ * Также мигрирует логотипы из extraResources в userData при первом запуске в production
  */
 async function ensureLogosDir() {
   const logosDir = getLogosDir();
@@ -25,6 +45,67 @@ async function ensureLogosDir() {
     await fs.access(logosDir);
   } catch {
     await fs.mkdir(logosDir, { recursive: true });
+  }
+  
+  // В production режиме мигрируем логотипы из extraResources в userData при первом запуске
+  const isPackaged = app && app.isPackaged;
+  if (isPackaged) {
+    await migrateLogosFromExtraResources();
+  }
+}
+
+/**
+ * Мигрирует логотипы из extraResources (read-only) в userData (writable)
+ * Выполняется только один раз при первом запуске в production
+ */
+async function migrateLogosFromExtraResources() {
+  try {
+    const sourceDir = getExtraResourcesLogosDir();
+    if (!sourceDir) {
+      return; // extraResources не доступна (dev режим или ошибка)
+    }
+    
+    const targetDir = getLogosDir();
+    
+    // Проверяем, нужно ли выполнять миграцию
+    // Если в targetDir уже есть файлы, миграция не нужна
+    try {
+      const targetFiles = await fs.readdir(targetDir);
+      if (targetFiles.some(file => file === 'logo_a.png' || file === 'logo_b.png')) {
+        // Логотипы уже мигрированы или созданы пользователем
+        return;
+      }
+    } catch {
+      // Папка пуста или не существует, продолжаем миграцию
+    }
+    
+    // Проверяем наличие файлов в extraResources
+    try {
+      await fs.access(sourceDir);
+      const sourceFiles = await fs.readdir(sourceDir);
+      const logoFiles = sourceFiles.filter(file => file === 'logo_a.png' || file === 'logo_b.png');
+      
+      if (logoFiles.length > 0) {
+        // Копируем логотипы из extraResources в userData
+        console.log('[logoManager] Миграция логотипов из extraResources в userData...');
+        for (const file of logoFiles) {
+          const sourcePath = path.join(sourceDir, file);
+          const targetPath = path.join(targetDir, file);
+          try {
+            await fs.copyFile(sourcePath, targetPath);
+            console.log(`[logoManager] Логотип ${file} скопирован в userData`);
+          } catch (error) {
+            console.warn(`[logoManager] Не удалось скопировать ${file}:`, error.message);
+          }
+        }
+      }
+    } catch (error) {
+      // extraResources не доступна или пуста - это нормально, пропускаем миграцию
+      console.log('[logoManager] extraResources logos не найдены, пропускаем миграцию');
+    }
+  } catch (error) {
+    console.warn('[logoManager] Ошибка при миграции логотипов:', error.message);
+    // Не прерываем выполнение, миграция не критична
   }
 }
 
@@ -97,29 +178,44 @@ async function loadLogoFromFile(logoPath) {
 /**
  * Обрабатывает логотипы команды при сохранении матча
  * Сохраняет base64 в файл и возвращает обновленный объект команды
- * @param {Object} team - объект команды с logo (base64)
+ * @param {Object} team - объект команды с logo (base64) или logoBase64
  * @param {string} teamLetter - 'A' или 'B'
  * @returns {Promise<Object>} - обновленный объект команды с logoPath и logoBase64
  */
 async function processTeamLogoForSave(team, teamLetter) {
-  if (!team.logo) {
-    return team;
+  // Определяем источник логотипа: приоритет logo, затем logoBase64
+  let logoBase64 = null;
+  
+  if (team.logo) {
+    logoBase64 = team.logo;
+  } else if (team.logoBase64) {
+    logoBase64 = team.logoBase64;
+  }
+  
+  // Если нет логотипа, просто обновляем logoPath на фиксированное имя
+  if (!logoBase64) {
+    return {
+      ...team,
+      logoPath: `logos/logo_${teamLetter.toLowerCase()}.png`,
+      logo: undefined,
+      logoBase64: undefined,
+    };
   }
   
   // Проверяем, является ли logo base64 строкой
-  const isBase64 = typeof team.logo === 'string' && 
-                   (team.logo.startsWith('data:image/') || team.logo.length > 100);
+  const isBase64 = typeof logoBase64 === 'string' && 
+                   (logoBase64.startsWith('data:image/') || logoBase64.length > 100);
   
   if (isBase64) {
     try {
       // Сохраняем в файл с фиксированным именем (перезаписываем)
-      const logoPath = await saveLogoToFile(team.logo, teamLetter);
+      const logoPath = await saveLogoToFile(logoBase64, teamLetter);
       
       // Возвращаем объект с путем и base64
       return {
         ...team,
         logoPath, // Путь к файлу для HTTP доступа
-        logoBase64: team.logo, // Base64 для портативности
+        logoBase64: logoBase64, // Base64 для портативности
         logo: undefined, // Убираем из основного поля для экономии места в JSON
       };
     } catch (error) {
@@ -127,14 +223,19 @@ async function processTeamLogoForSave(team, teamLetter) {
       // В случае ошибки сохраняем только base64
       return {
         ...team,
-        logoBase64: team.logo,
+        logoBase64: logoBase64,
+        logoPath: `logos/logo_${teamLetter.toLowerCase()}.png`,
         logo: undefined,
       };
     }
   }
   
-  // Если logo уже является путем к файлу, оставляем как есть
-  return team;
+  // Если logo уже является путем к файлу, обновляем logoPath на фиксированное имя
+  return {
+    ...team,
+    logoPath: `logos/logo_${teamLetter.toLowerCase()}.png`,
+    logo: undefined,
+  };
 }
 
 /**
@@ -271,5 +372,7 @@ module.exports = {
   getLogoHttpUrl,
   cleanupLogosDirectory,
   getLogosDir,
+  ensureLogosDir,
+  migrateLogosFromExtraResources,
 };
 

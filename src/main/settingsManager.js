@@ -121,6 +121,7 @@ function getDefaultSettings() {
       enabled: false,
       port: 3000,
       sessionId: null,
+      selectedIP: null, // Выбранный IP адрес сетевого интерфейса
     },
     autoSave: {
       enabled: true, // По умолчанию автосохранение включено
