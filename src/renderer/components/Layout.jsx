@@ -1,10 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+
+// Context для передачи кнопок из страниц в Layout
+const HeaderButtonsContext = createContext({
+  buttons: null,
+  setButtons: () => {},
+});
+
+export const useHeaderButtons = () => {
+  return useContext(HeaderButtonsContext);
+};
 
 function Layout({ children, match, onMatchChange }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [headerButtons, setHeaderButtons] = useState(null);
 
   const isActive = (path) => {
     return location.pathname === path;
@@ -198,63 +209,79 @@ function Layout({ children, match, onMatchChange }) {
   }
 
   // На остальных страницах показываем обычный Header
+  // Определяем, нужно ли показывать навигационные кнопки (скрываем их, если есть дополнительные кнопки)
+  const showNavButtons = !headerButtons;
+
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      display: 'flex', 
-      flexDirection: 'column',
-      fontFamily: 'system-ui, -apple-system, sans-serif'
-    }}>
-      <header style={{
-        backgroundColor: '#2c3e50',
-        color: 'white',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    <HeaderButtonsContext.Provider value={{ buttons: headerButtons, setButtons: setHeaderButtons }}>
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column',
+        fontFamily: 'system-ui, -apple-system, sans-serif'
       }}>
-        <div style={{
-          padding: '1rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+        <header style={{
+          backgroundColor: '#2c3e50',
+          color: 'white',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', cursor: 'pointer' }} onClick={() => navigate('/')}>
-            vMix Volley Scoreboard
-          </h1>
-          <nav style={{ display: 'flex', gap: '1rem' }}>
-            <button
-              onClick={() => navigate('/')}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: isActive('/') ? '#3498db' : 'transparent',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-              }}
-            >
-              Главная
-            </button>
-            <button
-              onClick={() => navigate('/about')}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: isActive('/about') ? '#3498db' : 'transparent',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-              }}
-            >
-              О программе
-            </button>
-          </nav>
-        </div>
-      </header>
-      <main style={{ flex: 1, padding: '1rem', backgroundColor: '#f5f5f5' }}>
-        {children}
-      </main>
-    </div>
+          <div style={{
+            padding: '1rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.5rem',
+          }}>
+            <h1 style={{ margin: 0, fontSize: '1.5rem', cursor: 'pointer' }} onClick={() => navigate('/')}>
+              vMix Volley Scoreboard
+            </h1>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              {headerButtons && (
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  {headerButtons}
+                </div>
+              )}
+              {showNavButtons && (
+                <nav style={{ display: 'flex', gap: '1rem' }}>
+                  <button
+                    onClick={() => navigate('/')}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: isActive('/') ? '#3498db' : 'transparent',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    Главная
+                  </button>
+                  <button
+                    onClick={() => navigate('/about')}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: isActive('/about') ? '#3498db' : 'transparent',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    О программе
+                  </button>
+                </nav>
+              )}
+            </div>
+          </div>
+        </header>
+        <main style={{ flex: 1, padding: '1rem', backgroundColor: '#f5f5f5' }}>
+          {children}
+        </main>
+      </div>
+    </HeaderButtonsContext.Provider>
   );
 }
 

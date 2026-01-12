@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useMatch } from "../hooks/useMatch";
 import { useVMix } from "../hooks/useVMix";
 import ScoreDisplay from "../components/ScoreDisplay";
+import { getContrastTextColor } from "../utils/colorContrast";
 import SetsDisplay from "../components/SetsDisplay";
 import ServeControl from "../components/ServeControl";
 import ScoreButtons from "../components/ScoreButtons";
@@ -16,6 +17,21 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
   // Это решает проблему гонки условий при первом создании матча
   const matchFromState = location.state?.match;
   const effectiveInitialMatch = initialMatch || matchFromState;
+
+  // Функция для форматирования даты в формат ДД.ММ.ГГГГ
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "Не указана";
+    try {
+      // Парсим дату в формате YYYY-MM-DD
+      const [year, month, day] = dateStr.split("-");
+      if (!year || !month || !day) return dateStr; // Если формат неправильный, возвращаем как есть
+      // Форматируем дату в ДД.ММ.ГГГГ
+      return `${day}.${month}.${year}`;
+    } catch (error) {
+      console.error("Ошибка при форматировании даты:", error);
+      return dateStr || "Не указана";
+    }
+  };
 
   // Отслеживание предыдущего matchId для определения первой загрузки
   const previousMatchIdRef = useRef(null);
@@ -188,12 +204,20 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
     }
   }, [match?.currentSet?.servingTeam, connectionStatus.connected, updateMatchData]);
 
-  // Обработка обновления матча из мобильного приложения
+  // Обработка обновления матча из мобильного приложения или при создании/открытии матча
   useEffect(() => {
     if (!window.electronAPI) return;
 
     const handleLoadMatch = (updatedMatch) => {
       if (updatedMatch) {
+        // При загрузке нового матча (создание или открытие) сбрасываем previousMatchIdRef
+        // чтобы гарантировать, что updateMatchData будет вызван с forceUpdate=true
+        const isNewMatch = previousMatchIdRef.current !== updatedMatch.matchId;
+        if (isNewMatch) {
+          previousMatchIdRef.current = null; // Сбрасываем, чтобы гарантировать обновление vMix
+          isFirstLoadRef.current = true; // Помечаем как первую загрузку
+        }
+        
         // Обновляем матч в состоянии хука useMatch
         setMatch(updatedMatch);
         // Также обновляем в родительском компоненте
@@ -298,7 +322,7 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                 <strong>Место:</strong> {match.venue || "Не указано"}
               </div>
               <div>
-                <strong>Дата:</strong> {match.date || "Не указана"}
+                <strong>Дата:</strong> {formatDate(match.date)}
               </div>
               <div>
                 <strong>Время:</strong> {match.time || "Не указано"}
@@ -318,7 +342,7 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
             <div
               style={{
                 backgroundColor: match.teamA.color || "#3498db",
-                color: "white",
+                color: getContrastTextColor(match.teamA.color || "#3498db"),
                 padding: "1rem",
                 borderRadius: "4px",
                 textAlign: "center",
@@ -330,7 +354,7 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
             <div
               style={{
                 backgroundColor: match.teamB.color || "#e74c3c",
-                color: "white",
+                color: getContrastTextColor(match.teamB.color || "#e74c3c"),
                 padding: "1rem",
                 borderRadius: "4px",
                 textAlign: "center",

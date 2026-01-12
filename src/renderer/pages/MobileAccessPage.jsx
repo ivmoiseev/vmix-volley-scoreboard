@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useHeaderButtons } from '../components/Layout';
 
 function MobileAccessPage() {
   const navigate = useNavigate();
+  const { setButtons } = useHeaderButtons();
   const [serverInfo, setServerInfo] = useState(null);
   const [sessionData, setSessionData] = useState(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState(null);
@@ -124,6 +126,19 @@ function MobileAccessPage() {
     } finally {
       setSavingIP(false);
     }
+  };
+
+  const handleSave = async () => {
+    // Сохранение уже происходит автоматически при выборе IP через handleSelectIP
+    // Но можно добавить явное сохранение, если нужно
+    if (selectedIP) {
+      await handleSelectIP(selectedIP);
+      alert('Настройки сохранены!');
+    }
+  };
+
+  const handleCancel = () => {
+    navigate('/match');
   };
 
   const handleStartServer = async () => {
@@ -272,6 +287,55 @@ function MobileAccessPage() {
   };
 
   const isServerRunning = serverInfo && serverInfo.running !== false;
+
+  // Устанавливаем кнопки в шапку
+  useEffect(() => {
+    const handleSaveClick = async () => {
+      // Сохранение уже происходит автоматически при выборе IP через handleSelectIP
+      // Но можно добавить явное сохранение, если нужно
+      if (selectedIP) {
+        await handleSelectIP(selectedIP);
+        alert('Настройки сохранены!');
+      }
+    };
+
+    const handleCancelClick = () => {
+      navigate('/match');
+    };
+
+    setButtons(
+      <>
+        <button
+          onClick={handleCancelClick}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: '#95a5a6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+          }}
+        >
+          Отменить
+        </button>
+        <button
+          onClick={handleSaveClick}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: '#27ae60',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+          }}
+        >
+          Сохранить
+        </button>
+      </>
+    );
+    return () => setButtons(null);
+  }, [selectedIP, setButtons, navigate]);
 
   return (
     <div style={{ padding: '1rem', maxWidth: '800px', margin: '0 auto' }}>
@@ -553,8 +617,8 @@ function MobileAccessPage() {
         </div>
       </div>
 
-      {/* Кнопка возврата */}
-      <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+      {/* Кнопки */}
+      <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
         <button
           onClick={() => navigate('/match')}
           style={{
@@ -567,7 +631,27 @@ function MobileAccessPage() {
             cursor: 'pointer',
           }}
         >
-          Вернуться к матчу
+          Отменить
+        </button>
+        <button
+          onClick={async () => {
+            if (selectedIP) {
+              await handleSelectIP(selectedIP);
+              alert('Настройки сохранены!');
+            }
+          }}
+          style={{
+            padding: '0.75rem 1.5rem',
+            fontSize: '1rem',
+            backgroundColor: '#27ae60',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+          }}
+        >
+          Сохранить
         </button>
       </div>
     </div>

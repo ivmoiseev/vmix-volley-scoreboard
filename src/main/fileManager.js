@@ -131,10 +131,44 @@ async function openMatch(filePath) {
       throw new Error('Файл содержит некорректные данные матча');
     }
 
+    // Проверяем наличие логотипов в исходном JSON ДО обработки
+    // Это важно, чтобы определить, нужно ли удалять файлы от предыдущего проекта
+    const hasLogoAInFile = !!(match.teamA?.logo || match.teamA?.logoBase64 || match.teamA?.logoPath);
+    const hasLogoBInFile = !!(match.teamB?.logo || match.teamB?.logoBase64 || match.teamB?.logoPath);
+
     // Обрабатываем логотипы команд: загружаем из файлов или используем base64
     const matchToLoad = { ...match };
     matchToLoad.teamA = await logoManager.processTeamLogoForLoad(match.teamA, 'A');
     matchToLoad.teamB = await logoManager.processTeamLogoForLoad(match.teamB, 'B');
+
+    // Если в открытом проекте нет логотипов, удаляем файлы от предыдущего проекта
+    // Это важно, чтобы при автосохранении старые логотипы не сохранились в новый проект
+    const logosDir = logoManager.getLogosDir();
+    
+    // Если логотипа нет в исходном JSON, удаляем соответствующий файл
+    if (!hasLogoAInFile) {
+      try {
+        const logoAPath = path.join(logosDir, 'logo_a.png');
+        await fs.unlink(logoAPath);
+        console.log('[fileManager] Удален logo_a.png при открытии проекта без логотипа команды A');
+      } catch (error) {
+        if (error.code !== 'ENOENT') {
+          console.warn('Не удалось удалить logo_a.png:', error.message);
+        }
+      }
+    }
+    
+    if (!hasLogoBInFile) {
+      try {
+        const logoBPath = path.join(logosDir, 'logo_b.png');
+        await fs.unlink(logoBPath);
+        console.log('[fileManager] Удален logo_b.png при открытии проекта без логотипа команды B');
+      } catch (error) {
+        if (error.code !== 'ENOENT') {
+          console.warn('Не удалось удалить logo_b.png:', error.message);
+        }
+      }
+    }
 
     return matchToLoad;
   } catch (error) {

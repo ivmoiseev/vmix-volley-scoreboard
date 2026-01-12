@@ -777,7 +777,8 @@ export function useVMix(match) {
           setsScoreA,
           setsScoreB
         );
-        if (fieldIdentifier && value !== "") {
+        // При forceUpdate отправляем все поля, даже пустые, чтобы очистить данные в vMix
+        if (fieldIdentifier) {
           fields[fieldIdentifier] = value;
         }
       });
@@ -831,7 +832,9 @@ export function useVMix(match) {
           Object.keys(colorFieldsToSend).length > 0 ||
           Object.keys(visibilityFieldsToSend).length > 0;
 
-        if (!hasFields) {
+        // При forceUpdate всегда отправляем команды, даже если поля пустые,
+        // чтобы очистить данные в vMix при открытии пустого проекта
+        if (!hasFields && !forceUpdate) {
           return {
             success: true,
             skipped: true,
@@ -1067,7 +1070,8 @@ export function useVMix(match) {
 
         // Разделяем поля по типам
         if (fieldConfig.type === FIELD_TYPES.IMAGE) {
-          if (value !== "") {
+          // При forceUpdate отправляем все поля изображений, даже пустые, чтобы очистить данные в vMix
+          if (value !== "" || forceUpdate) {
             imageFields[fieldIdentifier] = value;
           }
         } else if (fieldConfig.type === FIELD_TYPES.TEXT) {
@@ -1125,11 +1129,35 @@ export function useVMix(match) {
           );
         }
 
+        // При forceUpdate для логотипов: сначала очищаем, затем устанавливаем новое значение
+        // Это необходимо для обхода кэширования изображений в vMix
+        if (forceUpdate && Object.keys(imageFieldsToSend).length > 0) {
+          // Создаем объект с пустыми значениями для всех полей логотипов
+          const clearImageFields = {};
+          Object.keys(imageFieldsToSend).forEach((key) => {
+            clearImageFields[key] = "";
+          });
+
+          // Сначала очищаем изображения
+          await window.electronAPI.updateVMixInputFields(
+            validation.inputIdentifier,
+            {},
+            {},
+            {},
+            clearImageFields
+          );
+
+          // Небольшая задержка для гарантии обработки очистки vMix
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
         const hasFields =
           Object.keys(fieldsToSend).length > 0 ||
           Object.keys(imageFieldsToSend).length > 0;
 
-        if (!hasFields) {
+        // При forceUpdate всегда отправляем команды, даже если поля пустые,
+        // чтобы очистить данные в vMix при открытии пустого проекта
+        if (!hasFields && !forceUpdate) {
           return {
             success: true,
             skipped: true,
@@ -1587,7 +1615,8 @@ export function useVMix(match) {
 
         // Разделяем поля по типам
         if (fieldConfig.type === FIELD_TYPES.IMAGE) {
-          if (value !== "") {
+          // При forceUpdate отправляем все поля изображений, даже пустые, чтобы очистить данные в vMix
+          if (value !== "" || forceUpdate) {
             imageFields[fieldIdentifier] = value;
           }
         } else if (fieldConfig.type === FIELD_TYPES.TEXT) {
@@ -1843,7 +1872,8 @@ export function useVMix(match) {
 
         // Разделяем поля по типам
         if (fieldConfig.type === FIELD_TYPES.IMAGE) {
-          if (value !== "") {
+          // При forceUpdate отправляем все поля изображений, даже пустые, чтобы очистить данные в vMix
+          if (value !== "" || forceUpdate) {
             imageFields[fieldIdentifier] = value;
           }
         } else if (fieldConfig.type === FIELD_TYPES.TEXT) {
@@ -1901,11 +1931,35 @@ export function useVMix(match) {
           );
         }
 
+        // При forceUpdate для логотипов: сначала очищаем, затем устанавливаем новое значение
+        // Это необходимо для обхода кэширования изображений в vMix
+        if (forceUpdate && Object.keys(imageFieldsToSend).length > 0) {
+          // Создаем объект с пустыми значениями для всех полей логотипов
+          const clearImageFields = {};
+          Object.keys(imageFieldsToSend).forEach((key) => {
+            clearImageFields[key] = "";
+          });
+
+          // Сначала очищаем изображения
+          await window.electronAPI.updateVMixInputFields(
+            validation.inputIdentifier,
+            {},
+            {},
+            {},
+            clearImageFields
+          );
+
+          // Небольшая задержка для гарантии обработки очистки vMix
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
         const hasFields =
           Object.keys(fieldsToSend).length > 0 ||
           Object.keys(imageFieldsToSend).length > 0;
 
-        if (!hasFields) {
+        // При forceUpdate всегда отправляем команды, даже если поля пустые,
+        // чтобы очистить данные в vMix при открытии пустого проекта
+        if (!hasFields && !forceUpdate) {
           return {
             success: true,
             skipped: true,
@@ -1988,11 +2042,35 @@ export function useVMix(match) {
           );
         }
 
+        // При forceUpdate для логотипов: сначала очищаем, затем устанавливаем новое значение
+        // Это необходимо для обхода кэширования изображений в vMix
+        if (forceUpdate && Object.keys(imageFieldsToSend).length > 0) {
+          // Создаем объект с пустыми значениями для всех полей логотипов
+          const clearImageFields = {};
+          Object.keys(imageFieldsToSend).forEach((key) => {
+            clearImageFields[key] = "";
+          });
+
+          // Сначала очищаем изображения
+          await window.electronAPI.updateVMixInputFields(
+            validation.inputIdentifier,
+            {},
+            {},
+            {},
+            clearImageFields
+          );
+
+          // Небольшая задержка для гарантии обработки очистки vMix
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
         const hasFields =
           Object.keys(fieldsToSend).length > 0 ||
           Object.keys(imageFieldsToSend).length > 0;
 
-        if (!hasFields) {
+        // При forceUpdate всегда отправляем команды, даже если поля пустые,
+        // чтобы очистить данные в vMix при открытии пустого проекта
+        if (!hasFields && !forceUpdate) {
           return {
             success: true,
             skipped: true,
@@ -2075,11 +2153,35 @@ export function useVMix(match) {
           );
         }
 
+        // При forceUpdate для логотипов: сначала очищаем, затем устанавливаем новое значение
+        // Это необходимо для обхода кэширования изображений в vMix
+        if (forceUpdate && Object.keys(imageFieldsToSend).length > 0) {
+          // Создаем объект с пустыми значениями для всех полей логотипов
+          const clearImageFields = {};
+          Object.keys(imageFieldsToSend).forEach((key) => {
+            clearImageFields[key] = "";
+          });
+
+          // Сначала очищаем изображения
+          await window.electronAPI.updateVMixInputFields(
+            validation.inputIdentifier,
+            {},
+            {},
+            {},
+            clearImageFields
+          );
+
+          // Небольшая задержка для гарантии обработки очистки vMix
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
         const hasFields =
           Object.keys(fieldsToSend).length > 0 ||
           Object.keys(imageFieldsToSend).length > 0;
 
-        if (!hasFields) {
+        // При forceUpdate всегда отправляем команды, даже если поля пустые,
+        // чтобы очистить данные в vMix при открытии пустого проекта
+        if (!hasFields && !forceUpdate) {
           return {
             success: true,
             skipped: true,
@@ -2159,11 +2261,35 @@ export function useVMix(match) {
           );
         }
 
+        // При forceUpdate для логотипов: сначала очищаем, затем устанавливаем новое значение
+        // Это необходимо для обхода кэширования изображений в vMix
+        if (forceUpdate && Object.keys(imageFieldsToSend).length > 0) {
+          // Создаем объект с пустыми значениями для всех полей логотипов
+          const clearImageFields = {};
+          Object.keys(imageFieldsToSend).forEach((key) => {
+            clearImageFields[key] = "";
+          });
+
+          // Сначала очищаем изображения
+          await window.electronAPI.updateVMixInputFields(
+            validation.inputIdentifier,
+            {},
+            {},
+            {},
+            clearImageFields
+          );
+
+          // Небольшая задержка для гарантии обработки очистки vMix
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
         const hasFields =
           Object.keys(fieldsToSend).length > 0 ||
           Object.keys(imageFieldsToSend).length > 0;
 
-        if (!hasFields) {
+        // При forceUpdate всегда отправляем команды, даже если поля пустые,
+        // чтобы очистить данные в vMix при открытии пустого проекта
+        if (!hasFields && !forceUpdate) {
           return {
             success: true,
             skipped: true,

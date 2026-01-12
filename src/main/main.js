@@ -25,6 +25,45 @@ let isLoadingVite = false; // Флаг для предотвращения од�
 let autoSaveTimeout = null; // Таймер для отложенного автосохранения
 
 /**
+ * Очищает файлы логотипов при создании нового матча
+ * Удаляет logo_a.png и logo_b.png, чтобы они не отображались от предыдущего матча
+ */
+async function clearLogosOnNewMatch() {
+  try {
+    const fsPromises = require('fs').promises;
+    const path = require('path');
+    const logosDir = logoManager.getLogosDir();
+    
+    // Удаляем файлы logo_a.png и logo_b.png, так как в новом матче их нет
+    const logoAPath = path.join(logosDir, 'logo_a.png');
+    const logoBPath = path.join(logosDir, 'logo_b.png');
+    
+    try {
+      await fsPromises.unlink(logoAPath);
+      console.log('[main] Удален logo_a.png при создании нового матча');
+    } catch (error) {
+      // Игнорируем ошибку, если файл не существует
+      if (error.code !== 'ENOENT') {
+        console.warn('Не удалось удалить logo_a.png:', error.message);
+      }
+    }
+    
+    try {
+      await fsPromises.unlink(logoBPath);
+      console.log('[main] Удален logo_b.png при создании нового матча');
+    } catch (error) {
+      // Игнорируем ошибку, если файл не существует
+      if (error.code !== 'ENOENT') {
+        console.warn('Не удалось удалить logo_b.png:', error.message);
+      }
+    }
+  } catch (error) {
+    console.warn('Ошибка при очистке логотипов при создании нового матча:', error.message);
+    // Не прерываем выполнение, если ошибка очистки логотипов
+  }
+}
+
+/**
  * Планирует автосохранение матча с задержкой (debounce)
  */
 async function scheduleAutoSave(match) {
@@ -488,6 +527,10 @@ async function createMenu() {
           click: async () => {
             if (mainWindow) {
               const match = await fileManager.createMatch();
+              
+              // При создании нового матча очищаем файлы логотипов
+              await clearLogosOnNewMatch();
+              
               currentMatch = match;
               currentMatchFilePath = null; // Сбрасываем путь при создании нового матча
               hasUnsavedChanges = true;
@@ -610,6 +653,14 @@ async function createMenu() {
       label: "Вид",
       submenu: [
         {
+          label: "Управление матчем",
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send("navigate", "/match");
+            }
+          },
+        },
+        {
           label: "Настройки матча",
           click: () => {
             if (mainWindow) {
@@ -704,7 +755,13 @@ ipcMain.handle("app-version", () => {
 // File management handlers
 ipcMain.handle("match:create", async () => {
   try {
-    return await fileManager.createMatch();
+    const match = await fileManager.createMatch();
+    
+    // При создании нового матча очищаем файлы логотипов,
+    // чтобы они не отображались от предыдущего матча
+    await clearLogosOnNewMatch();
+    
+    return match;
   } catch (error) {
     console.error("Error creating match:", error);
     const friendlyError = errorHandler.handleError(error, "match:create");

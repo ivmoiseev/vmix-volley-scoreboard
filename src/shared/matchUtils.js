@@ -19,6 +19,7 @@ function createNewMatch() {
     teamA: {
       name: "Команда А",
       color: "#3498db",
+      liberoColor: undefined,
       logo: undefined,
       coach: "",
       roster: [],
@@ -26,6 +27,7 @@ function createNewMatch() {
     teamB: {
       name: "Команда Б",
       color: "#e74c3c",
+      liberoColor: undefined,
       logo: undefined,
       coach: "",
       roster: [],

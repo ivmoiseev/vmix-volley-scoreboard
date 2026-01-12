@@ -192,11 +192,32 @@ async function processTeamLogoForSave(team, teamLetter) {
     logoBase64 = team.logoBase64;
   }
   
-  // Если нет логотипа, просто обновляем logoPath на фиксированное имя
+  // Если нет логотипа, удаляем файл и возвращаем команду без логотипов
   if (!logoBase64) {
+    // Удаляем файл логотипа, если он существует
+    try {
+      const fs = require('fs').promises;
+      const path = require('path');
+      const logosDir = getLogosDir();
+      const fileName = teamLetter === 'A' ? 'logo_a.png' : 'logo_b.png';
+      const logoPath = path.join(logosDir, fileName);
+      
+      try {
+        await fs.unlink(logoPath);
+        console.log(`[logoManager] Удален ${fileName} при сохранении проекта без логотипа`);
+      } catch (error) {
+        // Игнорируем ошибку, если файл не существует
+        if (error.code !== 'ENOENT') {
+          console.warn(`Не удалось удалить ${fileName}:`, error.message);
+        }
+      }
+    } catch (error) {
+      console.warn('Ошибка при удалении файла логотипа:', error.message);
+    }
+    
     return {
       ...team,
-      logoPath: `logos/logo_${teamLetter.toLowerCase()}.png`,
+      logoPath: undefined, // Не устанавливаем путь, если логотипа нет
       logo: undefined,
       logoBase64: undefined,
     };
@@ -281,7 +302,9 @@ async function processTeamLogoForLoad(team, teamLetter) {
     return team;
   }
   
-  // Приоритет 3: пытаемся загрузить из файла (если нет base64 в JSON)
+  // Приоритет 3: пытаемся загрузить из файла ТОЛЬКО если есть logoPath в JSON
+  // Это важно: если в JSON нет logoPath, значит логотип не был сохранен в этом матче
+  // и не нужно пытаться загружать его из файла (который может быть от другого матча)
   if (team.logoPath) {
     logoBase64 = await loadLogoFromFile(team.logoPath, teamLetter);
     if (logoBase64) {
@@ -290,22 +313,18 @@ async function processTeamLogoForLoad(team, teamLetter) {
         logo: logoBase64, // Для отображения в UI
       };
     }
-  } else {
-    // Если logoPath нет, но есть teamLetter, пробуем загрузить фиксированное имя
-    if (teamLetter) {
-      const fixedFileName = teamLetter === 'A' ? 'logo_a.png' : 'logo_b.png';
-      logoBase64 = await loadLogoFromFile(`logos/${fixedFileName}`, teamLetter);
-      if (logoBase64) {
-        return {
-          ...team,
-          logo: logoBase64,
-        };
-      }
-    }
   }
   
-  // Нет логотипа
-  return team;
+  // Если в JSON нет логотипа (ни logoBase64, ни logo, ни logoPath), 
+  // возвращаем команду без логотипа (не пытаемся загружать из файла)
+  // Это гарантирует, что при открытии пустого проекта логотипы не будут загружены
+  // из файлов предыдущего проекта
+  return {
+    ...team,
+    logo: undefined,
+    logoBase64: undefined,
+    logoPath: undefined,
+  };
 }
 
 /**

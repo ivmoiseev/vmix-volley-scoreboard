@@ -12,7 +12,8 @@ export interface Player {
 
 export interface Team {
   name: string;
-  color: string;
+  color: string; // Цвет формы игроков
+  liberoColor?: string; // Цвет формы либеро
   logo?: string; // base64 или путь к файлу
   coach?: string;
   roster?: Player[];
@@ -92,6 +93,7 @@ export function createNewMatch(): Match {
     teamA: {
       name: 'Команда А',
       color: '#3498db',
+      liberoColor: undefined,
       logo: undefined,
       coach: '',
       roster: [],
@@ -99,6 +101,7 @@ export function createNewMatch(): Match {
     teamB: {
       name: 'Команда Б',
       color: '#e74c3c',
+      liberoColor: undefined,
       logo: undefined,
       coach: '',
       roster: [],

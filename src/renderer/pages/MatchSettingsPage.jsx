@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { resizeImage } from '../utils/imageResize';
 import { useVMix } from '../hooks/useVMix';
+import { useHeaderButtons } from '../components/Layout';
 
 function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   const navigate = useNavigate();
   const location = useLocation();
   const matchFromState = location.state?.match;
+  const { setButtons } = useHeaderButtons();
 
   // Используем match из пропсов, затем из state, затем пытаемся загрузить из Electron API
   const [match, setMatch] = useState(propMatch || matchFromState || null);
@@ -23,9 +25,11 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     time: '',
     teamAName: '',
     teamAColor: '#3498db',
+    teamALiberoColor: '',
     teamACity: '',
     teamBName: '',
     teamBColor: '#e74c3c',
+    teamBLiberoColor: '',
     teamBCity: '',
     referee1: '',
     referee2: '',
@@ -85,9 +89,11 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
       time: match.time || '',
       teamAName: match.teamA.name || '',
       teamAColor: match.teamA.color || '#3498db',
+      teamALiberoColor: match.teamA.liberoColor || '',
       teamACity: match.teamA.city || '',
       teamBName: match.teamB.name || '',
       teamBColor: match.teamB.color || '#e74c3c',
+      teamBLiberoColor: match.teamB.liberoColor || '',
       teamBCity: match.teamB.city || '',
       referee1: match.officials?.referee1 || '',
       referee2: match.officials?.referee2 || '',
@@ -119,17 +125,23 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
         ...match.teamA,
         name: formData.teamAName,
         color: formData.teamAColor,
+        liberoColor: formData.teamALiberoColor || undefined,
         city: formData.teamACity,
-        // Сохраняем логотип, если он был загружен
+        // Сохраняем все поля логотипа (logo, logoPath, logoBase64), чтобы не потерять их после смены команд
         logo: match.teamA.logo,
+        logoPath: match.teamA.logoPath,
+        logoBase64: match.teamA.logoBase64,
       },
       teamB: {
         ...match.teamB,
         name: formData.teamBName,
         color: formData.teamBColor,
+        liberoColor: formData.teamBLiberoColor || undefined,
         city: formData.teamBCity,
-        // Сохраняем логотип, если он был загружен
+        // Сохраняем все поля логотипа (logo, logoPath, logoBase64), чтобы не потерять их после смены команд
         logo: match.teamB.logo,
+        logoPath: match.teamB.logoPath,
+        logoBase64: match.teamB.logoBase64,
       },
       officials: {
         referee1: formData.referee1,
@@ -160,6 +172,9 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     
     // Принудительно обновляем все данные в vMix при сохранении настроек
     if (connectionStatus.connected) {
+      // Сбрасываем кэш логотипов перед обновлением, чтобы гарантировать их обновление
+      // Это особенно важно после смены команд местами
+      resetImageFieldsCache();
       updateMatchData(updatedMatch, true);
       // Обновляем данные обоих судей в плашке 2 судей при сохранении настроек
       if (updateReferee2Data) {
@@ -180,6 +195,44 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   const handleCancel = () => {
     navigate('/match', { state: { match } });
   };
+
+  // Устанавливаем кнопки в шапку
+  useEffect(() => {
+    if (match) {
+      setButtons(
+        <>
+          <button
+            onClick={handleCancel}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#95a5a6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            Отмена
+          </button>
+          <button
+            onClick={handleSave}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#27ae60',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+            }}
+          >
+            Сохранить изменения
+          </button>
+        </>
+      );
+    }
+    return () => setButtons(null);
+  }, [match, setButtons]);
 
   if (!match) {
     return null;
@@ -361,9 +414,11 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                       time: swappedMatch.time || '',
                       teamAName: swappedMatch.teamA.name || '',
                       teamAColor: swappedMatch.teamA.color || '#3498db',
+                      teamALiberoColor: swappedMatch.teamA.liberoColor || '',
                       teamACity: swappedMatch.teamA.city || '',
                       teamBName: swappedMatch.teamB.name || '',
                       teamBColor: swappedMatch.teamB.color || '#e74c3c',
+                      teamBLiberoColor: swappedMatch.teamB.liberoColor || '',
                       teamBCity: swappedMatch.teamB.city || '',
                       referee1: swappedMatch.officials?.referee1 || '',
                       referee2: swappedMatch.officials?.referee2 || '',
@@ -428,7 +483,7 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  Цвет формы
+                  Цвет формы игроков
                 </label>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                   <input
@@ -455,6 +510,38 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                       borderRadius: '4px',
                     }}
                     placeholder="#3498db"
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  Цвет формы либеро
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="color"
+                    value={formData.teamALiberoColor || '#ffffff'}
+                    onChange={(e) => handleInputChange('teamALiberoColor', e.target.value)}
+                    style={{
+                      width: '60px',
+                      height: '40px',
+                      border: '1px solid #bdc3c7',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <input
+                    type="text"
+                    value={formData.teamALiberoColor || ''}
+                    onChange={(e) => handleInputChange('teamALiberoColor', e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '0.5rem',
+                      fontSize: '1rem',
+                      border: '1px solid #bdc3c7',
+                      borderRadius: '4px',
+                    }}
+                    placeholder="Не указан"
                   />
                 </div>
               </div>
@@ -593,7 +680,7 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  Цвет формы
+                  Цвет формы игроков
                 </label>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                   <input
@@ -620,6 +707,38 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                       borderRadius: '4px',
                     }}
                     placeholder="#e74c3c"
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  Цвет формы либеро
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="color"
+                    value={formData.teamBLiberoColor || '#ffffff'}
+                    onChange={(e) => handleInputChange('teamBLiberoColor', e.target.value)}
+                    style={{
+                      width: '60px',
+                      height: '40px',
+                      border: '1px solid #bdc3c7',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <input
+                    type="text"
+                    value={formData.teamBLiberoColor || ''}
+                    onChange={(e) => handleInputChange('teamBLiberoColor', e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '0.5rem',
+                      fontSize: '1rem',
+                      border: '1px solid #bdc3c7',
+                      borderRadius: '4px',
+                    }}
+                    placeholder="Не указан"
                   />
                 </div>
               </div>
