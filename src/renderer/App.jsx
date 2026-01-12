@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import WelcomePage from './pages/WelcomePage';
@@ -80,7 +80,7 @@ function App() {
       removeLoadMatch?.();
       removeRefreshVMix?.();
     };
-  }, [navigate, currentMatch]);
+  }, [navigate, currentMatch, location.pathname]);
 
   return (
     <Layout match={currentMatch} onMatchChange={setCurrentMatch}>

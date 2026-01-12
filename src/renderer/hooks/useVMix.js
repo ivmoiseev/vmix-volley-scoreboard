@@ -25,7 +25,7 @@ const DEBOUNCE_DELAY = 300;
 /**
  * Хук для работы с vMix
  */
-export function useVMix(match) {
+export function useVMix(_match) {
   const [vmixConfig, setVMixConfig] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState({
     connected: false,
@@ -33,7 +33,6 @@ export function useVMix(match) {
   });
   const [overlayStates, setOverlayStates] = useState({});
   const [inputsMap, setInputsMap] = useState({});
-  const updateTimeoutRef = useRef(null);
   const vmixConfigRef = useRef(vmixConfig);
   const updateMatchDataDebouncedRef = useRef(null);
   const connectionStatusRef = useRef(connectionStatus);
@@ -413,7 +412,7 @@ export function useVMix(match) {
                 if (/^\d+$/.test(trimmed)) {
                   return tempInputsMap[trimmed] || null;
                 }
-                for (const [num, data] of Object.entries(tempInputsMap)) {
+                for (const [_num, data] of Object.entries(tempInputsMap)) {
                   if (
                     data.key &&
                     data.key.toLowerCase() === trimmed.toLowerCase()
@@ -547,7 +546,7 @@ export function useVMix(match) {
         // Очищаем активные кнопки при переподключении
         activeButtonRef.current = {};
       }
-    } catch (error) {
+    } catch {
       setConnectionStatus({
         connected: false,
         message: "Ошибка подключения",
@@ -910,25 +909,39 @@ export function useVMix(match) {
         case "subtitle":
           return match.tournamentSubtitle || "";
         case FIELD_KEYS.TEAM_A_LOGO:
-          // Проверяем наличие логотипа: logo, logoPath или logoBase64
-          const hasLogoA = logoBaseUrl && (
-            match.teamA?.logo || 
-            match.teamA?.logoPath || 
-            match.teamA?.logoBase64
-          );
-          return hasLogoA ? `${logoBaseUrl}/logo_a.png` : "";
+          // Используем logoPath из матча (с уникальным именем) или fallback на фиксированное имя
+          if (logoBaseUrl && match.teamA?.logoPath) {
+            // logoPath содержит относительный путь типа "logos/logo_a_1234567890.png"
+            const fileName = match.teamA.logoPath.replace(/^logos\//, '');
+            return `${logoBaseUrl}/${fileName}`;
+          }
+          // Fallback для обратной совместимости
+          {
+            const hasLogoA = logoBaseUrl && (
+              match.teamA?.logo || 
+              match.teamA?.logoBase64
+            );
+            return hasLogoA ? `${logoBaseUrl}/logo_a.png` : "";
+          }
         case "teamAName":
           return match.teamA?.name || "";
         case "teamACity":
           return match.teamA?.city || "";
         case FIELD_KEYS.TEAM_B_LOGO:
-          // Проверяем наличие логотипа: logo, logoPath или logoBase64
-          const hasLogoB = logoBaseUrl && (
-            match.teamB?.logo || 
-            match.teamB?.logoPath || 
-            match.teamB?.logoBase64
-          );
-          return hasLogoB ? `${logoBaseUrl}/logo_b.png` : "";
+          // Используем logoPath из матча (с уникальным именем) или fallback на фиксированное имя
+          if (logoBaseUrl && match.teamB?.logoPath) {
+            // logoPath содержит относительный путь типа "logos/logo_b_1234567890.png"
+            const fileName = match.teamB.logoPath.replace(/^logos\//, '');
+            return `${logoBaseUrl}/${fileName}`;
+          }
+          // Fallback для обратной совместимости
+          {
+            const hasLogoB = logoBaseUrl && (
+              match.teamB?.logo || 
+              match.teamB?.logoBase64
+            );
+            return hasLogoB ? `${logoBaseUrl}/logo_b.png` : "";
+          }
         case "teamBName":
           return match.teamB?.name || "";
         case "teamBCity":
@@ -971,14 +984,29 @@ export function useVMix(match) {
         return team?.city || "";
       }
       if (fieldKey === "teamLogo") {
-        // Проверяем наличие логотипа: logo, logoPath или logoBase64
-        // logoBaseUrl уже содержит /logos, поэтому добавляем только имя файла
+        // Используем logoPath из команды (с уникальным именем) или fallback на фиксированное имя
+        if (logoBaseUrl && team?.logoPath) {
+          // logoPath содержит относительный путь типа "logos/logo_a_1234567890.png"
+          const fileName = team.logoPath.replace(/^logos\//, '');
+          return `${logoBaseUrl}/${fileName}`;
+        }
+        // Fallback для обратной совместимости: используем фиксированное имя на основе teamKey
         const hasLogo = logoBaseUrl && (
           team?.logo || 
-          team?.logoPath || 
           team?.logoBase64
         );
-        return hasLogo ? `${logoBaseUrl}/${logoFileName}` : "";
+        const logoUrl = hasLogo ? `${logoBaseUrl}/${logoFileName}` : "";
+        
+        // Логирование для отладки
+        if (hasLogo) {
+          console.log(`[getRosterFieldValue] teamLogo для teamKey=${teamKey}:`);
+          console.log(`  team.name: ${team?.name || 'N/A'}`);
+          console.log(`  team.logoPath: ${team?.logoPath || 'N/A'}`);
+          console.log(`  logoFileName (fallback из teamKey): ${logoFileName}`);
+          console.log(`  Сформированный URL: ${logoUrl}`);
+        }
+        
+        return logoUrl;
       }
 
       // Поля игроков (player1Number, player1Name, ... player14Number, player14Name)
@@ -1565,6 +1593,11 @@ export function useVMix(match) {
 
       const team = teamKey === "A" ? match.teamA : match.teamB;
       const roster = team?.roster || [];
+      
+      // Логирование для отладки проблемы с логотипами
+      console.log(`[formatRosterData] Вызов для teamKey=${teamKey}, inputKey=${inputKey}`);
+      console.log(`  team.name: ${team?.name || 'N/A'}`);
+      console.log(`  team.logoPath: ${team?.logoPath || 'N/A'}`);
 
       const fields = {};
       const imageFields = {};
@@ -1632,6 +1665,14 @@ export function useVMix(match) {
           }
         }
       });
+
+      // Логирование итоговых imageFields для отладки
+      if (Object.keys(imageFields).length > 0) {
+        console.log(`[formatRosterData] Итоговые imageFields для teamKey=${teamKey}:`);
+        Object.entries(imageFields).forEach(([fieldIdentifier, imagePath]) => {
+          console.log(`  ${fieldIdentifier}: ${imagePath}`);
+        });
+      }
 
       return { fields, imageFields };
     },
@@ -1713,11 +1754,15 @@ export function useVMix(match) {
         return team?.city || "";
       }
       if (fieldKey === "teamLogo") {
-        // Проверяем наличие логотипа: logo, logoPath или logoBase64
-        // logoBaseUrl уже содержит /logos, поэтому добавляем только имя файла
+        // Используем logoPath из команды (с уникальным именем) или fallback на фиксированное имя
+        if (logoBaseUrl && team?.logoPath) {
+          // logoPath содержит относительный путь типа "logos/logo_a_1234567890.png"
+          const fileName = team.logoPath.replace(/^logos\//, '');
+          return `${logoBaseUrl}/${fileName}`;
+        }
+        // Fallback для обратной совместимости: используем фиксированное имя на основе teamKey
         const hasLogo = logoBaseUrl && (
           team?.logo || 
-          team?.logoPath || 
           team?.logoBase64
         );
         return hasLogo ? `${logoBaseUrl}/${logoFileName}` : "";
@@ -2139,6 +2184,17 @@ export function useVMix(match) {
           "A",
           forceUpdate
         );
+        
+        // Логирование для отладки проблемы с логотипами
+        if (Object.keys(imageFields).length > 0) {
+          console.log('[updateRosterTeamAInput] Логотипы для команды A:');
+          Object.entries(imageFields).forEach(([fieldName, imagePath]) => {
+            console.log(`  ${fieldName}: ${imagePath}`);
+            if (imagePath && imagePath.includes('logo')) {
+              console.log(`    [DEBUG] teamKey=A, ожидаемый файл: logo_a.png, URL содержит: ${imagePath.includes('logo_a.png') ? 'logo_a.png ✓' : imagePath.includes('logo_b.png') ? 'logo_b.png ✗ ОШИБКА!' : 'неизвестно'}`);
+            }
+          });
+        }
 
         // Фильтруем только измененные поля, если не forceUpdate
         let fieldsToSend = fields;
@@ -2247,6 +2303,17 @@ export function useVMix(match) {
           "B",
           forceUpdate
         );
+        
+        // Логирование для отладки проблемы с логотипами
+        if (Object.keys(imageFields).length > 0) {
+          console.log('[updateRosterTeamBInput] Логотипы для команды B:');
+          Object.entries(imageFields).forEach(([fieldName, imagePath]) => {
+            console.log(`  ${fieldName}: ${imagePath}`);
+            if (imagePath && imagePath.includes('logo')) {
+              console.log(`    [DEBUG] teamKey=B, ожидаемый файл: logo_b.png, URL содержит: ${imagePath.includes('logo_b.png') ? 'logo_b.png ✓' : imagePath.includes('logo_a.png') ? 'logo_a.png ✗ ОШИБКА!' : 'неизвестно'}`);
+            }
+          });
+        }
 
         // Фильтруем только измененные поля, если не forceUpdate
         let fieldsToSend = fields;
@@ -2385,37 +2452,34 @@ export function useVMix(match) {
     updateReferee2Data,
   ]);
 
-  /**
-   * Форматирует данные счета партии для vMix
-   */
-  const formatSetScoreData = (match, set) => {
+  // Неиспользуемые функции оставлены для возможного будущего использования
+  // eslint-disable-next-line unused-imports/no-unused-vars
+  const formatSetScoreData = (_match, _set) => {
     return JSON.stringify({
-      teamA: match.teamA.name,
-      teamB: match.teamB.name,
-      setNumber: set.setNumber,
-      scoreA: set.scoreA,
-      scoreB: set.scoreB,
+      teamA: _match.teamA.name,
+      teamB: _match.teamB.name,
+      setNumber: _set.setNumber,
+      scoreA: _set.scoreA,
+      scoreB: _set.scoreB,
     });
   };
 
-  /**
-   * Форматирует данные статистики для vMix
-   */
-  const formatStatisticsData = (match) => {
+  // eslint-disable-next-line unused-imports/no-unused-vars
+  const formatStatisticsData = (_match) => {
     return JSON.stringify({
       teamA: {
-        name: match.teamA.name,
-        attack: match.statistics.teamA.attack,
-        block: match.statistics.teamA.block,
-        serve: match.statistics.teamA.serve,
-        opponentErrors: match.statistics.teamA.opponentErrors,
+        name: _match.teamA.name,
+        attack: _match.statistics.teamA.attack,
+        block: _match.statistics.teamA.block,
+        serve: _match.statistics.teamA.serve,
+        opponentErrors: _match.statistics.teamA.opponentErrors,
       },
       teamB: {
-        name: match.teamB.name,
-        attack: match.statistics.teamB.attack,
-        block: match.statistics.teamB.block,
-        serve: match.statistics.teamB.serve,
-        opponentErrors: match.statistics.teamB.opponentErrors,
+        name: _match.teamB.name,
+        attack: _match.statistics.teamB.attack,
+        block: _match.statistics.teamB.block,
+        serve: _match.statistics.teamB.serve,
+        opponentErrors: _match.statistics.teamB.opponentErrors,
       },
     });
   };
@@ -2452,7 +2516,7 @@ export function useVMix(match) {
       }
 
       // 2. Если это ID инпута (key) - ищем по key
-      for (const [number, inputData] of Object.entries(inputsMap)) {
+      for (const [_number, inputData] of Object.entries(inputsMap)) {
         if (
           inputData.key &&
           inputData.key.toLowerCase() === trimmed.toLowerCase()
@@ -2469,7 +2533,7 @@ export function useVMix(match) {
 
       // 3. Если это имя инпута (title или shortTitle) - ищем по имени
       const normalizedName = trimmed.toLowerCase();
-      for (const [number, inputData] of Object.entries(inputsMap)) {
+      for (const [_number, inputData] of Object.entries(inputsMap)) {
         const title = (inputData.title || "").toLowerCase();
         const shortTitle = (inputData.shortTitle || "").toLowerCase();
 

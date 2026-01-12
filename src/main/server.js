@@ -4,6 +4,7 @@ const os = require('os');
 const path = require('path');
 const errorHandler = require('../shared/errorHandler');
 const settingsManager = require('./settingsManager');
+const domUtils = require('./utils/domUtils');
 
 /**
  * HTTP сервер для мобильного доступа
@@ -137,20 +138,42 @@ class MobileServer {
       
       const serverIP = this.getLocalIP(selectedIP);
       
-      Promise.all([
-        fs.access(path.join(logosPath, 'logo_a.png')).then(() => true).catch(() => false),
-        fs.access(path.join(logosPath, 'logo_b.png')).then(() => true).catch(() => false),
-      ]).then(([logoA, logoB]) => {
-        res.json({
-          logosPath,
-          logoA: { exists: logoA, url: `http://${serverIP}:${this.port}/logos/logo_a.png` },
-          logoB: { exists: logoB, url: `http://${serverIP}:${this.port}/logos/logo_b.png` },
-          serverIP: serverIP,
-          serverPort: this.port,
+      // Проверяем наличие логотипов с уникальными именами (logo_*_*.png)
+      fs.readdir(logosPath)
+        .then((files) => {
+          // Ищем файлы, начинающиеся с logo_a_ и logo_b_
+          const logoAFiles = files.filter(f => f.startsWith('logo_a_') && f.endsWith('.png'));
+          const logoBFiles = files.filter(f => f.startsWith('logo_b_') && f.endsWith('.png'));
+          
+          const logoA = logoAFiles.length > 0;
+          const logoB = logoBFiles.length > 0;
+          
+          // Используем последний файл (самый новый) для URL
+          const logoAUrl = logoA 
+            ? `http://${serverIP}:${this.port}/logos/${logoAFiles[logoAFiles.length - 1]}`
+            : `http://${serverIP}:${this.port}/logos/logo_a.png`; // Fallback для обратной совместимости
+          const logoBUrl = logoB 
+            ? `http://${serverIP}:${this.port}/logos/${logoBFiles[logoBFiles.length - 1]}`
+            : `http://${serverIP}:${this.port}/logos/logo_b.png`; // Fallback для обратной совместимости
+          
+          res.json({
+            logosPath,
+            logoA: { exists: logoA, url: logoAUrl },
+            logoB: { exists: logoB, url: logoBUrl },
+            serverIP: serverIP,
+            serverPort: this.port,
+          });
+        })
+        .catch((_error) => {
+          // Если папка не существует или ошибка чтения, возвращаем false
+          res.json({
+            logosPath,
+            logoA: { exists: false, url: `http://${serverIP}:${this.port}/logos/logo_a.png` },
+            logoB: { exists: false, url: `http://${serverIP}:${this.port}/logos/logo_b.png` },
+            serverIP: serverIP,
+            serverPort: this.port,
+          });
         });
-      }).catch((error) => {
-        res.status(500).json({ error: error.message });
-      });
     });
 
     // API: Обновление счета
@@ -727,6 +750,8 @@ class MobileServer {
   </div>
 
   <script>
+    ${domUtils.getSanitizationFunctions()}
+    
     const sessionId = '${sessionId}';
     let matchData = null;
     let updateInterval = null;
@@ -758,20 +783,20 @@ class MobileServer {
     function updateUI() {
       if (!matchData) return;
 
-      // Информация о матче
+      // Информация о матче (используем безопасную санитизацию)
       const matchInfo = [];
-      if (matchData.tournament) matchInfo.push(matchData.tournament);
-      if (matchData.venue) matchInfo.push(matchData.venue);
-      document.getElementById('matchInfo').textContent = 
-        matchInfo.length > 0 ? matchInfo.join(' | ') : 'Матч';
+      if (matchData.tournament) matchInfo.push(sanitizeText(matchData.tournament));
+      if (matchData.venue) matchInfo.push(sanitizeText(matchData.venue));
+      const matchInfoText = matchInfo.length > 0 ? matchInfo.join(' | ') : 'Матч';
+      setTextContentSafe(document.getElementById('matchInfo'), matchInfoText);
 
-      // Команды
-      document.getElementById('teamA').textContent = matchData.teamA.name;
-      document.getElementById('teamB').textContent = matchData.teamB.name;
-      document.getElementById('labelA').textContent = matchData.teamA.name;
-      document.getElementById('labelB').textContent = matchData.teamB.name;
-      document.getElementById('labelA2').textContent = matchData.teamA.name;
-      document.getElementById('labelB2').textContent = matchData.teamB.name;
+      // Команды (используем безопасную санитизацию)
+      setTextContentSafe(document.getElementById('teamA'), matchData.teamA.name);
+      setTextContentSafe(document.getElementById('teamB'), matchData.teamB.name);
+      setTextContentSafe(document.getElementById('labelA'), matchData.teamA.name);
+      setTextContentSafe(document.getElementById('labelB'), matchData.teamB.name);
+      setTextContentSafe(document.getElementById('labelA2'), matchData.teamA.name);
+      setTextContentSafe(document.getElementById('labelB2'), matchData.teamB.name);
 
       // Счет
       document.getElementById('scoreA').textContent = matchData.currentSet.scoreA;
@@ -781,59 +806,59 @@ class MobileServer {
       const logoA = document.getElementById('logoA');
       const logoB = document.getElementById('logoB');
       
-      // Для команды A: приоритет HTTP URL (фиксированное имя), затем base64
+      // Для команды A: приоритет logoPath (с уникальным именем), затем base64, затем fallback
       let logoAUrl = null;
-      // Всегда пробуем использовать фиксированное имя logo_a.png
-      logoAUrl = \`http://\${window.location.hostname}:${serverPort}/logos/logo_a.png\`;
-      
-      // Если нет base64, используем HTTP URL (может быть 404, но браузер обработает)
-      if (matchData.teamA.logoBase64) {
+      if (matchData.teamA && matchData.teamA.logoPath) {
+        // Используем logoPath с уникальным именем
+        const fileName = matchData.teamA.logoPath.startsWith('logos/') 
+          ? matchData.teamA.logoPath.slice(6) 
+          : matchData.teamA.logoPath;
+        logoAUrl = \`http://\${window.location.hostname}:${serverPort}/logos/\${fileName}\`;
+      } else if (matchData.teamA && matchData.teamA.logoBase64) {
         // Используем base64 из JSON (более надежно)
         logoAUrl = matchData.teamA.logoBase64;
-      } else if (matchData.teamA.logo) {
+      } else if (matchData.teamA && matchData.teamA.logo) {
         // Старый формат (обратная совместимость)
         logoAUrl = matchData.teamA.logo;
-      }
-      
-      if (logoAUrl) {
-        logoA.innerHTML = \`<img src="\${logoAUrl}" alt="\${matchData.teamA.name}" onerror="this.parentElement.style.display='none'" />\`;
-        logoA.style.display = 'flex';
       } else {
-        logoA.innerHTML = '';
-        logoA.style.display = 'none';
+        // Fallback на фиксированное имя для обратной совместимости
+        logoAUrl = \`http://\${window.location.hostname}:${serverPort}/logos/logo_a.png\`;
       }
       
-      // Для команды B: приоритет HTTP URL (фиксированное имя), затем base64
-      let logoBUrl = null;
-      // Всегда пробуем использовать фиксированное имя logo_b.png
-      logoBUrl = \`http://\${window.location.hostname}:${serverPort}/logos/logo_b.png\`;
+      // Используем безопасный метод для установки логотипа
+      setLogoContainer(logoA, logoAUrl, matchData.teamA ? matchData.teamA.name : 'Команда A');
       
-      // Если нет base64, используем HTTP URL (может быть 404, но браузер обработает)
-      if (matchData.teamB.logoBase64) {
+      // Для команды B: приоритет logoPath (с уникальным именем), затем base64, затем fallback
+      let logoBUrl = null;
+      if (matchData.teamB && matchData.teamB.logoPath) {
+        // Используем logoPath с уникальным именем
+        const fileName = matchData.teamB.logoPath.startsWith('logos/') 
+          ? matchData.teamB.logoPath.slice(6) 
+          : matchData.teamB.logoPath;
+        logoBUrl = \`http://\${window.location.hostname}:${serverPort}/logos/\${fileName}\`;
+      } else if (matchData.teamB && matchData.teamB.logoBase64) {
         // Используем base64 из JSON (более надежно)
         logoBUrl = matchData.teamB.logoBase64;
-      } else if (matchData.teamB.logo) {
+      } else if (matchData.teamB && matchData.teamB.logo) {
         // Старый формат (обратная совместимость)
         logoBUrl = matchData.teamB.logo;
-      }
-      
-      if (logoBUrl) {
-        logoB.innerHTML = \`<img src="\${logoBUrl}" alt="\${matchData.teamB.name}" onerror="this.parentElement.style.display='none'" />\`;
-        logoB.style.display = 'flex';
       } else {
-        logoB.innerHTML = '';
-        logoB.style.display = 'none';
+        // Fallback на фиксированное имя для обратной совместимости
+        logoBUrl = \`http://\${window.location.hostname}:${serverPort}/logos/logo_b.png\`;
       }
       
-      // Партия
-      document.getElementById('setInfo').textContent = 
-        \`Партия #\${matchData.currentSet.setNumber}\`;
+      // Используем безопасный метод для установки логотипа
+      setLogoContainer(logoB, logoBUrl, matchData.teamB ? matchData.teamB.name : 'Команда B');
       
-      // Подача
+      // Партия (используем безопасную санитизацию)
+      const setInfoText = \`Партия #\${matchData.currentSet.setNumber}\`;
+      setTextContentSafe(document.getElementById('setInfo'), setInfoText);
+      
+      // Подача (используем безопасную санитизацию)
       const servingTeam = matchData.currentSet.servingTeam === 'A' 
         ? matchData.teamA.name 
         : matchData.teamB.name;
-      document.getElementById('servingTeam').textContent = servingTeam;
+      setTextContentSafe(document.getElementById('servingTeam'), servingTeam);
       
       // Обновляем состояние кнопок управления подачей
       const serveLeftBtn = document.getElementById('serveLeftBtn');
@@ -985,27 +1010,64 @@ class MobileServer {
       return false;
     }
 
+    function createSetItem(set, setNumber, currentSetNum, currentSet) {
+      const setItem = document.createElement('div');
+      setItem.className = 'set-item';
+      
+      // Определяем, является ли эта партия текущей
+      const isCurrent = setNumber === currentSetNum;
+      const isCompleted = set && set.completed;
+      
+      // Устанавливаем класс для текущей партии
+      if (isCurrent) {
+        setItem.classList.add('current');
+      }
+      
+      // Создаем содержимое элемента
+      const setNumberEl = document.createElement('div');
+      setNumberEl.textContent = \`Партия \${setNumber}\`;
+      
+      const scoreEl = document.createElement('div');
+      if (isCompleted && set) {
+        // Завершенная партия - показываем счет
+        scoreEl.textContent = \`\${set.scoreA} - \${set.scoreB}\`;
+        scoreEl.style.fontWeight = 'bold';
+        scoreEl.style.color = '#27ae60';
+      } else if (isCurrent && currentSet) {
+        // Текущая партия - показываем текущий счет
+        scoreEl.textContent = \`\${currentSet.scoreA} - \${currentSet.scoreB}\`;
+        scoreEl.style.fontWeight = 'bold';
+        scoreEl.style.color = '#3498db';
+      } else {
+        // Будущая партия - показываем прочерк
+        scoreEl.textContent = '-';
+        scoreEl.style.color = '#7f8c8d';
+      }
+      
+      setItem.appendChild(setNumberEl);
+      setItem.appendChild(scoreEl);
+      
+      return setItem;
+    }
+
     function updateSetsList() {
       const setsList = document.getElementById('setsList');
-      setsList.innerHTML = '';
+      
+      // Очищаем контейнер безопасно
+      while (setsList.firstChild) {
+        setsList.removeChild(setsList.firstChild);
+      }
+      
+      // Проверяем, что matchData и currentSet существуют
+      if (!matchData || !matchData.currentSet) {
+        return;
+      }
       
       const currentSetNum = matchData.currentSet.setNumber;
       
       for (let i = 1; i <= 5; i++) {
-        const set = matchData.sets.find(s => s.setNumber === i);
-        const setItem = document.createElement('div');
-        setItem.className = 'set-item';
-        
-        if (set && set.completed) {
-          setItem.textContent = \`Партия \${i}: \${set.scoreA} - \${set.scoreB}\`;
-        } else if (i === currentSetNum) {
-          setItem.className = 'set-item current';
-          setItem.textContent = \`Партия \${i}: Текущая (\${matchData.currentSet.scoreA} - \${matchData.currentSet.scoreB})\`;
-        } else {
-          setItem.textContent = \`Партия \${i}: -\`;
-          setItem.style.color = '#bdc3c7';
-        }
-        
+        const set = matchData.sets ? matchData.sets.find(s => s && s.setNumber === i) : null;
+        const setItem = createSetItem(set, i, currentSetNum, matchData.currentSet);
         setsList.appendChild(setItem);
       }
     }
@@ -1426,7 +1488,7 @@ class MobileServer {
    * Запускает сервер
    */
   async start(port = 3000) {
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
       this.port = port;
       
       this.server = this.app.listen(port, '0.0.0.0', async () => {
@@ -1475,7 +1537,7 @@ class MobileServer {
    * Останавливает сервер
    */
   async stop() {
-    return new Promise(async (resolve) => {
+    return new Promise((resolve) => {
       if (this.server) {
         this.server.close(async () => {
           console.log('Mobile server stopped');

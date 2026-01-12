@@ -1,4 +1,3 @@
-import React from "react";
 
 const OVERLAY_BUTTONS = [
   { key: "lineup", label: "Заявка" },
@@ -23,7 +22,7 @@ const OVERLAY_BUTTONS = [
 function VMixOverlayButtons({
   vmixConfig,
   connectionStatus,
-  overlayStates,
+  overlayStates: _overlayStates,
   onShowOverlay,
   onHideOverlay,
   isOverlayActive,

@@ -54,8 +54,28 @@ class VMixClient {
       // vMix API работает с /api/ и /api, используем /api/ для совместимости с рабочей ссылкой
       const url = `${this.baseURL}/?${queryParams.toString()}`;
       
+      // Подробное логирование только для команды SetImage
       if (functionName === 'SetImage') {
-        console.log('[SetImage] Полная строка HTTP запроса:', url);
+        // Создаем читаемую версию URL для логирования (декодированную)
+        const readableUrl = `${this.baseURL}/?${decodeURIComponent(queryParams.toString())}`;
+        
+        const logPrefix = `[vMix API] ${functionName}`;
+        const inputNameFromParams = params.Input || 'N/A';
+        console.log(`${logPrefix} → ${inputNameFromParams}`);
+        if (params.SelectedName) {
+          console.log(`  Поле: ${params.SelectedName}`);
+        }
+        if (params.Value) {
+          const valuePreview = typeof params.Value === 'string' && params.Value.length > 100 
+            ? params.Value.substring(0, 100) + '...' 
+            : params.Value;
+          console.log(`  Значение: ${valuePreview}`);
+          // Для SetImage с логотипами - полный URL
+          if (typeof params.Value === 'string' && params.Value.includes('logo')) {
+            console.log(`  [SetImage Logo] Полный URL: ${params.Value}`);
+          }
+        }
+        console.log(`  Полный HTTP запрос (читаемый): ${readableUrl}`);
       }
 
       const response = await axios.get(url, {
@@ -146,6 +166,11 @@ class VMixClient {
       Value: imagePath,
     };
     
+    // Дополнительное логирование для логотипов
+    if (imagePath && typeof imagePath === 'string' && imagePath.includes('logo')) {
+      console.log(`[setImage Logo] Инпут: ${inputName}, Поле: ${fieldName}, URL: ${imagePath}`);
+    }
+    
     return this.sendCommand('SetImage', params);
   }
 
@@ -160,6 +185,15 @@ class VMixClient {
    */
   async updateInputFields(inputName, fields, colorFields = {}, visibilityFields = {}, imageFields = {}) {
     const results = [];
+    
+    // Логирование начала обновления инпута
+    console.log(`[updateInputFields] Начало обновления инпута: ${inputName}`);
+    if (Object.keys(imageFields).length > 0) {
+      console.log(`  Поля изображений: ${Object.keys(imageFields).join(', ')}`);
+      Object.entries(imageFields).forEach(([fieldName, imagePath]) => {
+        console.log(`    ${fieldName}: ${imagePath}`);
+      });
+    }
     
     // 1. Устанавливаем текстовые значения для обычных полей
     for (const [fieldName, value] of Object.entries(fields)) {
@@ -180,7 +214,7 @@ class VMixClient {
     }
     
     // 4. Для полей видимости: сначала устанавливаем символ ●, затем управляем видимостью
-    for (const [fieldName, { visible, fieldConfig }] of Object.entries(visibilityFields)) {
+    for (const [fieldName, { visible }] of Object.entries(visibilityFields)) {
       // Сначала устанавливаем символ ● в поле
       const setSymbolResult = await this.updateInputField(inputName, fieldName, '●');
       results.push(setSymbolResult);

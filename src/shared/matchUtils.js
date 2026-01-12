@@ -131,4 +131,5 @@ function generateUUID() {
 module.exports = {
   createNewMatch,
   validateMatch,
+  generateUUID,
 };

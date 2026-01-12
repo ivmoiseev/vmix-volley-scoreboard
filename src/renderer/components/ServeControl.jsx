@@ -1,4 +1,3 @@
-import React from 'react';
 
 function ServeControl({ servingTeam, teamAName, teamBName, onChange }) {
   const servingTeamName = servingTeam === 'A' ? teamAName : teamBName;

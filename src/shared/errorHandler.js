@@ -63,7 +63,7 @@ class ErrorHandler {
     }
 
     // Ошибки валидации
-    if (errorMessage.includes('валидация') || errorMessage.includes('validate')) {
+    if (errorMessage.includes('валидация') || errorMessage.includes('Validation failed')) {
       return 'Данные некорректны. Проверьте введенные данные.';
     }
 

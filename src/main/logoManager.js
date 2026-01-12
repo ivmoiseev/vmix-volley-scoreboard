@@ -99,7 +99,7 @@ async function migrateLogosFromExtraResources() {
           }
         }
       }
-    } catch (error) {
+    } catch {
       // extraResources не доступна или пуста - это нормально, пропускаем миграцию
       console.log('[logoManager] extraResources logos не найдены, пропускаем миграцию');
     }
@@ -120,7 +120,8 @@ function base64ToBuffer(base64String) {
 
 /**
  * Сохраняет логотип из base64 в файл PNG
- * Использует фиксированные имена logo_a.png и logo_b.png для перезаписи
+ * Использует уникальные имена с timestamp для обхода кэширования vMix
+ * Формат: logo_a_<timestamp>.png или logo_b_<timestamp>.png
  * @param {string} base64String - base64 строка изображения
  * @param {string} team - 'A' или 'B'
  * @returns {Promise<string>} - путь к сохраненному файлу относительно logos/
@@ -128,13 +129,19 @@ function base64ToBuffer(base64String) {
 async function saveLogoToFile(base64String, team) {
   await ensureLogosDir();
   
-  // Используем фиксированные имена для перезаписи
-  const fileName = team === 'A' ? 'logo_a.png' : 'logo_b.png';
+  // Генерируем уникальное имя с timestamp для обхода кэширования vMix
+  const timestamp = Date.now();
+  const prefix = team === 'A' ? 'logo_a' : 'logo_b';
+  const fileName = `${prefix}_${timestamp}.png`;
   const filePath = path.join(getLogosDir(), fileName);
   
-  // Конвертируем base64 в Buffer и сохраняем (перезаписываем существующий файл)
+  // Конвертируем base64 в Buffer и сохраняем
   const buffer = base64ToBuffer(base64String);
   await fs.writeFile(filePath, buffer);
+  
+  // ВАЖНО: Проверяем, что файл действительно создан перед возвратом
+  // Это гарантирует, что файл будет доступен при отправке в vMix
+  await fs.access(filePath);
   
   // Возвращаем относительный путь для сохранения в JSON
   return `logos/${fileName}`;
@@ -169,7 +176,7 @@ async function loadLogoFromFile(logoPath) {
     
     // Возвращаем data URL для совместимости
     return `data:image/png;base64,${base64}`;
-  } catch (error) {
+  } catch {
     // Файл не найден или ошибка чтения
     return null;
   }
@@ -229,13 +236,15 @@ async function processTeamLogoForSave(team, teamLetter) {
   
   if (isBase64) {
     try {
-      // Сохраняем в файл с фиксированным именем (перезаписываем)
+      // Сохраняем в файл с уникальным именем (с timestamp)
+      // ВАЖНО: Очистка папки должна вызываться ОДИН РАЗ перед сохранением обоих логотипов
+      // в местах, где сохраняются оба логотипа (fileManager.js, main.js)
       const logoPath = await saveLogoToFile(logoBase64, teamLetter);
       
       // Возвращаем объект с путем и base64
       return {
         ...team,
-        logoPath, // Путь к файлу для HTTP доступа
+        logoPath, // Путь к файлу для HTTP доступа (с уникальным именем)
         logoBase64: logoBase64, // Base64 для портативности
         logo: undefined, // Убираем из основного поля для экономии места в JSON
       };
@@ -245,7 +254,7 @@ async function processTeamLogoForSave(team, teamLetter) {
       return {
         ...team,
         logoBase64: logoBase64,
-        logoPath: `logos/logo_${teamLetter.toLowerCase()}.png`,
+        logoPath: undefined, // Не устанавливаем путь при ошибке
         logo: undefined,
       };
     }
@@ -273,16 +282,23 @@ async function processTeamLogoForLoad(team, teamLetter) {
   // Приоритет 1: используем base64 из JSON (самый надежный источник)
   if (team.logoBase64) {
     logoBase64 = team.logoBase64;
-    // Перезаписываем файл для синхронизации с данными матча
+    // Сохраняем файл для синхронизации с данными матча
+    // ВАЖНО: Очистка папки уже выполнена в fileManager.openMatch перед вызовом processTeamLogoForLoad
     try {
-      await saveLogoToFile(logoBase64, teamLetter);
+      const logoPath = await saveLogoToFile(logoBase64, teamLetter);
+      return {
+        ...team,
+        logo: logoBase64, // Для отображения в UI
+        logoPath: logoPath, // Обновляем logoPath на новый файл с уникальным именем
+        logoBase64: logoBase64, // Сохраняем base64
+      };
     } catch (error) {
       console.error(`Ошибка при сохранении логотипа команды ${teamLetter} при загрузке:`, error);
+      return {
+        ...team,
+        logo: logoBase64,
+      };
     }
-    return {
-      ...team,
-      logo: logoBase64, // Для отображения в UI
-    };
   }
   
   // Приоритет 2: если logo уже есть (старый формат без logoBase64)
@@ -292,11 +308,19 @@ async function processTeamLogoForLoad(team, teamLetter) {
     const isBase64 = typeof team.logo === 'string' && 
                      (team.logo.startsWith('data:image/') || team.logo.length > 100);
     if (isBase64) {
-      // Перезаписываем файл для синхронизации
+      // Сохраняем файл для синхронизации
+      // ВАЖНО: Очистка папки уже выполнена в fileManager.openMatch перед вызовом processTeamLogoForLoad
       try {
-        await saveLogoToFile(logoBase64, teamLetter);
+        const logoPath = await saveLogoToFile(logoBase64, teamLetter);
+        return {
+          ...team,
+          logo: logoBase64,
+          logoPath: logoPath, // Обновляем logoPath на новый файл с уникальным именем
+          logoBase64: logoBase64, // Сохраняем base64
+        };
       } catch (error) {
         console.error(`Ошибка при сохранении логотипа команды ${teamLetter} при загрузке:`, error);
+        return team;
       }
     }
     return team;
@@ -337,29 +361,25 @@ function getLogoHttpUrl(logoPath, port) {
   if (!logoPath) return null;
   
   // Убираем префикс logos/ если есть
-  const fileName = logoPath.replace(/^logos\//, '');
-  return `http://localhost:${port}/${logoPath}`;
+  const cleanPath = logoPath.replace(/^logos\//, '');
+  return `http://localhost:${port}/${cleanPath}`;
 }
 
 /**
- * Очищает папку logos от всех файлов, кроме logo_a.png и logo_b.png
- * Удаляет устаревшие и временные файлы
+ * Очищает папку logos от всех файлов логотипов (logo_*.png)
+ * Удаляет все старые логотипы перед сохранением новых для обхода кэширования vMix
  * @returns {Promise<void>}
  */
 async function cleanupLogosDirectory() {
   try {
     await ensureLogosDir();
     
-    // Разрешенные файлы - только текущие логотипы команд
-    const allowedFiles = new Set(['logo_a.png', 'logo_b.png', '.gitkeep']);
-    
-    // Читаем все файлы в папке
     const logosDir = getLogosDir();
     const files = await fs.readdir(logosDir);
     
-    // Удаляем все файлы, кроме разрешенных
+    // Удаляем все файлы, начинающиеся с logo_ и заканчивающиеся на .png
     const deletePromises = files
-      .filter(file => !allowedFiles.has(file))
+      .filter(file => file.startsWith('logo_') && file.endsWith('.png'))
       .map(async (file) => {
         try {
           const filePath = path.join(logosDir, file);
@@ -368,7 +388,7 @@ async function cleanupLogosDirectory() {
           // Удаляем только файлы, не директории
           if (stats.isFile()) {
             await fs.unlink(filePath);
-            console.log(`[logoManager] Удален устаревший файл логотипа: ${file}`);
+            console.log(`[logoManager] Удален файл логотипа: ${file}`);
           }
         } catch (error) {
           // Игнорируем ошибки удаления отдельных файлов
@@ -379,7 +399,10 @@ async function cleanupLogosDirectory() {
     await Promise.all(deletePromises);
   } catch (error) {
     // Не прерываем выполнение при ошибке очистки
-    console.warn('[logoManager] Ошибка при очистке папки logos:', error.message);
+    // Игнорируем ошибки, если папка не существует или пуста
+    if (error.code !== 'ENOENT') {
+      console.warn('[logoManager] Ошибка при очистке папки logos:', error.message);
+    }
   }
 }
 

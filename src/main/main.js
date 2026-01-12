@@ -30,31 +30,15 @@ let autoSaveTimeout = null; // Таймер для отложенного авт
  */
 async function clearLogosOnNewMatch() {
   try {
-    const fsPromises = require('fs').promises;
-    const path = require('path');
-    const logosDir = logoManager.getLogosDir();
-    
-    // Удаляем файлы logo_a.png и logo_b.png, так как в новом матче их нет
-    const logoAPath = path.join(logosDir, 'logo_a.png');
-    const logoBPath = path.join(logosDir, 'logo_b.png');
-    
+    // Очищаем папку logos от старых логотипов при создании нового матча
+    // Теперь используем cleanupLogosDirectory для удаления всех старых логотипов
     try {
-      await fsPromises.unlink(logoAPath);
-      console.log('[main] Удален logo_a.png при создании нового матча');
+      await logoManager.cleanupLogosDirectory();
+      console.log('[main] Папка logos очищена при создании нового матча');
     } catch (error) {
-      // Игнорируем ошибку, если файл не существует
+      // Игнорируем ошибку, если папка не существует
       if (error.code !== 'ENOENT') {
-        console.warn('Не удалось удалить logo_a.png:', error.message);
-      }
-    }
-    
-    try {
-      await fsPromises.unlink(logoBPath);
-      console.log('[main] Удален logo_b.png при создании нового матча');
-    } catch (error) {
-      // Игнорируем ошибку, если файл не существует
-      if (error.code !== 'ENOENT') {
-        console.warn('Не удалось удалить logo_b.png:', error.message);
+        console.warn('Не удалось очистить папку logos:', error.message);
       }
     }
   } catch (error) {
@@ -155,9 +139,8 @@ function createWindow() {
     const checkPort = (port, callback) => {
       const http = require("http");
       const req = http.get(`http://localhost:${port}`, (res) => {
-        let data = "";
-        res.on("data", (chunk) => {
-          data += chunk.toString();
+        res.on("data", () => {
+          // Игнорируем данные
         });
         res.on("end", () => {
           // Vite должен возвращать статус 200 или 304
@@ -185,7 +168,7 @@ function createWindow() {
       if (fs.existsSync(portFile)) {
         savedPort = parseInt(fs.readFileSync(portFile, "utf8").trim());
       }
-    } catch (e) {
+    } catch {
       // Игнорируем ошибки чтения файла
     }
     const tryPorts = savedPort
@@ -349,7 +332,7 @@ function createWindow() {
     });
   `
     )
-    .catch((err) => {
+    .catch((_err) => {
       // Игнорируем ошибки выполнения этого скрипта
     });
 
@@ -423,7 +406,7 @@ app.whenReady().then(async () => {
     if (mobileSettings.enabled) {
       const mobileServer = getMobileServer();
       try {
-        const result = await mobileServer.start(mobileSettings.port || 3000);
+        await mobileServer.start(mobileSettings.port || 3000);
         console.log(
           "Мобильный сервер автоматически запущен при старте приложения"
         );
@@ -830,23 +813,15 @@ ipcMain.handle("match:save-dialog", async (event, match) => {
 });
 
 // Отслеживание изменений матча
+// ВАЖНО: НЕ сохраняем логотипы в файлы здесь - это лишняя операция
+// Файлы генерируются только при:
+// 1. Загрузке нового логотипа (logo:save-to-file)
+// 2. Открытии сохраненного матча (fileManager.openMatch -> processTeamLogoForLoad)
+// 3. Смене команд местами (match:swap-teams)
 ipcMain.handle("match:set-current", async (event, match) => {
-  // Сохраняем логотипы в файлы при обновлении матча
-  // Это необходимо для того, чтобы они были доступны по HTTP через мобильный сервер
-  try {
-    if (match && match.teamA) {
-      await logoManager.processTeamLogoForSave(match.teamA, "A");
-    }
-    if (match && match.teamB) {
-      await logoManager.processTeamLogoForSave(match.teamB, "B");
-    }
-  } catch (error) {
-    console.error(
-      "Ошибка при сохранении логотипов при обновлении матча:",
-      error
-    );
-    // Не прерываем выполнение, если ошибка сохранения логотипов
-  }
+  console.log('[match:set-current] Обновление текущего матча');
+  console.log(`  teamA.name: ${match?.teamA?.name || 'N/A'}, logoPath: ${match?.teamA?.logoPath || 'N/A'}`);
+  console.log(`  teamB.name: ${match?.teamB?.name || 'N/A'}, logoPath: ${match?.teamB?.logoPath || 'N/A'}`);
 
   currentMatch = match;
   hasUnsavedChanges = true;
@@ -854,12 +829,68 @@ ipcMain.handle("match:set-current", async (event, match) => {
   // Автосохранение при изменениях матча
   await scheduleAutoSave(match);
 
-  return { success: true };
+  // Возвращаем матч без изменений (логотипы уже должны быть в файлах)
+  return { success: true, match };
 });
 
 ipcMain.handle("match:mark-saved", () => {
   hasUnsavedChanges = false;
   return { success: true };
+});
+
+/**
+ * Сохраняет логотип команды в файл
+ * Вызывается при загрузке нового логотипа в настройках
+ * @param {string} teamLetter - 'A' или 'B'
+ * @param {string} logoBase64 - base64 строка логотипа
+ */
+ipcMain.handle("logo:save-to-file", async (event, teamLetter, logoBase64) => {
+  try {
+    if (!logoBase64) {
+      return { success: false, error: "Логотип не указан" };
+    }
+    
+    // Очищаем папку перед сохранением (удаляем старые логотипы)
+    await logoManager.cleanupLogosDirectory();
+    
+    // Сохраняем логотип в файл с уникальным именем
+    const processedTeam = await logoManager.processTeamLogoForSave(
+      { logo: logoBase64 },
+      teamLetter
+    );
+    
+    return {
+      success: true,
+      logoPath: processedTeam.logoPath,
+      logoBase64: processedTeam.logoBase64,
+    };
+  } catch (error) {
+    console.error(`Ошибка при сохранении логотипа команды ${teamLetter}:`, error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+});
+
+/**
+ * Удаляет логотип команды (очищает файлы)
+ * Вызывается при удалении логотипа в настройках
+ * @param {string} teamLetter - 'A' или 'B'
+ */
+ipcMain.handle("logo:delete", async (event, teamLetter) => {
+  try {
+    // Очищаем папку logos от всех файлов логотипов
+    await logoManager.cleanupLogosDirectory();
+    
+    return { success: true };
+  } catch (error) {
+    console.error(`Ошибка при удалении логотипа команды ${teamLetter}:`, error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
 });
 
 /**
@@ -918,6 +949,9 @@ ipcMain.handle("match:swap-teams", async (event, match) => {
     // Поэтому сохраняем оригинальный логотип команды B в logo_a.png
     // и оригинальный логотип команды A в logo_b.png
     try {
+      // ВАЖНО: Очищаем папку ОДИН РАЗ перед сохранением обоих логотипов
+      await logoManager.cleanupLogosDirectory();
+      
       // Сохраняем оригинальный логотип команды B в logo_a.png (для новой команды A)
       if (originalTeamBLogo) {
         const processedTeamA = await logoManager.processTeamLogoForSave(
@@ -925,10 +959,18 @@ ipcMain.handle("match:swap-teams", async (event, match) => {
           "A"
         );
         // Обновляем логотипы в swappedMatch.teamA
-        swappedMatch.teamA.logo =
-          processedTeamA.logo || processedTeamA.logoBase64;
-        swappedMatch.teamA.logoBase64 = processedTeamA.logoBase64;
-        swappedMatch.teamA.logoPath = processedTeamA.logoPath;
+        // ВАЖНО: Устанавливаем все три поля для правильного отображения:
+        // - logo: для отображения в UI (img src)
+        // - logoBase64: для сохранения в JSON
+        // - logoPath: для отправки в vMix
+        swappedMatch.teamA.logo = processedTeamA.logoBase64; // Для отображения в UI
+        swappedMatch.teamA.logoBase64 = processedTeamA.logoBase64; // Для сохранения
+        swappedMatch.teamA.logoPath = processedTeamA.logoPath; // Для vMix
+      } else {
+        // Если логотипа нет, очищаем поля логотипа для команды A
+        swappedMatch.teamA.logo = undefined;
+        swappedMatch.teamA.logoBase64 = undefined;
+        swappedMatch.teamA.logoPath = undefined;
       }
 
       // Сохраняем оригинальный логотип команды A в logo_b.png (для новой команды B)
@@ -938,14 +980,21 @@ ipcMain.handle("match:swap-teams", async (event, match) => {
           "B"
         );
         // Обновляем логотипы в swappedMatch.teamB
-        swappedMatch.teamB.logo =
-          processedTeamB.logo || processedTeamB.logoBase64;
-        swappedMatch.teamB.logoBase64 = processedTeamB.logoBase64;
-        swappedMatch.teamB.logoPath = processedTeamB.logoPath;
+        // ВАЖНО: Устанавливаем все три поля для правильного отображения:
+        // - logo: для отображения в UI (img src)
+        // - logoBase64: для сохранения в JSON
+        // - logoPath: для отправки в vMix
+        swappedMatch.teamB.logo = processedTeamB.logoBase64; // Для отображения в UI
+        swappedMatch.teamB.logoBase64 = processedTeamB.logoBase64; // Для сохранения
+        swappedMatch.teamB.logoPath = processedTeamB.logoPath; // Для vMix
+      } else {
+        // Если логотипа нет, очищаем поля логотипа для команды B
+        swappedMatch.teamB.logo = undefined;
+        swappedMatch.teamB.logoBase64 = undefined;
+        swappedMatch.teamB.logoPath = undefined;
       }
 
-      // Очищаем папку logos от устаревших файлов после смены команд
-      await logoManager.cleanupLogosDirectory();
+      // Очистка папки logos уже выполнена перед сохранением обоих логотипов
     } catch (error) {
       console.error(
         "Ошибка при сохранении логотипов после смены команд:",
@@ -976,7 +1025,7 @@ ipcMain.handle("vmix:get-config", async () => {
 ipcMain.handle("vmix:set-config", async (event, config) => {
   await vmixConfig.setVMixConfig(config);
   // Обновляем клиент с новыми настройками
-  const client = getVMixClient(config.host, config.port);
+  getVMixClient(config.host, config.port);
   return { success: true };
 });
 
@@ -1238,24 +1287,10 @@ ipcMain.handle("mobile:get-saved-session", async () => {
 });
 
 ipcMain.handle("mobile:set-match", async (event, match) => {
-  // Сохраняем логотипы в файлы при обновлении матча для мобильного сервера
-  // Это необходимо для того, чтобы они были доступны по HTTP через мобильный сервер
-  try {
-    if (match && match.teamA) {
-      await logoManager.processTeamLogoForSave(match.teamA, "A");
-    }
-    if (match && match.teamB) {
-      await logoManager.processTeamLogoForSave(match.teamB, "B");
-    }
-    // Очищаем папку logos от устаревших файлов
-    await logoManager.cleanupLogosDirectory();
-  } catch (error) {
-    console.error(
-      "Ошибка при сохранении логотипов для мобильного сервера:",
-      error
-    );
-    // Не прерываем выполнение, если ошибка сохранения логотипов
-  }
+  // ВАЖНО: НЕ сохраняем логотипы в файлы здесь - это лишняя операция
+  // Файлы уже должны быть созданы при загрузке/открытии/смене команд
+  // Мобильный сервер просто отдает существующие файлы по HTTP
+  console.log('[mobile:set-match] Установка матча для мобильного сервера (логотипы уже в файлах)');
 
   mobileServer.setMatch(match);
   return { success: true };

@@ -1,4 +1,4 @@
-import React from "react";
+import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, HashRouter } from "react-router-dom";
 import App from "./App";
@@ -23,11 +23,11 @@ if (isElectronProduction && !window.location.hash) {
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
-  <React.StrictMode>
+  <StrictMode>
     <ErrorBoundary>
       <Router>
         <App />
       </Router>
     </ErrorBoundary>
-  </React.StrictMode>
+  </StrictMode>
 );

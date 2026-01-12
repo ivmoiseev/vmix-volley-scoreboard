@@ -42,6 +42,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAutoSaveSettings: () => ipcRenderer.invoke('autosave:get-settings'),
   setAutoSaveSettings: (enabled) => ipcRenderer.invoke('autosave:set-settings', enabled),
   
+  // Logo management
+  saveLogoToFile: (teamLetter, logoBase64) => ipcRenderer.invoke('logo:save-to-file', teamLetter, logoBase64),
+  deleteLogo: (teamLetter) => ipcRenderer.invoke('logo:delete', teamLetter),
+  
   // Listeners (возвращают функцию для удаления слушателя)
   onNavigate: (callback) => {
     const handler = (event, path) => callback(path);

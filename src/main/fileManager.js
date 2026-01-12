@@ -1,6 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
-const { dialog, app } = require('electron');
+const { dialog } = require('electron');
 const { validateMatch, createNewMatch } = require('../shared/matchUtils');
 const errorHandler = require('../shared/errorHandler');
 const logoManager = require('./logoManager');
@@ -53,12 +53,63 @@ async function saveMatch(match, filePath = null) {
   match.updatedAt = new Date().toISOString();
 
   // Обрабатываем логотипы команд: сохраняем в файлы и добавляем пути
+  // ВАЖНО: Если logoPath уже существует и файл существует, не перегенерируем логотипы
+  // Это предотвращает потерю ссылок на логотипы после swap-teams
   const matchToSave = { ...match };
-  matchToSave.teamA = await logoManager.processTeamLogoForSave(match.teamA, 'A');
-  matchToSave.teamB = await logoManager.processTeamLogoForSave(match.teamB, 'B');
-
-  // Очищаем папку logos от устаревших файлов после сохранения логотипов
-  await logoManager.cleanupLogosDirectory();
+  
+  // Проверяем, нужно ли перегенерировать логотипы
+  // Если logoPath уже существует и файл существует, используем существующие пути
+  const fs = require('fs').promises;
+  const path = require('path');
+  const logosDir = logoManager.getLogosDir();
+  
+  let needRegenerateLogos = false;
+  
+  // Проверяем, существуют ли файлы по текущим logoPath
+  if (match.teamA?.logoPath) {
+    const logoAPath = path.join(logosDir, match.teamA.logoPath.replace(/^logos\//, ''));
+    try {
+      await fs.access(logoAPath);
+      // Файл существует, не нужно перегенерировать
+    } catch {
+      // Файл не существует, нужно перегенерировать
+      needRegenerateLogos = true;
+    }
+  } else if (match.teamA?.logoBase64 || match.teamA?.logo) {
+    // Есть логотип, но нет logoPath - нужно создать
+    needRegenerateLogos = true;
+  }
+  
+  if (!needRegenerateLogos && match.teamB?.logoPath) {
+    const logoBPath = path.join(logosDir, match.teamB.logoPath.replace(/^logos\//, ''));
+    try {
+      await fs.access(logoBPath);
+      // Файл существует, не нужно перегенерировать
+    } catch {
+      // Файл не существует, нужно перегенерировать
+      needRegenerateLogos = true;
+    }
+  } else if (match.teamB?.logoBase64 || match.teamB?.logo) {
+    // Есть логотип, но нет logoPath - нужно создать
+    needRegenerateLogos = true;
+  }
+  
+  if (needRegenerateLogos) {
+    // ВАЖНО: Очищаем папку ОДИН РАЗ перед сохранением обоих логотипов
+    await logoManager.cleanupLogosDirectory();
+    matchToSave.teamA = await logoManager.processTeamLogoForSave(match.teamA, 'A');
+    matchToSave.teamB = await logoManager.processTeamLogoForSave(match.teamB, 'B');
+  } else {
+    // Используем существующие logoPath без перегенерации
+    matchToSave.teamA = {
+      ...match.teamA,
+      // Сохраняем все поля логотипа как есть
+    };
+    matchToSave.teamB = {
+      ...match.teamB,
+      // Сохраняем все поля логотипа как есть
+    };
+  }
 
   // Если путь не указан, используем стандартный путь
   if (!filePath) {
@@ -137,36 +188,24 @@ async function openMatch(filePath) {
     const hasLogoBInFile = !!(match.teamB?.logo || match.teamB?.logoBase64 || match.teamB?.logoPath);
 
     // Обрабатываем логотипы команд: загружаем из файлов или используем base64
+    // ВАЖНО: Очищаем папку ОДИН РАЗ перед сохранением обоих логотипов при загрузке
+    await logoManager.cleanupLogosDirectory();
+    
     const matchToLoad = { ...match };
     matchToLoad.teamA = await logoManager.processTeamLogoForLoad(match.teamA, 'A');
     matchToLoad.teamB = await logoManager.processTeamLogoForLoad(match.teamB, 'B');
 
     // Если в открытом проекте нет логотипов, удаляем файлы от предыдущего проекта
     // Это важно, чтобы при автосохранении старые логотипы не сохранились в новый проект
-    const logosDir = logoManager.getLogosDir();
     
-    // Если логотипа нет в исходном JSON, удаляем соответствующий файл
-    if (!hasLogoAInFile) {
+    // Если логотипов нет в исходном JSON, очищаем папку logos
+    // Теперь используем cleanupLogosDirectory для удаления всех старых логотипов
+    if (!hasLogoAInFile && !hasLogoBInFile) {
       try {
-        const logoAPath = path.join(logosDir, 'logo_a.png');
-        await fs.unlink(logoAPath);
-        console.log('[fileManager] Удален logo_a.png при открытии проекта без логотипа команды A');
+        await logoManager.cleanupLogosDirectory();
+        console.log('[fileManager] Папка logos очищена при открытии проекта без логотипов');
       } catch (error) {
-        if (error.code !== 'ENOENT') {
-          console.warn('Не удалось удалить logo_a.png:', error.message);
-        }
-      }
-    }
-    
-    if (!hasLogoBInFile) {
-      try {
-        const logoBPath = path.join(logosDir, 'logo_b.png');
-        await fs.unlink(logoBPath);
-        console.log('[fileManager] Удален logo_b.png при открытии проекта без логотипа команды B');
-      } catch (error) {
-        if (error.code !== 'ENOENT') {
-          console.warn('Не удалось удалить logo_b.png:', error.message);
-        }
+        console.warn('Не удалось очистить папку logos:', error.message);
       }
     }
 

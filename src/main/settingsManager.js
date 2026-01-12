@@ -149,8 +149,8 @@ async function loadSettings() {
         // Если формат старый (строка или объект с name/overlay без fields/enabled)
         if (typeof inputValue === 'string' || 
             (inputValue && typeof inputValue === 'object' && 
-             !inputValue.hasOwnProperty('enabled') && 
-             !inputValue.hasOwnProperty('fields'))) {
+             !Object.prototype.hasOwnProperty.call(inputValue, 'enabled') && 
+             !Object.prototype.hasOwnProperty.call(inputValue, 'fields'))) {
           needsMigration = true;
           break;
         }

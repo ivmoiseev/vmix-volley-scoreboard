@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { resizeImage } from '../utils/imageResize';
 import { useVMix } from '../hooks/useVMix';
@@ -113,6 +113,11 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   const handleSave = async () => {
     if (!match) return;
 
+    // ВАЖНО: Логируем текущее состояние match перед сохранением
+    console.log('[MatchSettingsPage handleSave] Текущий match перед сохранением:');
+    console.log(`  teamA.name: ${match.teamA?.name || 'N/A'}, logoPath: ${match.teamA?.logoPath || 'N/A'}, logoBase64: ${match.teamA?.logoBase64 ? 'есть' : 'нет'}`);
+    console.log(`  teamB.name: ${match.teamB?.name || 'N/A'}, logoPath: ${match.teamB?.logoPath || 'N/A'}, logoBase64: ${match.teamB?.logoBase64 ? 'есть' : 'нет'}`);
+
     const updatedMatch = {
       ...match,
       tournament: formData.tournament,
@@ -127,10 +132,12 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
         color: formData.teamAColor,
         liberoColor: formData.teamALiberoColor || undefined,
         city: formData.teamACity,
-        // Сохраняем все поля логотипа (logo, logoPath, logoBase64), чтобы не потерять их после смены команд
+        // ВАЖНО: Сохраняем все поля логотипа из текущего match (который может быть обновлен после swapTeams)
+        // После swap-teams logoPath уже обновлен с новыми уникальными именами файлов
+        // Нужно сохранить эти актуальные logoPath, а не перезаписывать их
         logo: match.teamA.logo,
-        logoPath: match.teamA.logoPath,
-        logoBase64: match.teamA.logoBase64,
+        logoPath: match.teamA.logoPath, // Используем актуальный logoPath из match (после swap-teams он уже обновлен)
+        logoBase64: match.teamA.logoBase64, // Используем актуальный logoBase64 из match
       },
       teamB: {
         ...match.teamB,
@@ -138,10 +145,12 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
         color: formData.teamBColor,
         liberoColor: formData.teamBLiberoColor || undefined,
         city: formData.teamBCity,
-        // Сохраняем все поля логотипа (logo, logoPath, logoBase64), чтобы не потерять их после смены команд
+        // ВАЖНО: Сохраняем все поля логотипа из текущего match (который может быть обновлен после swapTeams)
+        // После swap-teams logoPath уже обновлен с новыми уникальными именами файлов
+        // Нужно сохранить эти актуальные logoPath, а не перезаписывать их
         logo: match.teamB.logo,
-        logoPath: match.teamB.logoPath,
-        logoBase64: match.teamB.logoBase64,
+        logoPath: match.teamB.logoPath, // Используем актуальный logoPath из match (после swap-teams он уже обновлен)
+        logoBase64: match.teamB.logoBase64, // Используем актуальный logoBase64 из match
       },
       officials: {
         referee1: formData.referee1,
@@ -154,10 +163,25 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     };
 
     // Обновляем матч в Electron API
+    // ВАЖНО: setCurrentMatch обновляет logoPath в матче, поэтому используем обновленный матч
+    let finalMatch = updatedMatch;
     if (window.electronAPI) {
       try {
-        await window.electronAPI.setCurrentMatch(updatedMatch);
-        await window.electronAPI.setMobileMatch(updatedMatch);
+        console.log('[MatchSettingsPage handleSave] До setCurrentMatch:');
+        console.log(`  teamA.name: ${updatedMatch.teamA?.name}, logoPath: ${updatedMatch.teamA?.logoPath || 'N/A'}`);
+        console.log(`  teamB.name: ${updatedMatch.teamB?.name}, logoPath: ${updatedMatch.teamB?.logoPath || 'N/A'}`);
+        
+        const result = await window.electronAPI.setCurrentMatch(updatedMatch);
+        // Используем обновленный матч из результата, если он есть (с правильными logoPath)
+        if (result && result.match) {
+          finalMatch = result.match;
+          console.log('[MatchSettingsPage handleSave] После setCurrentMatch (обновленный матч):');
+          console.log(`  teamA.name: ${finalMatch.teamA?.name}, logoPath: ${finalMatch.teamA?.logoPath || 'N/A'}`);
+          console.log(`  teamB.name: ${finalMatch.teamB?.name}, logoPath: ${finalMatch.teamB?.logoPath || 'N/A'}`);
+        } else {
+          console.warn('[MatchSettingsPage handleSave] setCurrentMatch не вернул обновленный матч, используем исходный');
+        }
+        await window.electronAPI.setMobileMatch(finalMatch);
       } catch (error) {
         console.error('Ошибка при сохранении матча:', error);
       }
@@ -165,21 +189,32 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
 
     // Обновляем матч в родительском компоненте (App.jsx)
     if (onMatchChange) {
-      onMatchChange(updatedMatch);
+      onMatchChange(finalMatch);
     }
 
-    setMatch(updatedMatch);
+    setMatch(finalMatch);
     
     // Принудительно обновляем все данные в vMix при сохранении настроек
+    // ВАЖНО: Используем finalMatch с обновленными logoPath
     if (connectionStatus.connected) {
-      // Сбрасываем кэш логотипов перед обновлением, чтобы гарантировать их обновление
-      // Это особенно важно после смены команд местами
+      console.log('[MatchSettingsPage handleSave] Обновление данных в vMix:');
+      console.log(`  Используемый матч: teamA.name=${finalMatch.teamA?.name}, teamB.name=${finalMatch.teamB?.name}`);
+      console.log(`  teamA.logoPath: ${finalMatch.teamA?.logoPath || 'N/A'}`);
+      console.log(`  teamB.logoPath: ${finalMatch.teamB?.logoPath || 'N/A'}`);
+      console.log(`  teamA.logoBase64: ${finalMatch.teamA?.logoBase64 ? 'есть' : 'нет'}`);
+      console.log(`  teamB.logoBase64: ${finalMatch.teamB?.logoBase64 ? 'есть' : 'нет'}`);
+      
+      // ВАЖНО: Сбрасываем кэш логотипов перед обновлением, чтобы гарантировать их обновление
+      // Это особенно важно после смены команд местами, когда logoPath изменился
       resetImageFieldsCache();
-      updateMatchData(updatedMatch, true);
+      
+      // ВАЖНО: Используем finalMatch с актуальными logoPath для обновления vMix
+      // finalMatch содержит правильные logoPath после swap-teams
+      updateMatchData(finalMatch, true);
       // Обновляем данные обоих судей в плашке 2 судей при сохранении настроек
       if (updateReferee2Data) {
         try {
-          const result = await updateReferee2Data(updatedMatch);
+          const result = await updateReferee2Data(finalMatch);
           if (!result.success) {
             console.error('Ошибка при обновлении данных судей в плашке 2 судей:', result.error);
           }
@@ -189,7 +224,7 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
       }
     }
     
-    navigate('/match', { state: { match: updatedMatch } });
+    navigate('/match', { state: { match: finalMatch } });
   };
 
   const handleCancel = () => {
@@ -381,50 +416,96 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
 
               try {
                 if (window.electronAPI && window.electronAPI.swapTeams) {
+                  console.log('[MatchSettingsPage] До swapTeams:');
+                  console.log(`  teamA.name: ${match.teamA?.name}, logoPath: ${match.teamA?.logoPath || 'N/A'}`);
+                  console.log(`  teamB.name: ${match.teamB?.name}, logoPath: ${match.teamB?.logoPath || 'N/A'}`);
+                  
                   const result = await window.electronAPI.swapTeams(match);
                   if (result.success) {
                     const swappedMatch = result.match;
                     
+                    console.log('[MatchSettingsPage] После swapTeams:');
+                    console.log(`  teamA.name: ${swappedMatch.teamA?.name}, logoPath: ${swappedMatch.teamA?.logoPath || 'N/A'}`);
+                    console.log(`  teamB.name: ${swappedMatch.teamB?.name}, logoPath: ${swappedMatch.teamB?.logoPath || 'N/A'}`);
+                    
                     // Обновляем матч в Electron API
-                    await window.electronAPI.setCurrentMatch(swappedMatch);
-                    await window.electronAPI.setMobileMatch(swappedMatch);
+                    // ВАЖНО: setCurrentMatch обновляет logoPath в матче, поэтому используем обновленный матч
+                    const setCurrentResult = await window.electronAPI.setCurrentMatch(swappedMatch);
+                    let finalSwappedMatch = swappedMatch;
+                    if (setCurrentResult && setCurrentResult.match) {
+                      // Используем обновленный матч с правильными logoPath
+                      finalSwappedMatch = setCurrentResult.match;
+                      console.log('[MatchSettingsPage] После setCurrentMatch (после swapTeams):');
+                      console.log(`  teamA.name: ${finalSwappedMatch.teamA?.name}, logoPath: ${finalSwappedMatch.teamA?.logoPath || 'N/A'}`);
+                      console.log(`  teamB.name: ${finalSwappedMatch.teamB?.name}, logoPath: ${finalSwappedMatch.teamB?.logoPath || 'N/A'}`);
+                    }
+                    
+                    await window.electronAPI.setMobileMatch(finalSwappedMatch);
                     
                     // Обновляем матч в родительском компоненте
                     if (onMatchChange) {
-                      onMatchChange(swappedMatch);
+                      onMatchChange(finalSwappedMatch);
                     }
                     
-                    setMatch(swappedMatch);
+                    setMatch(finalSwappedMatch);
                     
                     // Принудительно обновляем все данные в vMix при смене команд местами
                     // Это критически важно, так как меняются все данные команд
+                    // ВАЖНО: Используем finalSwappedMatch с обновленными logoPath
                     // Сбрасываем кэш логотипов перед обновлением, чтобы гарантировать их обновление
                     if (connectionStatus.connected) {
+                      console.log('[MatchSettingsPage] Обновление данных в vMix после swapTeams:');
+                      console.log(`  Используемый матч: teamA.name=${finalSwappedMatch.teamA?.name}, teamB.name=${finalSwappedMatch.teamB?.name}`);
+                      console.log(`  teamA.logoPath: ${finalSwappedMatch.teamA?.logoPath || 'N/A'}`);
+                      console.log(`  teamB.logoPath: ${finalSwappedMatch.teamB?.logoPath || 'N/A'}`);
                       resetImageFieldsCache();
-                      updateMatchData(swappedMatch, true);
+                      updateMatchData(finalSwappedMatch, true);
                     }
                     
-                    // Обновляем форму
+                    // Обновляем форму с данными из finalSwappedMatch
                     setFormData({
-                      tournament: swappedMatch.tournament || '',
-                      tournamentSubtitle: swappedMatch.tournamentSubtitle || '',
-                      location: swappedMatch.location || '',
-                      venue: swappedMatch.venue || '',
-                      date: swappedMatch.date || '',
-                      time: swappedMatch.time || '',
-                      teamAName: swappedMatch.teamA.name || '',
-                      teamAColor: swappedMatch.teamA.color || '#3498db',
-                      teamALiberoColor: swappedMatch.teamA.liberoColor || '',
-                      teamACity: swappedMatch.teamA.city || '',
-                      teamBName: swappedMatch.teamB.name || '',
-                      teamBColor: swappedMatch.teamB.color || '#e74c3c',
-                      teamBLiberoColor: swappedMatch.teamB.liberoColor || '',
-                      teamBCity: swappedMatch.teamB.city || '',
-                      referee1: swappedMatch.officials?.referee1 || '',
-                      referee2: swappedMatch.officials?.referee2 || '',
-                      lineJudge1: swappedMatch.officials?.lineJudge1 || '',
-                      lineJudge2: swappedMatch.officials?.lineJudge2 || '',
-                      scorer: swappedMatch.officials?.scorer || '',
+                      tournament: finalSwappedMatch.tournament || '',
+                      tournamentSubtitle: finalSwappedMatch.tournamentSubtitle || '',
+                      location: finalSwappedMatch.location || '',
+                      venue: finalSwappedMatch.venue || '',
+                      date: finalSwappedMatch.date || '',
+                      time: finalSwappedMatch.time || '',
+                      teamAName: finalSwappedMatch.teamA.name || '',
+                      teamAColor: finalSwappedMatch.teamA.color || '#3498db',
+                      teamALiberoColor: finalSwappedMatch.teamA.liberoColor || '',
+                      teamACity: finalSwappedMatch.teamA.city || '',
+                      teamBName: finalSwappedMatch.teamB.name || '',
+                      teamBColor: finalSwappedMatch.teamB.color || '#e74c3c',
+                      teamBLiberoColor: finalSwappedMatch.teamB.liberoColor || '',
+                      teamBCity: finalSwappedMatch.teamB.city || '',
+                      referee1: finalSwappedMatch.officials?.referee1 || '',
+                      referee2: finalSwappedMatch.officials?.referee2 || '',
+                      lineJudge1: finalSwappedMatch.officials?.lineJudge1 || '',
+                      lineJudge2: finalSwappedMatch.officials?.lineJudge2 || '',
+                      scorer: finalSwappedMatch.officials?.scorer || '',
+                    });
+                    
+                    // Обновляем форму с данными из finalSwappedMatch
+                    setFormData({
+                      tournament: finalSwappedMatch.tournament || '',
+                      tournamentSubtitle: finalSwappedMatch.tournamentSubtitle || '',
+                      location: finalSwappedMatch.location || '',
+                      venue: finalSwappedMatch.venue || '',
+                      date: finalSwappedMatch.date || '',
+                      time: finalSwappedMatch.time || '',
+                      teamAName: finalSwappedMatch.teamA.name || '',
+                      teamAColor: finalSwappedMatch.teamA.color || '#3498db',
+                      teamALiberoColor: finalSwappedMatch.teamA.liberoColor || '',
+                      teamACity: finalSwappedMatch.teamA.city || '',
+                      teamBName: finalSwappedMatch.teamB.name || '',
+                      teamBColor: finalSwappedMatch.teamB.color || '#e74c3c',
+                      teamBLiberoColor: finalSwappedMatch.teamB.liberoColor || '',
+                      teamBCity: finalSwappedMatch.teamB.city || '',
+                      referee1: finalSwappedMatch.officials?.referee1 || '',
+                      referee2: finalSwappedMatch.officials?.referee2 || '',
+                      lineJudge1: finalSwappedMatch.officials?.lineJudge1 || '',
+                      lineJudge2: finalSwappedMatch.officials?.lineJudge2 || '',
+                      scorer: finalSwappedMatch.officials?.scorer || '',
                     });
                     
                     alert('Команды успешно поменяны местами!');
@@ -606,15 +687,42 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                               const base64 = event.target.result;
                               // Изменяем размер изображения до 240px по длинной стороне
                               const resizedBase64 = await resizeImage(base64, 240);
-                              const updatedMatch = {
-                                ...match,
-                                teamA: {
-                                  ...match.teamA,
-                                  logo: resizedBase64,
-                                },
-                                updatedAt: new Date().toISOString(),
-                              };
-                              setMatch(updatedMatch);
+                              
+                              // ВАЖНО: Сохраняем логотип в файл сразу при загрузке
+                              if (window.electronAPI && window.electronAPI.saveLogoToFile) {
+                                const result = await window.electronAPI.saveLogoToFile('A', resizedBase64);
+                                if (result.success) {
+                                  const updatedMatch = {
+                                    ...match,
+                                    teamA: {
+                                      ...match.teamA,
+                                      logo: resizedBase64,
+                                      logoBase64: result.logoBase64,
+                                      logoPath: result.logoPath,
+                                    },
+                                    updatedAt: new Date().toISOString(),
+                                  };
+                                  setMatch(updatedMatch);
+                                  
+                                  // Обновляем матч в Electron API
+                                  if (window.electronAPI.setCurrentMatch) {
+                                    await window.electronAPI.setCurrentMatch(updatedMatch);
+                                  }
+                                } else {
+                                  throw new Error(result.error || 'Ошибка при сохранении логотипа');
+                                }
+                              } else {
+                                // Fallback: сохраняем без файла (для обратной совместимости)
+                                const updatedMatch = {
+                                  ...match,
+                                  teamA: {
+                                    ...match.teamA,
+                                    logo: resizedBase64,
+                                  },
+                                  updatedAt: new Date().toISOString(),
+                                };
+                                setMatch(updatedMatch);
+                              }
                             } catch (error) {
                               console.error('Ошибка при обработке изображения:', error);
                               alert('Ошибка при загрузке изображения: ' + error.message);
@@ -627,16 +735,34 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                     </label>
                     {match?.teamA?.logo && (
                       <button
-                        onClick={() => {
+                        onClick={async () => {
+                          // ВАЖНО: Удаляем файлы логотипа при удалении
+                          if (window.electronAPI && window.electronAPI.deleteLogo) {
+                            await window.electronAPI.deleteLogo('A');
+                          }
+                          
                           const updatedMatch = {
                             ...match,
                             teamA: {
                               ...match.teamA,
                               logo: undefined,
+                              logoBase64: undefined,
+                              logoPath: undefined,
                             },
                             updatedAt: new Date().toISOString(),
                           };
                           setMatch(updatedMatch);
+                          
+                          // Обновляем матч в Electron API
+                          if (window.electronAPI.setCurrentMatch) {
+                            await window.electronAPI.setCurrentMatch(updatedMatch);
+                          }
+                          
+                          // ВАЖНО: Обновляем vMix после удаления логотипа
+                          if (connectionStatus.connected) {
+                            resetImageFieldsCache();
+                            updateMatchData(updatedMatch, true);
+                          }
                         }}
                         style={{
                           padding: '0.5rem 1rem',
@@ -803,15 +929,49 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                               const base64 = event.target.result;
                               // Изменяем размер изображения до 240px по длинной стороне
                               const resizedBase64 = await resizeImage(base64, 240);
-                              const updatedMatch = {
-                                ...match,
-                                teamB: {
-                                  ...match.teamB,
-                                  logo: resizedBase64,
-                                },
-                                updatedAt: new Date().toISOString(),
-                              };
-                              setMatch(updatedMatch);
+                              
+                              // ВАЖНО: Сохраняем логотип в файл сразу при загрузке
+                              if (window.electronAPI && window.electronAPI.saveLogoToFile) {
+                                const result = await window.electronAPI.saveLogoToFile('B', resizedBase64);
+                                if (result.success) {
+                                  const updatedMatch = {
+                                    ...match,
+                                    teamB: {
+                                      ...match.teamB,
+                                      logo: resizedBase64,
+                                      logoBase64: result.logoBase64,
+                                      logoPath: result.logoPath,
+                                    },
+                                    updatedAt: new Date().toISOString(),
+                                  };
+                                  setMatch(updatedMatch);
+                                  
+                                  // Обновляем матч в Electron API
+                                  if (window.electronAPI.setCurrentMatch) {
+                                    await window.electronAPI.setCurrentMatch(updatedMatch);
+                                  }
+                                  
+                                  // ВАЖНО: Обновляем vMix после сохранения файла логотипа
+                                  // Файл уже создан (saveLogoToFile завершился), можно отправлять в vMix
+                                  if (connectionStatus.connected) {
+                                    resetImageFieldsCache();
+                                    updateMatchData(updatedMatch, true);
+                                  }
+                                } else {
+                                  throw new Error(result.error || 'Ошибка при сохранении логотипа');
+                                }
+                              } else {
+                                // Fallback: сохраняем без файла (для обратной совместимости)
+                                const updatedMatch = {
+                                  ...match,
+                                  teamB: {
+                                    ...match.teamB,
+                                    logo: resizedBase64,
+                                  },
+                                  updatedAt: new Date().toISOString(),
+                                };
+                                setMatch(updatedMatch);
+                              }
                             } catch (error) {
                               console.error('Ошибка при обработке изображения:', error);
                               alert('Ошибка при загрузке изображения: ' + error.message);
@@ -824,16 +984,34 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                     </label>
                     {match?.teamB?.logo && (
                       <button
-                        onClick={() => {
+                        onClick={async () => {
+                          // ВАЖНО: Удаляем файлы логотипа при удалении
+                          if (window.electronAPI && window.electronAPI.deleteLogo) {
+                            await window.electronAPI.deleteLogo('B');
+                          }
+                          
                           const updatedMatch = {
                             ...match,
                             teamB: {
                               ...match.teamB,
                               logo: undefined,
+                              logoBase64: undefined,
+                              logoPath: undefined,
                             },
                             updatedAt: new Date().toISOString(),
                           };
                           setMatch(updatedMatch);
+                          
+                          // Обновляем матч в Electron API
+                          if (window.electronAPI.setCurrentMatch) {
+                            await window.electronAPI.setCurrentMatch(updatedMatch);
+                          }
+                          
+                          // ВАЖНО: Обновляем vMix после удаления логотипа команды B
+                          if (connectionStatus.connected) {
+                            resetImageFieldsCache();
+                            updateMatchData(updatedMatch, true);
+                          }
                         }}
                         style={{
                           padding: '0.5rem 1rem',

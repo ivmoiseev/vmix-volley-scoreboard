@@ -148,9 +148,20 @@ npm run build && electron-builder --linux
 ## Разработка
 
 См. документацию в папке `docs/`:
-- `app-description.md` - описание приложения и основных функций
-- `ARCHITECTURE.md` - архитектура проекта, структура кода, потоки данных
-- `ui-structure.md` - структура интерфейса и страниц приложения
-- `vmix-api-reference.md` - справочник HTTP API vMix
-- `vmix-settings-redesign-plan.md` - описание реализованной системы настроек vMix
-- `TESTING.md` - руководство по тестированию
+
+**Начало работы:**
+- `docs/getting-started/app-description.md` - описание приложения и основных функций
+- `docs/getting-started/ui-structure.md` - структура интерфейса и страниц приложения
+
+**Архитектура:**
+- `docs/architecture/ARCHITECTURE.md` - архитектура проекта, структура кода, потоки данных
+- `docs/architecture/vmix-settings-redesign-plan.md` - описание реализованной системы настроек vMix
+
+**API:**
+- `docs/api/vmix-api-reference.md` - справочник HTTP API vMix
+
+**Тестирование:**
+- `docs/testing/TESTING.md` - руководство по тестированию
+- `docs/testing/TESTING_QUICK_START.md` - быстрый старт работы с тестами
+
+**Полная навигация:** См. `docs/README.md` для полного списка документации

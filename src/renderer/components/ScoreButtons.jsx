@@ -1,4 +1,3 @@
-import React from 'react';
 
 function ScoreButtons({ teamAName, teamBName, onScoreChange }) {
   const buttonStyle = {
