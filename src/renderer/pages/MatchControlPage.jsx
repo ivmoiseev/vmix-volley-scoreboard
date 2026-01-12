@@ -17,6 +17,21 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
   const matchFromState = location.state?.match;
   const effectiveInitialMatch = initialMatch || matchFromState;
 
+  // Функция для форматирования даты в формат ДД.ММ.ГГГГ
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "Не указана";
+    try {
+      // Парсим дату в формате YYYY-MM-DD
+      const [year, month, day] = dateStr.split("-");
+      if (!year || !month || !day) return dateStr; // Если формат неправильный, возвращаем как есть
+      // Форматируем дату в ДД.ММ.ГГГГ
+      return `${day}.${month}.${year}`;
+    } catch (error) {
+      console.error("Ошибка при форматировании даты:", error);
+      return dateStr || "Не указана";
+    }
+  };
+
   // Отслеживание предыдущего matchId для определения первой загрузки
   const previousMatchIdRef = useRef(null);
   const isFirstLoadRef = useRef(true);
@@ -188,12 +203,20 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
     }
   }, [match?.currentSet?.servingTeam, connectionStatus.connected, updateMatchData]);
 
-  // Обработка обновления матча из мобильного приложения
+  // Обработка обновления матча из мобильного приложения или при создании/открытии матча
   useEffect(() => {
     if (!window.electronAPI) return;
 
     const handleLoadMatch = (updatedMatch) => {
       if (updatedMatch) {
+        // При загрузке нового матча (создание или открытие) сбрасываем previousMatchIdRef
+        // чтобы гарантировать, что updateMatchData будет вызван с forceUpdate=true
+        const isNewMatch = previousMatchIdRef.current !== updatedMatch.matchId;
+        if (isNewMatch) {
+          previousMatchIdRef.current = null; // Сбрасываем, чтобы гарантировать обновление vMix
+          isFirstLoadRef.current = true; // Помечаем как первую загрузку
+        }
+        
         // Обновляем матч в состоянии хука useMatch
         setMatch(updatedMatch);
         // Также обновляем в родительском компоненте
@@ -298,7 +321,7 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                 <strong>Место:</strong> {match.venue || "Не указано"}
               </div>
               <div>
-                <strong>Дата:</strong> {match.date || "Не указана"}
+                <strong>Дата:</strong> {formatDate(match.date)}
               </div>
               <div>
                 <strong>Время:</strong> {match.time || "Не указано"}

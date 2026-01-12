@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { resizeImage } from '../utils/imageResize';
 import { useVMix } from '../hooks/useVMix';
+import { useHeaderButtons } from '../components/Layout';
 
 function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   const navigate = useNavigate();
   const location = useLocation();
   const matchFromState = location.state?.match;
+  const { setButtons } = useHeaderButtons();
 
   // Используем match из пропсов, затем из state, затем пытаемся загрузить из Electron API
   const [match, setMatch] = useState(propMatch || matchFromState || null);
@@ -120,16 +122,20 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
         name: formData.teamAName,
         color: formData.teamAColor,
         city: formData.teamACity,
-        // Сохраняем логотип, если он был загружен
+        // Сохраняем все поля логотипа (logo, logoPath, logoBase64), чтобы не потерять их после смены команд
         logo: match.teamA.logo,
+        logoPath: match.teamA.logoPath,
+        logoBase64: match.teamA.logoBase64,
       },
       teamB: {
         ...match.teamB,
         name: formData.teamBName,
         color: formData.teamBColor,
         city: formData.teamBCity,
-        // Сохраняем логотип, если он был загружен
+        // Сохраняем все поля логотипа (logo, logoPath, logoBase64), чтобы не потерять их после смены команд
         logo: match.teamB.logo,
+        logoPath: match.teamB.logoPath,
+        logoBase64: match.teamB.logoBase64,
       },
       officials: {
         referee1: formData.referee1,
@@ -160,6 +166,9 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     
     // Принудительно обновляем все данные в vMix при сохранении настроек
     if (connectionStatus.connected) {
+      // Сбрасываем кэш логотипов перед обновлением, чтобы гарантировать их обновление
+      // Это особенно важно после смены команд местами
+      resetImageFieldsCache();
       updateMatchData(updatedMatch, true);
       // Обновляем данные обоих судей в плашке 2 судей при сохранении настроек
       if (updateReferee2Data) {
@@ -180,6 +189,44 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   const handleCancel = () => {
     navigate('/match', { state: { match } });
   };
+
+  // Устанавливаем кнопки в шапку
+  useEffect(() => {
+    if (match) {
+      setButtons(
+        <>
+          <button
+            onClick={handleCancel}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#95a5a6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            Отмена
+          </button>
+          <button
+            onClick={handleSave}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#27ae60',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+            }}
+          >
+            Сохранить изменения
+          </button>
+        </>
+      );
+    }
+    return () => setButtons(null);
+  }, [match, setButtons]);
 
   if (!match) {
     return null;

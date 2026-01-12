@@ -1,9 +1,30 @@
 # Текст коммита
 
 ```
-Исправлена передача логотипов в vMix и добавлен выбор сетевого интерфейса
+Исправлена очистка логотипов при открытии проекта и принудительное обновление vMix
 
 Основные изменения:
+
+1. Исправлена очистка логотипов при открытии проекта без логотипов:
+   - При открытии проекта без логотипов файлы logo_a.png и logo_b.png от предыдущего проекта теперь удаляются
+   - Функция processTeamLogoForLoad явно обнуляет поля логотипов (logo, logoPath, logoBase64) при их отсутствии в JSON
+   - Функция processTeamLogoForSave удаляет файлы логотипов при сохранении проекта без логотипов
+   - Добавлена функция clearLogosOnNewMatch() для удаления логотипов при создании нового матча
+   - Исправлена ошибка с повторным объявлением fs и path в fileManager.js
+   - Логотипы корректно обнуляются в интерфейсе при открытии пустого проекта
+   - Старые логотипы не сохраняются в новый проект при автосохранении
+
+2. Исправлена передача команд в vMix при открытии проекта:
+   - При открытии проекта из файла команды на обновление инпутов теперь всегда отправляются, даже если поля пустые
+   - Изменена проверка hasFields в функциях обновления: при forceUpdate=true команды отправляются всегда
+   - Функция formatCurrentScoreData теперь отправляет все текстовые поля, включая пустые
+   - Функции formatLineupData, formatRosterData, formatStartingLineupData отправляют пустые изображения при forceUpdate=true
+   - Это позволяет очистить данные в vMix при открытии пустого проекта
+   - vMix корректно синхронизируется с состоянием приложения при открытии проекта
+
+Предыдущие изменения:
+
+1. Исправлена передача логотипов в vMix через API команды:
 
 1. Исправлена передача логотипов в vMix через API команды:
    - Исправлена проверка наличия логотипов: теперь проверяются logo, logoPath и logoBase64
@@ -84,13 +105,16 @@
 - DevTools регистрируются через globalShortcut и автоматически отменяются при выходе
 
 Затронутые файлы:
-- src/main/logoManager.js - обновлена функция getLogosDir() для использования app.getPath('userData') в production; добавлены функции ensureLogosDir() и migrateLogosFromExtraResources(); исправлена processTeamLogoForSave() для проверки logoBase64
+- src/main/fileManager.js - добавлена проверка наличия логотипов в исходном JSON до обработки; добавлено удаление файлов logo_a.png и logo_b.png при открытии проекта без логотипов; исправлено повторное объявление fs и path
+- src/main/logoManager.js - обновлена функция processTeamLogoForLoad для явного обнуления полей логотипов при их отсутствии; обновлена функция processTeamLogoForSave для удаления файлов при отсутствии логотипов; обновлена функция getLogosDir() для использования app.getPath('userData') в production; добавлены функции ensureLogosDir() и migrateLogosFromExtraResources(); исправлена processTeamLogoForSave() для проверки logoBase64
+- src/main/main.js - добавлена функция clearLogosOnNewMatch() для удаления логотипов при создании нового матча; функция вызывается в IPC handler match:create; добавлен вызов ensureLogosDir() при старте приложения; добавлены IPC handlers: mobile:get-network-interfaces и mobile:set-selected-ip
+- src/renderer/hooks/useVMix.js - изменена проверка hasFields в 6 функциях обновления для учета forceUpdate; изменена функция formatCurrentScoreData для отправки всех текстовых полей, включая пустые; изменены функции formatLineupData, formatRosterData, formatStartingLineupData для отправки пустых изображений при forceUpdate=true; исправлена проверка наличия логотипов в getLineupFieldValue(), getRosterFieldValue() и getStartingLineupFieldValue(); исправлено формирование URL для логотипов (удален двойной /logos/)
+- src/renderer/pages/MatchControlPage.jsx - модифицирован useEffect для onLoadMatch для сброса previousMatchIdRef и isFirstLoadRef при загрузке нового матча
 - src/main/server.js - добавлена функция getLogosPath() для динамического определения пути; обновлен setupMiddleware() для использования userData/logos/ в production; добавлены функции getNetworkInterfaces() и обновлен getLocalIP() для использования выбранного IP; обновлен /api/logos/check endpoint
-- src/main/main.js - добавлен вызов ensureLogosDir() при старте приложения; добавлены IPC handlers: mobile:get-network-interfaces и mobile:set-selected-ip
 - src/main/settingsManager.js - добавлено поле selectedIP: null в настройки мобильного сервера (mobile.selectedIP)
 - src/main/preload.js - добавлены методы getNetworkInterfaces() и setSelectedMobileIP() в window.electronAPI
-- src/renderer/hooks/useVMix.js - исправлена проверка наличия логотипов в getLineupFieldValue(), getRosterFieldValue() и getStartingLineupFieldValue(); исправлено формирование URL для логотипов (удален двойной /logos/)
 - src/renderer/pages/MobileAccessPage.jsx - добавлен выпадающий список выбора сетевого интерфейса; добавлена логика сохранения выбранного IP в настройки; обновлены инструкции с информацией о выборе интерфейса
+- docs/logo-cleanup-and-vmix-force-update.md - создан новый документ с подробным описанием исправлений очистки логотипов и принудительного обновления vMix
 - docs/ARCHITECTURE.md - обновлена информация о logoManager.js и server.js; добавлена информация о выборе сетевого интерфейса и миграции логотипов
 - docs/ui-structure.md - обновлена информация о странице "Мобильный доступ" с описанием выбора сетевого интерфейса
 - docs/vmix-api-reference.md - обновлена информация о формировании URL логотипов с учетом выбора сетевого интерфейса и production режима

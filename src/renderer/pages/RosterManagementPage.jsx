@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useVMix } from '../hooks/useVMix';
+import { useHeaderButtons } from '../components/Layout';
 
 const POSITIONS = [
   'Не указано',
@@ -15,6 +16,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
   const navigate = useNavigate();
   const location = useLocation();
   const matchFromState = location.state?.match;
+  const { setButtons } = useHeaderButtons();
 
   // Используем match из пропсов, затем из state
   const [match, setMatch] = useState(propMatch || matchFromState || null);
@@ -460,6 +462,48 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
     
     navigate('/match', { state: { match } });
   };
+
+  const handleCancel = () => {
+    navigate('/match', { state: { match } });
+  };
+
+  // Устанавливаем кнопки в шапку
+  useEffect(() => {
+    if (match) {
+      setButtons(
+        <>
+          <button
+            onClick={handleCancel}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#95a5a6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            Отменить
+          </button>
+          <button
+            onClick={handleSave}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#27ae60',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+            }}
+          >
+            Сохранить и вернуться
+          </button>
+        </>
+      );
+    }
+    return () => setButtons(null);
+  }, [match, setButtons]);
 
   const handleExportRoster = () => {
     const team = selectedTeam === 'A' ? match.teamA : match.teamB;
@@ -993,6 +1037,20 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
         gap: '1rem',
         justifyContent: 'flex-end',
       }}>
+        <button
+          onClick={handleCancel}
+          style={{
+            padding: '0.75rem 1.5rem',
+            fontSize: '1rem',
+            backgroundColor: '#95a5a6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+          }}
+        >
+          Отменить
+        </button>
         <button
           onClick={handleSave}
           style={{
