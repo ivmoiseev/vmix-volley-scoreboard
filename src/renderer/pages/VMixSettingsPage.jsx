@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { getFullFieldName } from "../utils/vmix-field-utils";
+import { useHeaderButtons } from "../components/Layout";
 
 function VMixSettingsPage() {
   const navigate = useNavigate();
+  const { setButtons } = useHeaderButtons();
   const [config, setConfig] = useState({
     host: "localhost",
     port: 8088,
@@ -44,6 +47,60 @@ function VMixSettingsPage() {
       setSelectedInput(firstInputKey);
     }
   }, [config.inputs]);
+
+  const handleSave = useCallback(async () => {
+    try {
+      if (!window.electronAPI) {
+        alert("Electron API недоступен");
+        return;
+      }
+
+      // Сохраняем конфигурацию (новая структура уже используется)
+      await window.electronAPI.setVMixConfig(config);
+      alert("Настройки сохранены!");
+      navigate("/match");
+    } catch (error) {
+      console.error("Ошибка при сохранении настроек:", error);
+      alert("Не удалось сохранить настройки: " + error.message);
+    }
+  }, [config, navigate]);
+
+  // Устанавливаем кнопки в Header
+  useEffect(() => {
+    setButtons(
+      <>
+        <button
+          onClick={() => navigate("/match")}
+          style={{
+            padding: "0.5rem 1rem",
+            backgroundColor: "#95a5a6",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          Отмена
+        </button>
+        <button
+          onClick={handleSave}
+          style={{
+            padding: "0.5rem 1rem",
+            backgroundColor: "#27ae60",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Сохранить
+        </button>
+      </>
+    );
+
+    return () => setButtons(null);
+  }, [setButtons, navigate, handleSave]);
 
   const loadConfig = async () => {
     try {
@@ -166,22 +223,6 @@ function VMixSettingsPage() {
     }
   };
 
-  const handleSave = async () => {
-    try {
-      if (!window.electronAPI) {
-        alert("Electron API недоступен");
-        return;
-      }
-
-      // Сохраняем конфигурацию (новая структура уже используется)
-      await window.electronAPI.setVMixConfig(config);
-      alert("Настройки сохранены!");
-      navigate("/match");
-    } catch (error) {
-      console.error("Ошибка при сохранении настроек:", error);
-      alert("Не удалось сохранить настройки: " + error.message);
-    }
-  };
 
   const inputLabels = {
     lineup: "Заявка (TeamA vs TeamB)",
@@ -204,7 +245,6 @@ function VMixSettingsPage() {
 
   return (
     <div style={{ padding: "1rem", maxWidth: "1000px", margin: "0 auto" }}>
-      <h2>Настройки подключения к vMix</h2>
 
       {/* Настройки подключения */}
       <div
@@ -565,10 +605,8 @@ function VMixSettingsPage() {
                                   backgroundColor:
                                     field.type === "text"
                                       ? "#e3f2fd"
-                                      : field.type === "color"
+                                      : field.type === "fill"
                                       ? "#fff3e0"
-                                      : field.type === "visibility"
-                                      ? "#f3e5f5"
                                       : field.type === "image"
                                       ? "#e8f5e9"
                                       : "#e0e0e0",
@@ -577,10 +615,8 @@ function VMixSettingsPage() {
                               >
                                 {field.type === "text"
                                   ? "Текст"
-                                  : field.type === "color"
-                                  ? "Цвет"
-                                  : field.type === "visibility"
-                                  ? "Видимость"
+                                  : field.type === "fill"
+                                  ? "Филл"
                                   : field.type === "image"
                                   ? "Изображение"
                                   : field.type}
@@ -595,7 +631,7 @@ function VMixSettingsPage() {
                                   fontWeight: "bold",
                                 }}
                               >
-                                Имя поля для vMix
+                                Имя поля для vMix (базовое имя)
                               </label>
                               <input
                                 type="text"
@@ -642,16 +678,18 @@ function VMixSettingsPage() {
                                 }}
                                 placeholder="Имя поля для vMix"
                               />
-                              <small
-                                style={{
-                                  color: "#7f8c8d",
-                                  display: "block",
-                                  marginTop: "0.25rem",
-                                }}
-                              >
-                                Имя, которое будет использоваться при обращении
-                                к vMix для этого поля
-                              </small>
+                              {field.fieldIdentifier && field.type && (
+                                <small
+                                  style={{
+                                    color: "#3498db",
+                                    display: "block",
+                                    marginTop: "0.25rem",
+                                    fontWeight: "bold",
+                                  }}
+                                >
+                                  Полное имя: {getFullFieldName(field.fieldIdentifier, field.type)}
+                                </small>
+                              )}
                             </div>
                           </div>
                         )

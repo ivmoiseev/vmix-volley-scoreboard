@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { debounce } from "../utils/debounce";
+import { getFullFieldName } from "../utils/vmix-field-utils";
+import { getContrastTextColor } from "../utils/colorContrast";
 
 // Константы для типов полей и ключей
 const FIELD_TYPES = {
   TEXT: "text",
-  COLOR: "color",
-  VISIBILITY: "visibility",
+  FILL: "fill",
   IMAGE: "image",
 };
 
@@ -69,12 +70,14 @@ export function useVMix(_match) {
       colorFields: {},
       visibilityFields: {},
       imageFields: {},
+      textColorFields: {},
     },
     startingLineupTeamB: {
       fields: {},
       colorFields: {},
       visibilityFields: {},
       imageFields: {},
+      textColorFields: {},
     },
     referee2: {
       fields: {},
@@ -314,13 +317,14 @@ export function useVMix(_match) {
    * Обновляет кэш для указанного инпута
    */
   const updateLastSentValues = useCallback(
-    (inputKey, fields, colorFields, visibilityFields, imageFields) => {
+    (inputKey, fields, colorFields, visibilityFields, imageFields, textColorFields = {}) => {
       if (!lastSentValuesRef.current[inputKey]) {
         lastSentValuesRef.current[inputKey] = {
           fields: {},
           colorFields: {},
           visibilityFields: {},
           imageFields: {},
+          textColorFields: {},
         };
       }
 
@@ -347,6 +351,12 @@ export function useVMix(_match) {
         lastSentValuesRef.current[inputKey].imageFields = {
           ...lastSentValuesRef.current[inputKey].imageFields,
           ...imageFields,
+        };
+      }
+      if (textColorFields) {
+        lastSentValuesRef.current[inputKey].textColorFields = {
+          ...lastSentValuesRef.current[inputKey].textColorFields,
+          ...textColorFields,
         };
       }
     },
@@ -736,35 +746,44 @@ export function useVMix(_match) {
         }
 
         const fieldIdentifier = fieldConfig.fieldIdentifier;
+        const fullFieldName = fieldIdentifier
+          ? getFullFieldName(fieldIdentifier, fieldConfig.type)
+          : null;
 
-        // Обработка полей видимости
+        // Обработка полей видимости (теперь это атрибут, а не тип)
         if (
-          fieldConfig.type === FIELD_TYPES.VISIBILITY &&
+          fieldConfig.visible === true &&
           (fieldKey === FIELD_KEYS.POINT_A || fieldKey === FIELD_KEYS.POINT_B)
         ) {
           const visible =
             (fieldKey === FIELD_KEYS.POINT_A && servingTeam === "A") ||
             (fieldKey === FIELD_KEYS.POINT_B && servingTeam === "B");
 
-          visibilityFields[fieldIdentifier] = {
-            visible,
-            fieldConfig,
-          };
+          if (fullFieldName) {
+            visibilityFields[fullFieldName] = {
+              visible,
+              fieldConfig,
+            };
+          }
           return;
         }
 
-        // Обработка полей цвета
-        if (fieldConfig.type === FIELD_TYPES.COLOR) {
+        // Обработка полей fill (было color)
+        if (fieldConfig.type === FIELD_TYPES.FILL) {
           if (fieldKey === FIELD_KEYS.COLOR_A) {
-            colorFields[fieldIdentifier] = normalizeColor(
-              match.teamA?.color,
-              "#3498db"
-            );
+            if (fullFieldName) {
+              colorFields[fullFieldName] = normalizeColor(
+                match.teamA?.color,
+                "#3498db"
+              );
+            }
           } else if (fieldKey === FIELD_KEYS.COLOR_B) {
-            colorFields[fieldIdentifier] = normalizeColor(
-              match.teamB?.color,
-              "#e74c3c"
-            );
+            if (fullFieldName) {
+              colorFields[fullFieldName] = normalizeColor(
+                match.teamB?.color,
+                "#e74c3c"
+              );
+            }
           }
           return;
         }
@@ -777,8 +796,8 @@ export function useVMix(_match) {
           setsScoreB
         );
         // При forceUpdate отправляем все поля, даже пустые, чтобы очистить данные в vMix
-        if (fieldIdentifier) {
-          fields[fieldIdentifier] = value;
+        if (fullFieldName) {
+          fields[fullFieldName] = value;
         }
       });
 
@@ -1079,6 +1098,9 @@ export function useVMix(_match) {
         }
 
         const fieldIdentifier = fieldConfig.fieldIdentifier;
+        const fullFieldName = fieldIdentifier
+          ? getFullFieldName(fieldIdentifier, fieldConfig.type)
+          : null;
         let value = getLineupFieldValue(fieldKey, match, logoBaseUrl);
         const isLogoField =
           fieldKey === FIELD_KEYS.TEAM_A_LOGO ||
@@ -1099,13 +1121,15 @@ export function useVMix(_match) {
         // Разделяем поля по типам
         if (fieldConfig.type === FIELD_TYPES.IMAGE) {
           // При forceUpdate отправляем все поля изображений, даже пустые, чтобы очистить данные в vMix
-          if (value !== "" || forceUpdate) {
-            imageFields[fieldIdentifier] = value;
+          if ((value !== "" || forceUpdate) && fullFieldName) {
+            imageFields[fullFieldName] = value;
           }
         } else if (fieldConfig.type === FIELD_TYPES.TEXT) {
           // Для текстовых полей отправляем значение, даже если оно пустое
           // (это позволяет очищать поля в vMix при необходимости)
-          fields[fieldIdentifier] = value;
+          if (fullFieldName) {
+            fields[fullFieldName] = value;
+          }
 
           if (isLogoField) {
             console.warn(
@@ -1172,7 +1196,8 @@ export function useVMix(_match) {
             {},
             {},
             {},
-            clearImageFields
+            clearImageFields,
+            {}
           );
 
           // Небольшая задержка для гарантии обработки очистки vMix
@@ -1266,12 +1291,15 @@ export function useVMix(_match) {
 
         // Находим поля name и position в конфигурации
         if (fieldsConfig.name && fieldsConfig.name.enabled) {
-          fields[fieldsConfig.name.fieldIdentifier || "Name"] = coachName;
+          const fieldIdentifier = fieldsConfig.name.fieldIdentifier || "Name";
+          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.name.type || "text");
+          fields[fullFieldName] = coachName;
         }
 
         if (fieldsConfig.position && fieldsConfig.position.enabled) {
-          fields[fieldsConfig.position.fieldIdentifier || "Position"] =
-            "Тренер";
+          const fieldIdentifier = fieldsConfig.position.fieldIdentifier || "Position";
+          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.position.type || "text");
+          fields[fullFieldName] = "Тренер";
         }
 
         if (Object.keys(fields).length === 0) {
@@ -1339,12 +1367,15 @@ export function useVMix(_match) {
 
         // Находим поля name и position в конфигурации
         if (fieldsConfig.name && fieldsConfig.name.enabled) {
-          fields[fieldsConfig.name.fieldIdentifier || "Name"] = referee1Name;
+          const fieldIdentifier = fieldsConfig.name.fieldIdentifier || "Name";
+          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.name.type || "text");
+          fields[fullFieldName] = referee1Name;
         }
 
         if (fieldsConfig.position && fieldsConfig.position.enabled) {
-          fields[fieldsConfig.position.fieldIdentifier || "Position"] =
-            "Первый судья";
+          const fieldIdentifier = fieldsConfig.position.fieldIdentifier || "Position";
+          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.position.type || "text");
+          fields[fullFieldName] = "Первый судья";
         }
 
         if (Object.keys(fields).length === 0) {
@@ -1415,12 +1446,15 @@ export function useVMix(_match) {
 
         // Находим поля name и position в конфигурации
         if (fieldsConfig.name && fieldsConfig.name.enabled) {
-          fields[fieldsConfig.name.fieldIdentifier || "Name"] = referee2Name;
+          const fieldIdentifier = fieldsConfig.name.fieldIdentifier || "Name";
+          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.name.type || "text");
+          fields[fullFieldName] = referee2Name;
         }
 
         if (fieldsConfig.position && fieldsConfig.position.enabled) {
-          fields[fieldsConfig.position.fieldIdentifier || "Position"] =
-            "Второй судья";
+          const fieldIdentifier = fieldsConfig.position.fieldIdentifier || "Position";
+          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.position.type || "text");
+          fields[fullFieldName] = "Второй судья";
         }
 
         if (Object.keys(fields).length === 0) {
@@ -1488,13 +1522,15 @@ export function useVMix(_match) {
 
         // Находим поля referee1Name и referee2Name в конфигурации
         if (fieldsConfig.referee1Name && fieldsConfig.referee1Name.enabled) {
-          fields[fieldsConfig.referee1Name.fieldIdentifier || "Referee1Name"] =
-            referee1Name;
+          const fieldIdentifier = fieldsConfig.referee1Name.fieldIdentifier || "Referee1Name";
+          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.referee1Name.type || "text");
+          fields[fullFieldName] = referee1Name;
         }
 
         if (fieldsConfig.referee2Name && fieldsConfig.referee2Name.enabled) {
-          fields[fieldsConfig.referee2Name.fieldIdentifier || "Referee2Name"] =
-            referee2Name;
+          const fieldIdentifier = fieldsConfig.referee2Name.fieldIdentifier || "Referee2Name";
+          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.referee2Name.type || "text");
+          fields[fullFieldName] = referee2Name;
         }
 
         if (Object.keys(fields).length === 0) {
@@ -1625,6 +1661,9 @@ export function useVMix(_match) {
         }
 
         const fieldIdentifier = fieldConfig.fieldIdentifier;
+        const fullFieldName = fieldIdentifier
+          ? getFullFieldName(fieldIdentifier, fieldConfig.type)
+          : null;
         let value = getRosterFieldValue(
           fieldKey,
           match,
@@ -1649,13 +1688,15 @@ export function useVMix(_match) {
         // Разделяем поля по типам
         if (fieldConfig.type === FIELD_TYPES.IMAGE) {
           // При forceUpdate отправляем все поля изображений, даже пустые, чтобы очистить данные в vMix
-          if (value !== "" || forceUpdate) {
-            imageFields[fieldIdentifier] = value;
+          if ((value !== "" || forceUpdate) && fullFieldName) {
+            imageFields[fullFieldName] = value;
           }
         } else if (fieldConfig.type === FIELD_TYPES.TEXT) {
           // Для текстовых полей отправляем значение, даже если оно пустое
           // (это позволяет очищать поля в vMix при необходимости, например, для пустых игроков)
-          fields[fieldIdentifier] = value;
+          if (fullFieldName) {
+            fields[fullFieldName] = value;
+          }
 
           if (isLogoField) {
             console.warn(
@@ -1856,13 +1897,13 @@ export function useVMix(_match) {
    */
   const formatStartingLineupData = useCallback(
     async (match, teamKey, forceUpdate = false) => {
-      if (!match) return { fields: {}, imageFields: {} };
+      if (!match) return { fields: {}, imageFields: {}, colorFields: {}, visibilityFields: {}, textColorFields: {} };
 
       const inputKey =
         teamKey === "A" ? "startingLineupTeamA" : "startingLineupTeamB";
       const inputConfig = vmixConfigRef.current?.inputs?.[inputKey];
       if (!inputConfig?.fields) {
-        return { fields: {}, imageFields: {} };
+        return { fields: {}, imageFields: {}, colorFields: {}, visibilityFields: {}, textColorFields: {} };
       }
 
       const team = teamKey === "A" ? match.teamA : match.teamB;
@@ -1870,6 +1911,9 @@ export function useVMix(_match) {
 
       const fields = {};
       const imageFields = {};
+      const colorFields = {};
+      const visibilityFields = {};
+      const textColorFields = {};
 
       // Получаем информацию о мобильном сервере для формирования URL логотипов
       let logoBaseUrl = null;
@@ -1894,6 +1938,9 @@ export function useVMix(_match) {
         }
 
         const fieldIdentifier = fieldConfig.fieldIdentifier;
+        const fullFieldName = fieldIdentifier
+          ? getFullFieldName(fieldIdentifier, fieldConfig.type)
+          : null;
         let value = getStartingLineupFieldValue(
           fieldKey,
           match,
@@ -1915,15 +1962,68 @@ export function useVMix(_match) {
           value = `${value}${separator}t=${Date.now()}`;
         }
 
+        // Обработка полей fill для подложек либеро
+        if (fieldConfig.type === FIELD_TYPES.FILL) {
+          const liberoBackgroundMatch = fieldKey.match(/^libero(\d+)(Background|BackgroundOnCard)$/);
+          if (liberoBackgroundMatch && fullFieldName) {
+            const liberoIndex = parseInt(liberoBackgroundMatch[1]) - 1; // 0 или 1
+            const startingLineupIndex = liberoIndex + 6; // 6 или 7
+            const libero = startingLineup[startingLineupIndex];
+            
+            if (libero) {
+              // Либеро указан - используем цвет из настроек
+              const liberoColor = team.liberoColor || team.color || "#ffffff";
+              colorFields[fullFieldName] = normalizeColor(liberoColor, "#ffffff");
+            } else {
+              // Либеро не указан - устанавливаем прозрачный цвет (RGBA)
+              colorFields[fullFieldName] = "#00000000";
+            }
+            return;
+          }
+        }
+
+        // Обработка полей номеров либеро - устанавливаем контрастный цвет текста
+        if (fieldConfig.type === FIELD_TYPES.TEXT) {
+          const liberoNumberMatch = fieldKey.match(/^libero(\d+)(Number|NumberOnCard)$/);
+          if (liberoNumberMatch && fullFieldName) {
+            const liberoIndex = parseInt(liberoNumberMatch[1]) - 1; // 0 или 1
+            const startingLineupIndex = liberoIndex + 6; // 6 или 7
+            const libero = startingLineup[startingLineupIndex];
+            
+            if (libero) {
+              // Либеро указан - устанавливаем контрастный цвет текста относительно цвета подложки
+              const liberoBackgroundColor = team.liberoColor || team.color || "#ffffff";
+              const contrastTextColor = getContrastTextColor(liberoBackgroundColor);
+              // Для текстовых полей цвет текста устанавливается через SetTextColour
+              // Пробуем оба варианта: с суффиксом .Text и без него
+              // Сначала пробуем с суффиксом (для GT Titles)
+              if (fieldIdentifier) {
+                // Для GT Titles нужно использовать имя поля с суффиксом .Text
+                const textColorFieldName = `${fieldIdentifier}.Text`;
+                textColorFields[textColorFieldName] = contrastTextColor;
+              }
+            }
+            // Если либеро не указан, цвет текста не устанавливаем (остается по умолчанию)
+            
+            // Отправляем значение текстового поля
+            if (fullFieldName) {
+              fields[fullFieldName] = value;
+            }
+            return;
+          }
+        }
+
         // Разделяем поля по типам
         if (fieldConfig.type === FIELD_TYPES.IMAGE) {
           // При forceUpdate отправляем все поля изображений, даже пустые, чтобы очистить данные в vMix
-          if (value !== "" || forceUpdate) {
-            imageFields[fieldIdentifier] = value;
+          if ((value !== "" || forceUpdate) && fullFieldName) {
+            imageFields[fullFieldName] = value;
           }
         } else if (fieldConfig.type === FIELD_TYPES.TEXT) {
           // Для текстовых полей отправляем значение, даже если оно пустое
-          fields[fieldIdentifier] = value;
+          if (fullFieldName) {
+            fields[fullFieldName] = value;
+          }
 
           if (isLogoField) {
             console.warn(
@@ -1934,9 +2034,9 @@ export function useVMix(_match) {
         }
       });
 
-      return { fields, imageFields };
+      return { fields, imageFields, colorFields, visibilityFields, textColorFields };
     },
-    [getStartingLineup, getStartingLineupFieldValue]
+    [getStartingLineup, getStartingLineupFieldValue, normalizeColor, getContrastTextColor]
   );
 
   /**
@@ -1957,7 +2057,7 @@ export function useVMix(_match) {
           return { success: false, error: validation.error };
         }
 
-        const { fields, imageFields } = await formatStartingLineupData(
+        const { fields, imageFields, colorFields, visibilityFields, textColorFields } = await formatStartingLineupData(
           match,
           "A",
           forceUpdate
@@ -1966,6 +2066,9 @@ export function useVMix(_match) {
         // Фильтруем только измененные поля, если не forceUpdate
         let fieldsToSend = fields;
         let imageFieldsToSend = imageFields;
+        let colorFieldsToSend = colorFields;
+        let visibilityFieldsToSend = visibilityFields;
+        let textColorFieldsToSend = textColorFields;
 
         if (!forceUpdate) {
           const lastSent = lastSentValuesRef.current.startingLineupTeamA;
@@ -1974,6 +2077,16 @@ export function useVMix(_match) {
             imageFields,
             lastSent.imageFields
           );
+          colorFieldsToSend = filterChangedColorFields(
+            colorFields,
+            lastSent.colorFields
+          );
+          visibilityFieldsToSend = filterChangedVisibilityFields(
+            visibilityFields,
+            lastSent.visibilityFields
+          );
+          // Для textColorFields всегда отправляем (они управляют цветом текста)
+          textColorFieldsToSend = textColorFields;
         }
 
         // При forceUpdate для логотипов: сначала очищаем, затем устанавливаем новое значение
@@ -1991,7 +2104,8 @@ export function useVMix(_match) {
             {},
             {},
             {},
-            clearImageFields
+            clearImageFields,
+            {}
           );
 
           // Небольшая задержка для гарантии обработки очистки vMix
@@ -2000,7 +2114,9 @@ export function useVMix(_match) {
 
         const hasFields =
           Object.keys(fieldsToSend).length > 0 ||
-          Object.keys(imageFieldsToSend).length > 0;
+          Object.keys(imageFieldsToSend).length > 0 ||
+          Object.keys(colorFieldsToSend).length > 0 ||
+          Object.keys(visibilityFieldsToSend).length > 0;
 
         // При forceUpdate всегда отправляем команды, даже если поля пустые,
         // чтобы очистить данные в vMix при открытии пустого проекта
@@ -2015,9 +2131,10 @@ export function useVMix(_match) {
         const result = await window.electronAPI.updateVMixInputFields(
           validation.inputIdentifier,
           fieldsToSend,
-          {},
-          {},
-          imageFieldsToSend
+          colorFieldsToSend,
+          visibilityFieldsToSend,
+          imageFieldsToSend,
+          textColorFieldsToSend
         );
 
         // Обновляем кэш только при успешной отправке
@@ -2025,9 +2142,10 @@ export function useVMix(_match) {
           updateLastSentValues(
             "startingLineupTeamA",
             fieldsToSend,
-            {},
-            {},
-            imageFieldsToSend
+            colorFieldsToSend,
+            visibilityFieldsToSend,
+            imageFieldsToSend,
+            textColorFieldsToSend
           );
         }
 
@@ -2046,6 +2164,8 @@ export function useVMix(_match) {
       formatStartingLineupData,
       filterChangedFields,
       filterChangedImageFields,
+      filterChangedColorFields,
+      filterChangedVisibilityFields,
       updateLastSentValues,
     ]
   );
@@ -2068,7 +2188,7 @@ export function useVMix(_match) {
           return { success: false, error: validation.error };
         }
 
-        const { fields, imageFields } = await formatStartingLineupData(
+        const { fields, imageFields, colorFields, visibilityFields, textColorFields } = await formatStartingLineupData(
           match,
           "B",
           forceUpdate
@@ -2077,6 +2197,9 @@ export function useVMix(_match) {
         // Фильтруем только измененные поля, если не forceUpdate
         let fieldsToSend = fields;
         let imageFieldsToSend = imageFields;
+        let colorFieldsToSend = colorFields;
+        let visibilityFieldsToSend = visibilityFields;
+        let textColorFieldsToSend = textColorFields;
 
         if (!forceUpdate) {
           const lastSent = lastSentValuesRef.current.startingLineupTeamB;
@@ -2085,6 +2208,16 @@ export function useVMix(_match) {
             imageFields,
             lastSent.imageFields
           );
+          colorFieldsToSend = filterChangedColorFields(
+            colorFields,
+            lastSent.colorFields
+          );
+          visibilityFieldsToSend = filterChangedVisibilityFields(
+            visibilityFields,
+            lastSent.visibilityFields
+          );
+          // Для textColorFields всегда отправляем (они управляют цветом текста)
+          textColorFieldsToSend = textColorFields;
         }
 
         // При forceUpdate для логотипов: сначала очищаем, затем устанавливаем новое значение
@@ -2102,7 +2235,8 @@ export function useVMix(_match) {
             {},
             {},
             {},
-            clearImageFields
+            clearImageFields,
+            {}
           );
 
           // Небольшая задержка для гарантии обработки очистки vMix
@@ -2111,7 +2245,10 @@ export function useVMix(_match) {
 
         const hasFields =
           Object.keys(fieldsToSend).length > 0 ||
-          Object.keys(imageFieldsToSend).length > 0;
+          Object.keys(imageFieldsToSend).length > 0 ||
+          Object.keys(colorFieldsToSend).length > 0 ||
+          Object.keys(visibilityFieldsToSend).length > 0 ||
+          Object.keys(textColorFieldsToSend).length > 0;
 
         // При forceUpdate всегда отправляем команды, даже если поля пустые,
         // чтобы очистить данные в vMix при открытии пустого проекта
@@ -2126,9 +2263,10 @@ export function useVMix(_match) {
         const result = await window.electronAPI.updateVMixInputFields(
           validation.inputIdentifier,
           fieldsToSend,
-          {},
-          {},
-          imageFieldsToSend
+          colorFieldsToSend,
+          visibilityFieldsToSend,
+          imageFieldsToSend,
+          textColorFieldsToSend
         );
 
         // Обновляем кэш только при успешной отправке
@@ -2136,9 +2274,10 @@ export function useVMix(_match) {
           updateLastSentValues(
             "startingLineupTeamB",
             fieldsToSend,
-            {},
-            {},
-            imageFieldsToSend
+            colorFieldsToSend,
+            visibilityFieldsToSend,
+            imageFieldsToSend,
+            textColorFieldsToSend
           );
         }
 
@@ -2157,6 +2296,8 @@ export function useVMix(_match) {
       formatStartingLineupData,
       filterChangedFields,
       filterChangedImageFields,
+      filterChangedColorFields,
+      filterChangedVisibilityFields,
       updateLastSentValues,
     ]
   );
@@ -2224,7 +2365,8 @@ export function useVMix(_match) {
             {},
             {},
             {},
-            clearImageFields
+            clearImageFields,
+            {}
           );
 
           // Небольшая задержка для гарантии обработки очистки vMix
@@ -2343,7 +2485,8 @@ export function useVMix(_match) {
             {},
             {},
             {},
-            clearImageFields
+            clearImageFields,
+            {}
           );
 
           // Небольшая задержка для гарантии обработки очистки vMix

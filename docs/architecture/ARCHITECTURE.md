@@ -157,11 +157,14 @@ vmix-volley-scoreboard/
   - `testConnection()` - проверка подключения
   - `sendCommand(functionName, params)` - отправка произвольной команды в vMix
   - `updateInputField()` - обновление текстового поля через `SetText`
-  - `setColor()` - изменение цвета через `SetColor`
+  - `setColor()` - изменение цвета через `SetColor` (для fill полей)
+  - `setTextColour()` - изменение цвета текста через `SetTextColour` (для текстовых полей в GT Titles)
   - `setTextVisibility()` - управление видимостью через `SetTextVisibleOn`/`Off`
   - `setImage()` - установка изображения через `SetImage`
-  - `updateInputFields(inputName, fields, colorFields, visibilityFields, imageFields)` - массовое обновление полей разных типов
+  - `updateInputFields(inputName, fields, colorFields, visibilityFields, imageFields, textColorFields)` - массовое обновление полей разных типов
     - Отправляет отдельные HTTP запросы для каждого поля
+    - Порядок отправки: SetText → SetColor → SetTextColour → SetImage → SetTextVisibleOn/Off
+    - `textColorFields` - объект с цветами текста для текстовых полей (используется команда `SetTextColour`)
     - Возвращает массив результатов для каждого поля
     - Используется для оптимизированной отправки только измененных полей
   - `showOverlay()` / `hideOverlay()` - управление оверлеями
@@ -307,6 +310,7 @@ vmix-volley-scoreboard/
 - **Использование:**
   - Автоматическое определение цвета текста на цветном фоне для обеспечения читаемости
   - Используется на страницах "Управление матчем" и "Управление составами" для адаптации цвета текста названий команд к цвету фона
+  - Используется для автоматической установки контрастного цвета текста для полей номеров либеро в стартовых составах
   - Решает проблему нечитаемого текста при белой или черной форме игроков
 
 ### Структура React приложения
@@ -366,6 +370,14 @@ vmix-volley-scoreboard/
     - `formatCurrentScoreData()` - форматирование текущего счета
     - `formatLineupData(match, forceUpdate)` - форматирование заявки
     - `formatRosterData(match, teamKey, forceUpdate)` - форматирование состава
+    - `formatStartingLineupData(match, teamKey, forceUpdate)` - форматирование стартового состава
+      - Обработка полей подложек либеро (fill тип): установка цвета подложки на основе `liberoColor` или `color` команды
+      - Обработка полей номеров либеро (text тип): автоматическая установка контрастного цвета текста
+        - Используется функция `getContrastTextColor()` для расчета оптимального цвета (черный или белый)
+        - Цвет текста определяется на основе цвета подложки либеро из настроек матча
+        - Устанавливается только если либеро указан в стартовом составе
+        - Работает для всех полей: `Libero1Number.Text`, `Libero1NumberOnCard.Text`, `Libero2Number.Text`, `Libero2NumberOnCard.Text`
+        - Используется команда `SetTextColour` в vMix API для установки цвета текста в GT Titles
   - **Обработка логотипов с уникальными именами:**
     - `getFieldValue()` для `TEAM_A_LOGO` и `TEAM_B_LOGO`:
       - Использует `logoPath` из матча (с уникальным именем, например `logos/logo_a_1703123456789.png`)
@@ -482,6 +494,7 @@ vMix API
 **Механизм оптимизации:**
 - **Кэширование**: Хранятся последние отправленные значения для каждого инпута (currentScore, lineup, rosterTeamA, rosterTeamB)
 - **Сравнение значений**: Новые значения сравниваются со старыми через функции `filterChangedFields()`, `filterChangedColorFields()`, `filterChangedVisibilityFields()`, `filterChangedImageFields()`
+- **Цвета текста**: `textColorFields` всегда отправляются (не кэшируются), так как они управляют визуальным отображением
 - **Фильтрация**: Отправляются только поля, значения которых изменились
 - **Принудительное обновление**: При `forceUpdate=true` (создание/открытие матча, сохранение настроек/составов, смена команд, F5) отправляются все поля, **включая пустые**
 - **Очистка данных в vMix**: При `forceUpdate=true` пустые поля отправляются как пустые строки `""` для очистки данных в vMix при открытии пустого проекта

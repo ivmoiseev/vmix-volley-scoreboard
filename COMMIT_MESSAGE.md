@@ -1,120 +1,59 @@
 # Текст коммита
 
 ```
-feat: версия 1.0.2 - система уникальных имен логотипов и инфраструктура тестирования
-
-Критические изменения:
-- Реализована система уникальных имен файлов логотипов (logo_a_<timestamp>.png)
-  для обхода кэширования vMix
-- Оптимизировано сохранение логотипов (только при загрузке, открытии матча, swap-teams)
-- Улучшена обработка смены команд местами с корректным обновлением логотипов
+feat: добавлен контрастный цвет текста для полей номеров либеро и исправлены отступы в header
 
 Добавлено:
-- Полная инфраструктура тестирования (Jest, @testing-library)
-- Инфраструктура линтинга (ESLint с плагинами для React)
-- Новые IPC handlers: logo:save-to-file, logo:delete
-- Реорганизация документации по категориям
-- Обновлена документация ARCHITECTURE.md и vmix-api-reference.md
+- Автоматическая установка контрастного цвета текста для полей номеров либеро
+  (Libero1Number, Libero1NumberOnCard, Libero2Number, Libero2NumberOnCard)
+- Поддержка команды SetTextColour в vMix API для установки цвета текста в GT Titles
+- Тесты для новой функциональности (vmix-client-text-color.test.js)
+- Обновлены тесты useVMix-libero-background.test.js для проверки контрастного цвета
 
-Изменено:
-- Формат logoPath в JSON: logos/logo_a_<timestamp>.png
-- Логика обработки логотипов в useVMix.js и MatchSettingsPage.jsx
-- Обновлен .gitignore для Node.js проекта
+Исправлено:
+- Единообразные отступы в header на всех страницах (maxWidth: 1600px, margin: 0 auto)
 
 Технические детали:
-- logoManager.js: генерация уникальных имен с timestamp
-- main.js: удалено автосохранение логотипов из match:set-current
-- Добавлены скрипты тестирования и линтинга в package.json
-- Обновлен CHANGELOG.md с полным описанием изменений версии 1.0.2
+- useVMix.js: добавлена обработка полей номеров либеро для установки контрастного цвета
+- vmix-client.js: добавлен метод setTextColour() для команды SetTextColour
+- updateInputFields: добавлен параметр textColorFields для передачи цветов текста
+- IPC handlers: обновлены для поддержки textColorFields
+- Layout.jsx: добавлены отступы в header для всех страниц
 
 Основные изменения:
 
-1. Система уникальных имен файлов логотипов:
-   - Файлы логотипов теперь создаются с уникальными именами, включающими timestamp
-   - Формат: logo_a_<timestamp>.png или logo_b_<timestamp>.png вместо фиксированных logo_a.png и logo_b.png
-   - Каждое обновление логотипа создает новый файл, что гарантирует обновление в vMix
-   - Решена проблема, когда vMix кэшировал логотипы по имени файла и не отображал обновленные версии
-   - Обновлена функция saveLogoToFile() в logoManager.js для генерации уникальных имен
-   - Обновлены функции processTeamLogoForSave() и processTeamLogoForLoad() для работы с уникальными именами
-   - Обновлена функция getFieldValue() в useVMix.js для использования logoPath с уникальными именами
-   - Добавлен fallback на фиксированное имя для обратной совместимости со старыми матчами
-   - Формат logoPath в JSON изменен: logos/logo_a_<timestamp>.png вместо logos/logo_a.png
+1. Контрастный цвет текста для полей номеров либеро:
+   - Автоматическая установка контрастного цвета текста на основе цвета подложки либеро
+   - Используется функция getContrastTextColor() для расчета оптимального цвета
+   - Цвет текста устанавливается только если либеро указан в стартовом составе
+   - Работает для всех полей: Libero1Number.Text, Libero1NumberOnCard.Text, 
+     Libero2Number.Text, Libero2NumberOnCard.Text
+   - Для GT Titles используется имя поля с суффиксом .Text
 
-2. Оптимизация сохранения логотипов:
-   - Логотипы сохраняются в файлы только в трех случаях:
-     1. При загрузке нового логотипа (logo:save-to-file)
-     2. При открытии сохраненного матча (fileManager.openMatch)
-     3. При смене команд местами (match:swap-teams)
-   - Удалено автоматическое сохранение логотипов при обновлении матча через match:set-current
-   - Улучшена производительность за счет уменьшения количества операций записи файлов
-   - Упрощена логика управления логотипами
+2. Поддержка команды SetTextColour в vMix API:
+   - Добавлен метод setTextColour() в vmix-client.js
+   - Команда вызывается после SetText для установки цвета уже установленного текста
+   - Правильное кодирование цвета в URL (символ # кодируется как %23)
+   - Поддержка всех полей номеров либеро
 
-3. Улучшение обработки смены команд местами:
-   - Исправлена проблема с некорректным обновлением логотипов в vMix после смены команд
-   - Очистка папки logos выполняется ОДИН РАЗ перед сохранением обоих логотипов
-   - Используется обновленный матч из результата setCurrentMatch после swap-teams
-   - Обновление данных в vMix с использованием актуальных logoPath с уникальными именами
-   - Добавлено подробное логирование для отладки
+3. Тесты:
+   - Добавлен файл tests/unit/main/vmix-client-text-color.test.js
+   - Тесты проверяют формирование URL для команды SetTextColour
+   - Тесты проверяют кодирование цвета и работу с разными цветами
+   - Обновлены тесты useVMix-libero-background.test.js для проверки логики
 
-4. Инфраструктура тестирования:
-   - Полная настройка Jest для unit и integration тестов
-   - Конфигурация Babel для транспиляции тестов
-   - Тестовые утилиты для React (@testing-library/jest-dom, @testing-library/react, @testing-library/user-event)
-   - Поддержка jsdom для DOM окружения в тестах
-   - Supertest для тестирования HTTP серверов
-   - Новые npm скрипты: test, test:watch, test:coverage, test:unit, test:integration, test:security, test:json, test:junit, test:ci, test:analyze
-   - Структура тестов: tests/unit/, tests/integration/, tests/security/, tests/fixtures/
-
-5. Инфраструктура линтинга:
-   - Настройка ESLint с поддержкой React и React Hooks
-   - Плагин для проверки неиспользуемых импортов
-   - Новые npm скрипты: lint, lint:fix, lint:unused
-   - Конфигурационные файлы: eslint.config.js, .babelrc
-
-6. Новые IPC handlers для управления логотипами:
-   - logo:save-to-file - сохранение логотипа в файл при загрузке нового логотипа
-     - Параметры: teamLetter ('A' или 'B'), logoBase64 (base64 строка)
-     - Очищает папку logos перед сохранением
-     - Сохраняет логотип с уникальным именем
-     - Возвращает { success, logoPath, logoBase64 }
-   - logo:delete - удаление логотипа (очистка файлов)
-     - Параметры: teamLetter ('A' или 'B')
-     - Очищает папку logos от всех файлов логотипов
-     - Возвращает { success }
-
-7. Реорганизация документации:
-   - Структурирована документация по категориям:
-     - docs/getting-started/ - начало работы
-     - docs/architecture/ - архитектура проекта
-     - docs/api/ - API документация
-     - docs/testing/ - тестирование
-     - docs/development/ - документация для разработчиков
-     - docs/troubleshooting/ - решение проблем
-   - Добавлены навигационные файлы README в каждой категории
-   - Обновлен главный docs/README.md с полной навигацией
-   - Обновлен README.md в корне проекта с новыми ссылками на документацию
-
-8. Обновление документации:
-   - Обновлен docs/architecture/ARCHITECTURE.md:
-     - Описание системы уникальных имен файлов логотипов
-     - Обновлены IPC handlers
-     - Обновлены потоки данных с новым форматом имен файлов
-   - Обновлен docs/api/vmix-api-reference.md:
-     - Описание формирования URL для логотипов с уникальными именами
-     - Обновлены примеры запросов
-     - Добавлен раздел о системе уникальных имен файлов
+4. Единообразные отступы в header:
+   - Добавлены отступы слева и справа на всех страницах
+   - Используется maxWidth: 1600px и margin: 0 auto для центрирования
+   - Теперь все страницы имеют одинаковые отступы
 
 Затронутые файлы:
-- src/main/logoManager.js - генерация уникальных имен файлов с timestamp
-- src/main/main.js - удалено автосохранение логотипов из match:set-current, добавлены новые IPC handlers
-- src/main/preload.js - добавлены методы saveLogoToFile и deleteLogo в window.electronAPI
-- src/renderer/pages/MatchSettingsPage.jsx - обновлена обработка загрузки и сохранения логотипов
-- src/renderer/hooks/useVMix.js - обновлена обработка логотипов с уникальными именами
-- package.json - добавлены скрипты тестирования и линтинга, обновлены зависимости
-- .gitignore - расширен стандартный шаблон для Node.js проектов
-- CHANGELOG.md - добавлена секция версии 1.0.2 с полным описанием изменений
-- docs/architecture/ARCHITECTURE.md - обновлено описание системы логотипов
-- docs/api/vmix-api-reference.md - обновлены примеры и описание формирования URL логотипов
-- docs/development/CHANGES_ANALYSIS.md - создан новый файл с анализом всех изменений
-- Новые файлы: .babelrc, eslint.config.js, jest.config.js, scripts/analyze-test-results.js, tests/
+- src/renderer/hooks/useVMix.js - добавлена обработка контрастного цвета для полей либеро
+- src/main/vmix-client.js - добавлен метод setTextColour()
+- src/main/main.js - обновлен IPC handler для поддержки textColorFields
+- src/main/preload.js - обновлен для передачи textColorFields
+- src/renderer/components/Layout.jsx - добавлены отступы в header
+- tests/unit/main/vmix-client-text-color.test.js - новый файл с тестами
+- tests/unit/renderer/useVMix-libero-background.test.js - обновлены тесты
+- CHANGELOG.md - добавлено описание новых функций
 ```

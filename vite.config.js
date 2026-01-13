@@ -17,6 +17,15 @@ export default defineConfig({
         format: 'es',
       },
     },
+    commonjsOptions: {
+      // Включаем обработку CommonJS модулей
+      include: [/src\/shared\/.*/],
+      transformMixedEsModules: true,
+    },
+  },
+  optimizeDeps: {
+    // Включаем обработку CommonJS модулей в зависимостях
+    include: ['src/shared/vmix-field-utils.js'],
   },
   server: {
     port: 5173,

@@ -17,9 +17,6 @@ function Layout({ children, match, onMatchChange }) {
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const [headerButtons, setHeaderButtons] = useState(null);
 
-  const isActive = (path) => {
-    return location.pathname === path;
-  };
 
   // Загружаем настройки автосохранения при монтировании
   useEffect(() => {
@@ -209,8 +206,18 @@ function Layout({ children, match, onMatchChange }) {
   }
 
   // На остальных страницах показываем обычный Header
-  // Определяем, нужно ли показывать навигационные кнопки (скрываем их, если есть дополнительные кнопки)
-  const showNavButtons = !headerButtons;
+  // Определяем название страницы по пути
+  const getPageTitle = () => {
+    const path = location.pathname;
+    if (path === '/vmix/settings') return 'Настройки подключения к vMix';
+    if (path === '/match/settings') return 'Настройки матча';
+    if (path === '/match/roster') return 'Управление составами';
+    if (path === '/mobile/access') return 'Мобильный доступ';
+    if (path === '/about') return 'О программе';
+    return '';
+  };
+
+  const pageTitle = getPageTitle();
 
   return (
     <HeaderButtonsContext.Provider value={{ buttons: headerButtons, setButtons: setHeaderButtons }}>
@@ -232,47 +239,20 @@ function Layout({ children, match, onMatchChange }) {
             alignItems: 'center',
             flexWrap: 'wrap',
             gap: '0.5rem',
+            maxWidth: '1600px',
+            margin: '0 auto',
+            width: '100%',
           }}>
-            <h1 style={{ margin: 0, fontSize: '1.5rem', cursor: 'pointer' }} onClick={() => navigate('/')}>
-              vMix Volley Scoreboard
-            </h1>
+            {pageTitle && (
+              <h2 style={{ margin: 0, fontSize: '1.5rem' }}>
+                {pageTitle}
+              </h2>
+            )}
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
               {headerButtons && (
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                   {headerButtons}
                 </div>
-              )}
-              {showNavButtons && (
-                <nav style={{ display: 'flex', gap: '1rem' }}>
-                  <button
-                    onClick={() => navigate('/')}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      backgroundColor: isActive('/') ? '#3498db' : 'transparent',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                    }}
-                  >
-                    Главная
-                  </button>
-                  <button
-                    onClick={() => navigate('/about')}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      backgroundColor: isActive('/about') ? '#3498db' : 'transparent',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                    }}
-                  >
-                    О программе
-                  </button>
-                </nav>
               )}
             </div>
           </div>

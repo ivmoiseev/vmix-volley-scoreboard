@@ -599,7 +599,6 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
 
   return (
     <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto' }}>
-      <h2>Управление составами команд</h2>
 
       {/* Выбор команды */}
       <div style={{
@@ -1038,20 +1037,6 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
         gap: '1rem',
         justifyContent: 'flex-end',
       }}>
-        <button
-          onClick={handleCancel}
-          style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            backgroundColor: '#95a5a6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
-          Отменить
-        </button>
         <button
           onClick={handleCancel}
           style={{

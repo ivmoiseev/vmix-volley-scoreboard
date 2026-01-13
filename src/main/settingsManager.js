@@ -2,6 +2,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { app } = require('electron');
 const { getDefaultFieldsForInput, migrateInputToNewFormat } = require('./vmix-input-configs');
+const { migrateVMixConfig } = require('./vmix-field-migration');
 
 // Определяем путь к файлу настроек с учетом production режима
 function getSettingsFilePath() {
@@ -335,7 +336,53 @@ async function loadSettings() {
           },
         };
         await saveSettings(migratedSettings);
+        // Применяем миграцию типов полей
+        const fieldTypesMigrated = migrateVMixConfig(migratedSettings.vmix);
+        if (fieldTypesMigrated !== migratedSettings.vmix) {
+          const finalMigrated = {
+            ...migratedSettings,
+            vmix: fieldTypesMigrated,
+          };
+          await saveSettings(finalMigrated);
+          return finalMigrated;
+        }
         return migratedSettings;
+      }
+    }
+    
+    // Применяем миграцию типов полей для всех настроек
+    if (settings.vmix) {
+      const fieldTypesMigrated = migrateVMixConfig(settings.vmix);
+      // Проверяем, была ли миграция (сравниваем структуру)
+      let needsFieldTypesMigration = false;
+      if (fieldTypesMigrated.inputs) {
+        for (const [inputKey, inputConfig] of Object.entries(fieldTypesMigrated.inputs)) {
+          if (inputConfig.fields) {
+            for (const [fieldKey, field] of Object.entries(inputConfig.fields)) {
+              const originalField = settings.vmix?.inputs?.[inputKey]?.fields?.[fieldKey];
+              if (originalField) {
+                if (originalField.type === 'color' && field.type === 'fill') {
+                  needsFieldTypesMigration = true;
+                  break;
+                }
+                if (originalField.type === 'visibility' && field.type === 'text') {
+                  needsFieldTypesMigration = true;
+                  break;
+                }
+              }
+            }
+            if (needsFieldTypesMigration) break;
+          }
+        }
+      }
+      
+      if (needsFieldTypesMigration) {
+        const finalMigrated = {
+          ...settings,
+          vmix: fieldTypesMigrated,
+        };
+        await saveSettings(finalMigrated);
+        return finalMigrated;
       }
     }
     

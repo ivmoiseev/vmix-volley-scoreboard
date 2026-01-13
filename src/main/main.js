@@ -1066,7 +1066,8 @@ ipcMain.handle(
     fields,
     colorFields,
     visibilityFields,
-    imageFields
+    imageFields,
+    textColorFields
   ) => {
     try {
       const config = await vmixConfig.getVMixConfig();
@@ -1076,7 +1077,8 @@ ipcMain.handle(
         fields || {},
         colorFields || {},
         visibilityFields || {},
-        imageFields || {}
+        imageFields || {},
+        textColorFields || {}
       );
       // Проверяем, есть ли ошибки
       const hasErrors = results.some((r) => !r.success);

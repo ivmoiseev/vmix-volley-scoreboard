@@ -152,6 +152,20 @@ class VMixClient {
   }
 
   /**
+   * Устанавливает цвет текста для текстового поля
+   * @param {string} inputName - Название инпута
+   * @param {string} fieldName - Имя поля (fieldIdentifier)
+   * @param {string} color - HEX цвет в формате #RRGGBB
+   */
+  async setTextColour(inputName, fieldName, color) {
+    return this.sendCommand('SetTextColour', {
+      Input: inputName,
+      SelectedName: fieldName,
+      Value: color,
+    });
+  }
+
+  /**
    * Устанавливает изображение для поля
    * @param {string} inputName - Название инпута
    * @param {string} fieldName - Имя поля изображения (fieldIdentifier)
@@ -178,12 +192,13 @@ class VMixClient {
    * Обновляет несколько полей в инпуте
    * @param {string} inputName - Название инпута
    * @param {Object} fields - Объект с текстовыми полями { fieldName: value }
-   * @param {Object} colorFields - Объект с полями цвета { fieldName: colorValue }
+   * @param {Object} colorFields - Объект с полями цвета { fieldName: colorValue } (для fill полей)
    * @param {Object} visibilityFields - Объект с полями видимости { fieldName: { visible: boolean, fieldConfig: object } }
    * @param {Object} imageFields - Объект с полями изображений { fieldName: imagePath }
+   * @param {Object} textColorFields - Объект с цветами текста для текстовых полей { fieldName: colorValue }
    * @returns {Promise<Array>} - Массив результатов для каждого поля
    */
-  async updateInputFields(inputName, fields, colorFields = {}, visibilityFields = {}, imageFields = {}) {
+  async updateInputFields(inputName, fields, colorFields = {}, visibilityFields = {}, imageFields = {}, textColorFields = {}) {
     const results = [];
     
     // Логирование начала обновления инпута
@@ -201,9 +216,16 @@ class VMixClient {
       results.push(result);
     }
     
-    // 2. Устанавливаем цвета для полей типа color через команду SetColor
+    // 2. Устанавливаем цвета для полей типа fill через команду SetColor
     for (const [fieldName, colorValue] of Object.entries(colorFields)) {
       const result = await this.setColor(inputName, fieldName, colorValue);
+      results.push(result);
+    }
+    
+    // 2.5. Устанавливаем цвета текста для текстовых полей через команду SetTextColour
+    // ВАЖНО: SetTextColour должен вызываться ПОСЛЕ SetText, чтобы цвет применялся к уже установленному тексту
+    for (const [fieldName, colorValue] of Object.entries(textColorFields)) {
+      const result = await this.setTextColour(inputName, fieldName, colorValue);
       results.push(result);
     }
     
@@ -213,13 +235,20 @@ class VMixClient {
       results.push(result);
     }
     
-    // 4. Для полей видимости: сначала устанавливаем символ ●, затем управляем видимостью
-    for (const [fieldName, { visible }] of Object.entries(visibilityFields)) {
-      // Сначала устанавливаем символ ● в поле
-      const setSymbolResult = await this.updateInputField(inputName, fieldName, '●');
-      results.push(setSymbolResult);
+    // 4. Для полей видимости: управляем видимостью
+    // Если поле есть в colorFields (fill), цвет уже установлен, просто управляем видимостью
+    // Если поле текстовое, сначала устанавливаем символ ●, затем управляем видимостью
+    for (const [fieldName, { visible, fieldConfig }] of Object.entries(visibilityFields)) {
+      // Проверяем, является ли это полем fill (цвет уже установлен в шаге 2)
+      const isFillField = colorFields.hasOwnProperty(fieldName);
       
-      // Затем управляем видимостью
+      if (!isFillField) {
+        // Для текстовых полей: сначала устанавливаем символ ●
+        const setSymbolResult = await this.updateInputField(inputName, fieldName, '●');
+        results.push(setSymbolResult);
+      }
+      
+      // Затем управляем видимостью (для всех типов полей)
       const visibilityResult = await this.setTextVisibility(inputName, fieldName, visible);
       results.push(visibilityResult);
     }
