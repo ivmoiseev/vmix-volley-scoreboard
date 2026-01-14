@@ -136,7 +136,6 @@ dist-electron/
 dist/
 
 # IDE
-.cursor/
 .idea/
 .vscode/
 *.swp
