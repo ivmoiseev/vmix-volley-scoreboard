@@ -5,6 +5,8 @@
  * ВАЖНО: Эти тесты проверяют логику формирования URL, а не реальные HTTP запросы
  */
 
+import { jest, describe, test, expect } from '@jest/globals';
+
 describe('VMixClient - SetTextColour API Tests', () => {
   describe('SetTextColour команда для текстовых полей', () => {
     test('должен формировать правильный URL для SetTextColour с суффиксом .Text', () => {

@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { SET_STATUS } from '../../shared/types/Match';
 import { formatTimestamp, calculateDuration, formatDuration } from '../../shared/timeUtils';
+// @ts-ignore - временно, пока не будет TypeScript версии
+import { SetDomain } from '../../shared/domain/SetDomain.ts';
 
 /**
  * Модальное окно для редактирования партии
@@ -44,7 +46,8 @@ export default function SetEditModal({
     }
     
     // Приоритет 1: completed флаг (самый надежный индикатор завершенной партии)
-    if (set.completed === true) {
+    // Используем Domain Layer для проверки
+    if (SetDomain.isCompleted(set)) {
       console.log('[SetEditModal.determineSetStatus] Найден completed === true, возвращаем COMPLETED');
       return SET_STATUS.COMPLETED;
     }
@@ -146,7 +149,7 @@ export default function SetEditModal({
     }
     
     // Приоритет 2: флаг completed
-    if (set.completed === true) {
+    if (SetDomain.isCompleted(set)) {
       console.log('[SetEditModal.getIsCompletedSet] Найден completed === true, возвращаем true');
       return true;
     }
@@ -237,7 +240,7 @@ export default function SetEditModal({
     console.log('[SetEditModal.useEffect] Статус после determineSetStatus:', status);
     
     // Дополнительная проверка: если партия завершена (по любому признаку), принудительно устанавливаем COMPLETED
-    const isActuallyCompleted = set.completed === true || 
+    const isActuallyCompleted = SetDomain.isCompleted(set) || 
                                  set.status === SET_STATUS.COMPLETED || 
                                  (set.startTime && set.endTime);
     

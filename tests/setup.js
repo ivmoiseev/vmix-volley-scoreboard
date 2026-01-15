@@ -6,6 +6,9 @@
 // Импортируем jest-dom для дополнительных матчеров
 import '@testing-library/jest-dom';
 
+// Импортируем jest из @jest/globals для ESM режима
+import { jest } from '@jest/globals';
+
 // Увеличиваем таймаут для тестов (по умолчанию 5 секунд)
 jest.setTimeout(10000);
 

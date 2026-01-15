@@ -6,6 +6,8 @@
  * ВАЖНО: Эти тесты проверяют логику формирования URL, а не реальные HTTP запросы
  */
 
+import { jest, describe, test, expect } from '@jest/globals';
+
 describe('VMixClient - Logo API Tests', () => {
 
   describe('SetImage команда для логотипов', () => {

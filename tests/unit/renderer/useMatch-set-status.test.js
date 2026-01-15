@@ -2,7 +2,7 @@
  * Тесты для функций управления статусами партий в useMatch
  */
 
-import { SET_STATUS } from '../../../src/shared/types/Match';
+import { SET_STATUS } from '../../../src/shared/types/Match.ts';
 import { calculateDuration } from '../../../src/shared/timeUtils.js';
 import { canFinishSet, getSetWinner } from '../../../src/shared/volleyballRules.js';
 

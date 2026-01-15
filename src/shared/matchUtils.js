@@ -50,6 +50,7 @@ function createNewMatch() {
       scoreA: 0,
       scoreB: 0,
       servingTeam: "A",
+      status: "pending", // Обязательное поле для новой архитектуры
     },
     statistics: {
       enabled: false,
@@ -101,9 +102,24 @@ function validateMatch(match) {
       return false;
     }
 
+    // Проверяем наличие обязательного поля status в currentSet
+    if (!match.currentSet.status || typeof match.currentSet.status !== 'string') {
+      console.error('Validation failed: currentSet.status is missing or invalid', match.currentSet.status);
+      return false;
+    }
+
     if (!Array.isArray(match.sets)) {
       console.error('Validation failed: sets is not an array', typeof match.sets);
       return false;
+    }
+
+    // Проверяем наличие обязательного поля status в каждой партии
+    for (let i = 0; i < match.sets.length; i++) {
+      const set = match.sets[i];
+      if (!set.status || typeof set.status !== 'string') {
+        console.error(`Validation failed: sets[${i}].status is missing or invalid`, set.status);
+        return false;
+      }
     }
 
     if (!match.statistics) {

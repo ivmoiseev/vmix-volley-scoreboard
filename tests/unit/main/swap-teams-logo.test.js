@@ -9,24 +9,25 @@
  * 4. После swapTeams не должно быть конфликта при последующем сохранении
  */
 
-// path и fs используются только в моках
+import { jest, describe, test, beforeEach, expect } from '@jest/globals';
+import path from 'path';
 
-// Моки для Electron
+// Используем mockPath для доступа внутри jest.mock() (Jest требует префикс mock для переменных в моках)
+const mockPath = path;
 jest.mock('electron', () => {
-  const path = require('path');
   return {
     app: {
       isPackaged: false,
-      getPath: jest.fn(() => path.join(__dirname, '../../temp-test-logos')),
+      getPath: jest.fn(() => mockPath.join(__dirname, '../../temp-test-logos')),
     },
   };
 });
 
 // Моки для server.js чтобы избежать проблем с uuid
-jest.mock('../../../src/main/server', () => ({}));
+jest.mock('../../../src/main/server.js', () => ({}));
 
 // Моки для logoManager
-jest.mock('../../../src/main/logoManager', () => {
+jest.mock('../../../src/main/logoManager.js', () => {
   return {
     processTeamLogoForSave: jest.fn(async (team, teamLetter) => {
       // Симулируем сохранение логотипа с уникальным именем (timestamp)
@@ -53,12 +54,13 @@ jest.mock('../../../src/main/logoManager', () => {
   };
 });
 
+// Импортируем logoManager после мока
+import logoManagerModule from '../../../src/main/logoManager.js';
+const logoManager = logoManagerModule.default || logoManagerModule;
+
 describe('swapTeams - обработка логотипов', () => {
-  let logoManager;
-  
   beforeEach(() => {
     jest.clearAllMocks();
-    logoManager = require('../../../src/main/logoManager');
   });
 
   describe('Проблема 1: Правильность сохранения логотипов в файлы', () => {

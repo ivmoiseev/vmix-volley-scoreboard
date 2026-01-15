@@ -5,7 +5,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import SetsDisplay from '../../../src/renderer/components/SetsDisplay.jsx';
-import { SET_STATUS } from '../../../src/shared/types/Match';
+import { SET_STATUS } from '../../../src/shared/types/Match.ts';
 
 // Мокируем formatDuration
 jest.mock('../../../src/shared/timeUtils.js', () => ({

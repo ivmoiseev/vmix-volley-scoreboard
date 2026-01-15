@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useMatch } from "../hooks/useMatch";
+import { useMatch } from "../hooks/useMatch.js";
 import { useVMix } from "../hooks/useVMix";
 import ScoreDisplay from "../components/ScoreDisplay";
 import { getContrastTextColor } from "../utils/colorContrast";
@@ -10,6 +10,8 @@ import ScoreButtons from "../components/ScoreButtons";
 import VMixOverlayButtons from "../components/VMixOverlayButtons";
 import SetEditModal from "../components/SetEditModal";
 import { SET_STATUS } from "../../shared/types/Match";
+// @ts-ignore - временно, пока не будет TypeScript версии
+import { SetDomain } from "../../shared/domain/SetDomain.js";
 
 function MatchControlPage({ match: initialMatch, onMatchChange }) {
   const navigate = useNavigate();
@@ -88,8 +90,8 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
     const completedSet = match.sets.find(s => s.setNumber === editingSetNumber);
     // Если не нашли в sets, проверяем currentSet
     const setToEdit = completedSet || (editingSetNumber === match.currentSet.setNumber ? match.currentSet : null);
-    // Определяем, является ли это текущей партией (только если она не завершена)
-    const isCurrentSet = !completedSet && editingSetNumber === match.currentSet.setNumber;
+    // Определяем, является ли это текущей партией используя Domain Layer
+    const isCurrentSet = setToEdit && !completedSet && SetDomain.isCurrentSet(editingSetNumber, match.currentSet);
     
     if (!setToEdit) {
       return null;

@@ -1,6 +1,8 @@
 import { memo } from 'react';
 import { SET_STATUS } from '../../shared/types/Match';
 import { formatDuration } from '../../shared/timeUtils';
+// @ts-ignore - временно, пока не будет TypeScript версии
+import { SetDomain } from '../../shared/domain/SetDomain.ts';
 
 function SetsDisplay({ 
   sets, 
@@ -24,11 +26,12 @@ function SetsDisplay({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
         {[1, 2, 3, 4, 5].map((setNum) => {
           const set = sets.find(s => s.setNumber === setNum);
-          const isCurrent = setNum === currentSet.setNumber;
+          // Используем Domain Layer для проверки, является ли это текущей партией
+          const isCurrent = SetDomain.isCurrentSet(setNum, currentSet);
           
           // Приоритет: если партия завершена в sets, показываем как завершенную
           // даже если currentSet имеет тот же номер (новая партия еще не начата)
-          const isCompleted = set && set.status === SET_STATUS.COMPLETED;
+          const isCompleted = set && SetDomain.isCompleted(set);
           const isInProgress = isCurrent && currentSet.status === SET_STATUS.IN_PROGRESS && !isCompleted;
           
           // Определяем стили в зависимости от статуса

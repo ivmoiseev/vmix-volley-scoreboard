@@ -2,11 +2,12 @@
  * Тесты для миграции конфигураций полей vMix
  */
 
-const {
+import { jest, describe, test, expect } from '@jest/globals';
+import {
   migrateFieldConfig,
   migrateInputConfig,
   migrateVMixConfig,
-} = require('../../../src/main/vmix-field-migration');
+} from '../../../src/main/vmix-field-migration.js';
 
 describe('vmix-field-migration', () => {
   describe('migrateFieldConfig', () => {

@@ -4,6 +4,7 @@ import { SET_STATUS } from '../../shared/types/Match';
 import { calculateDuration } from '../../shared/timeUtils';
 import { validateSetUpdate } from '../../shared/setValidation';
 import { migrateMatchToSetStatus } from '../../shared/matchMigration';
+import { SetService } from '../../shared/services/SetService.ts';
 
 /**
  * Хук для управления состоянием матча
@@ -156,77 +157,24 @@ export function useMatch(initialMatch) {
     setMatch(prevMatch => {
       if (!prevMatch) return prevMatch;
       
-      // Проверяем, что партия еще не начата
-      if (prevMatch.currentSet.status === SET_STATUS.IN_PROGRESS) {
-        console.warn('Партия уже начата');
+      const previousState = { ...prevMatch };
+      
+      // Используем Service Layer для начала партии
+      // Service Layer правильно обрабатывает обнуление счета (обнуляет при начале)
+      try {
+        const resultMatch = SetService.startSet(prevMatch);
+        
+        addToHistory({
+          type: 'set_start',
+          previousState,
+        });
+        
+        return resultMatch;
+      } catch (error) {
+        console.error('[useMatch.startSet] Ошибка при начале партии:', error);
+        alert(error.message || 'Не удалось начать партию');
         return prevMatch;
       }
-      
-      const previousState = { ...prevMatch };
-      const newMatch = { ...prevMatch };
-      
-      // Вычисляем номер следующей партии
-      // Если есть завершенные партии в sets, берем максимальный номер + 1
-      // Если завершенных партий нет, но currentSet.setNumber установлен и партия еще не начата (PENDING),
-      // используем этот номер (для начала матча)
-      let nextSetNumber;
-      if (prevMatch.sets.length > 0) {
-        // Есть завершенные партии - берем максимальный номер + 1
-        const maxSetNumberInSets = Math.max(...prevMatch.sets.map(s => s.setNumber));
-        nextSetNumber = maxSetNumberInSets + 1;
-        console.log('[useMatch.startSet] Есть завершенные партии:', {
-          setsCount: prevMatch.sets.length,
-          sets: prevMatch.sets.map(s => ({ setNumber: s.setNumber, status: s.status })),
-          maxSetNumber: maxSetNumberInSets,
-          nextSetNumber,
-        });
-      } else {
-        // Нет завершенных партий - используем номер текущей партии (если она еще не начата)
-        // или начинаем с 1
-        if (prevMatch.currentSet.setNumber && prevMatch.currentSet.status === SET_STATUS.PENDING) {
-          nextSetNumber = prevMatch.currentSet.setNumber;
-          console.log('[useMatch.startSet] Нет завершенных партий, используем номер текущей партии:', {
-            currentSetNumber: prevMatch.currentSet.setNumber,
-            currentSetStatus: prevMatch.currentSet.status,
-            nextSetNumber,
-          });
-        } else {
-          nextSetNumber = 1;
-          console.log('[useMatch.startSet] Нет завершенных партий, начинаем с партии 1:', {
-            currentSetNumber: prevMatch.currentSet.setNumber,
-            currentSetStatus: prevMatch.currentSet.status,
-            nextSetNumber,
-          });
-        }
-      }
-      
-      // Устанавливаем статус и время начала, обнуляем счет, обновляем номер партии
-      const previousSetNumber = newMatch.currentSet.setNumber;
-      newMatch.currentSet = {
-        ...newMatch.currentSet,
-        setNumber: nextSetNumber, // Обновляем номер партии при начале
-        status: SET_STATUS.IN_PROGRESS,
-        startTime: Date.now(),
-        scoreA: 0,
-        scoreB: 0,
-      };
-      
-      console.log('[useMatch.startSet] Партия начата:', {
-        previousSetNumber,
-        newSetNumber: nextSetNumber,
-        status: newMatch.currentSet.status,
-        startTime: newMatch.currentSet.startTime,
-        setsCount: prevMatch.sets.length,
-      });
-      
-      newMatch.updatedAt = new Date().toISOString();
-      
-      addToHistory({
-        type: 'set_start',
-        previousState,
-      });
-      
-      return newMatch;
     });
   }, [addToHistory, match]);
 
@@ -240,72 +188,23 @@ export function useMatch(initialMatch) {
       if (!prevMatch) return prevMatch;
       
       const previousState = { ...prevMatch };
-      const newMatch = { ...prevMatch };
       
-      const { scoreA, scoreB, setNumber, startTime } = newMatch.currentSet;
-      
-      // Проверяем, можно ли завершить партию
-      if (!canFinishSet(scoreA, scoreB, setNumber)) {
-        const threshold = setNumber === 5 ? 15 : 25;
-        alert(`Партия не может быть завершена. Необходимо набрать ${threshold} очков с разницей минимум 2 очка.`);
+      // Используем Service Layer для завершения партии
+      // Service Layer правильно обрабатывает обнуление счета (не обнуляет при завершении)
+      try {
+        const resultMatch = SetService.finishSet(prevMatch);
+        
+        addToHistory({
+          type: 'set_finish',
+          previousState,
+        });
+        
+        return resultMatch;
+      } catch (error) {
+        console.error('[useMatch.finishSet] Ошибка при завершении партии:', error);
+        alert(error.message || 'Не удалось завершить партию');
         return prevMatch;
       }
-      
-      // Фиксируем время завершения
-      const endTime = Date.now();
-      
-      // Вычисляем продолжительность
-      const duration = startTime 
-        ? calculateDuration(startTime, endTime)
-        : null;
-      
-      // Создаем завершенную партию
-      const completedSet = {
-        setNumber: newMatch.currentSet.setNumber,
-        scoreA,
-        scoreB,
-        completed: true,
-        status: SET_STATUS.COMPLETED,
-        startTime: startTime || undefined,
-        endTime,
-        duration,
-      };
-      
-      console.log('[useMatch.finishSet] Создана завершенная партия:', {
-        setNumber: completedSet.setNumber,
-        scoreA: completedSet.scoreA,
-        scoreB: completedSet.scoreB,
-        completed: completedSet.completed,
-        status: completedSet.status,
-        startTime: completedSet.startTime,
-        endTime: completedSet.endTime,
-        duration: completedSet.duration,
-        fullObject: completedSet,
-      });
-      
-      newMatch.sets = [...newMatch.sets, completedSet];
-      
-      // Создаем новую партию со статусом PENDING
-      // Номер партии и счет сохраняются - обновятся при начале новой партии
-      const winner = getSetWinner(scoreA, scoreB);
-      newMatch.currentSet = {
-        ...newMatch.currentSet,
-        servingTeam: winner,
-        status: SET_STATUS.PENDING,
-        scoreA: 0, // Обнуляем счет для новой партии
-        scoreB: 0, // Обнуляем счет для новой партии
-        startTime: null, // Сбрасываем время начала
-        endTime: null, // Сбрасываем время завершения
-      };
-      
-      newMatch.updatedAt = new Date().toISOString();
-      
-      addToHistory({
-        type: 'set_finish',
-        previousState,
-      });
-      
-      return newMatch;
     });
   }, [addToHistory, match]);
 

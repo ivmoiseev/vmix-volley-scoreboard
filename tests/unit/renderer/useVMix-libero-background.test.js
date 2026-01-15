@@ -2,11 +2,12 @@
  * Тесты для обработки полей подложек либеро в useVMix
  */
 
-const { getFullFieldName } = require('../../../src/renderer/utils/vmix-field-utils');
-const { getContrastTextColor } = require('../../../src/renderer/utils/colorContrast');
+import { jest, describe, test, expect } from '@jest/globals';
+import { getFullFieldName } from '../../../src/renderer/utils/vmix-field-utils.js';
+import { getContrastTextColor } from '../../../src/renderer/utils/colorContrast.js';
 
 // Мокируем утилиту для работы с полями
-jest.mock('../../../src/renderer/utils/vmix-field-utils', () => ({
+jest.mock('../../../src/renderer/utils/vmix-field-utils.js', () => ({
   getFullFieldName: jest.fn((name, type) => {
     if (type === 'text') return `${name}.Text`;
     if (type === 'image') return `${name}.Source`;
@@ -16,7 +17,7 @@ jest.mock('../../../src/renderer/utils/vmix-field-utils', () => ({
 }));
 
 // Мокируем утилиту для контрастного цвета
-jest.mock('../../../src/renderer/utils/colorContrast', () => ({
+jest.mock('../../../src/renderer/utils/colorContrast.js', () => ({
   getContrastTextColor: jest.fn((backgroundColor) => {
     // Простая логика для тестов: если цвет светлый, возвращаем черный, иначе белый
     if (!backgroundColor) return '#ffffff';

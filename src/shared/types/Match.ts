@@ -13,6 +13,15 @@ export const SET_STATUS = {
 
 export type SetStatus = typeof SET_STATUS[keyof typeof SET_STATUS];
 
+/**
+ * Enum для состояний партий (для удобства использования)
+ */
+export enum SET_STATUS_ENUM {
+  PENDING = 'pending',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+}
+
 export interface Player {
   number: number;
   name: string;
@@ -44,7 +53,7 @@ export interface Set {
   scoreA: number;
   scoreB: number;
   completed: boolean; // Оставить для обратной совместимости
-  status?: SetStatus; // Новое поле: 'pending' | 'in_progress' | 'completed'
+  status: SetStatus; // Статус партии: 'pending' | 'in_progress' | 'completed' (обязательное поле)
   startTime?: number; // Timestamp начала партии (milliseconds)
   endTime?: number; // Timestamp завершения партии (milliseconds)
   duration?: number; // Продолжительность в минутах (вычисляемое поле)
@@ -55,8 +64,9 @@ export interface CurrentSet {
   scoreA: number;
   scoreB: number;
   servingTeam: 'A' | 'B';
-  status?: SetStatus; // Статус текущей партии: 'pending' | 'in_progress'
+  status: SetStatus; // Статус текущей партии: 'pending' | 'in_progress' (обязательное поле)
   startTime?: number; // Timestamp начала текущей партии
+  endTime?: number; // Timestamp завершения текущей партии (если завершена)
 }
 
 export interface Statistics {
@@ -188,8 +198,20 @@ export function validateMatch(match: any): match is Match {
     return false;
   }
 
+  // Проверяем наличие обязательного поля status в currentSet
+  if (!match.currentSet.status || typeof match.currentSet.status !== 'string') {
+    return false;
+  }
+
   if (!Array.isArray(match.sets)) {
     return false;
+  }
+
+  // Проверяем наличие обязательного поля status в каждой партии
+  for (const set of match.sets) {
+    if (!set.status || typeof set.status !== 'string') {
+      return false;
+    }
   }
 
   if (!match.statistics) {

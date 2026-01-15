@@ -5,7 +5,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SetEditModal from '../../../src/renderer/components/SetEditModal.jsx';
-import { SET_STATUS } from '../../../src/shared/types/Match';
+import { SET_STATUS } from '../../../src/shared/types/Match.ts';
 
 // Мокируем утилиты времени
 jest.mock('../../../src/shared/timeUtils.js', () => ({

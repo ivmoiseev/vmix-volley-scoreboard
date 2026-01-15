@@ -9,18 +9,21 @@
  * 4. Удаление старых файлов
  */
 
+import { jest, describe, test, beforeEach, afterEach, expect } from '@jest/globals';
 import path from 'path';
 import { promises as fs } from 'fs';
 
+// Используем mockPath для доступа внутри jest.mock() (Jest требует префикс mock для переменных в моках)
+const mockPath = path;
+
 // Моки для Electron
 jest.mock('electron', () => {
-  const path = require('path');
   return {
     app: {
       isPackaged: false,
       getPath: jest.fn((name) => {
         // Используем process.cwd() для получения корневой директории проекта
-        return path.join(process.cwd(), 'tests', 'temp-test-logos');
+        return mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
       }),
     },
   };
@@ -31,23 +34,23 @@ jest.mock('../../../src/main/server.js', () => ({}));
 
 // Мокируем logoManager, чтобы избежать проблем с import.meta
 jest.mock('../../../src/main/logoManager.js', () => {
-  const path = require('path');
-  const fs = require('fs').promises;
+  // Используем встроенные модули Node.js напрямую
   const { app } = require('electron');
+  const fs = require('fs').promises;
   
   // Мокируем функции logoManager
   return {
     default: {
       getLogosDir: jest.fn(() => {
-        return path.join(process.cwd(), 'tests', 'temp-test-logos');
+        return mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
       }),
       saveLogoToFile: jest.fn(async (base64Logo, teamKey) => {
-        const logosDir = path.join(process.cwd(), 'tests', 'temp-test-logos');
+        const logosDir = mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
         await fs.mkdir(logosDir, { recursive: true });
         
         const timestamp = Date.now();
         const fileName = `logo_${teamKey.toLowerCase()}_${timestamp}.png`;
-        const filePath = path.join(logosDir, fileName);
+        const filePath = mockPath.join(logosDir, fileName);
         
         // Извлекаем base64 данные из data URL
         const base64Data = base64Logo.split(',')[1] || base64Logo;
@@ -57,12 +60,12 @@ jest.mock('../../../src/main/logoManager.js', () => {
         return `logos/${fileName}`;
       }),
       cleanupLogosDirectory: jest.fn(async () => {
-        const logosDir = path.join(process.cwd(), 'tests', 'temp-test-logos');
+        const logosDir = mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
         try {
           const files = await fs.readdir(logosDir);
           for (const file of files) {
             if (file.startsWith('logo_') && file.endsWith('.png')) {
-              await fs.unlink(path.join(logosDir, file));
+              await fs.unlink(mockPath.join(logosDir, file));
             }
           }
         } catch (error) {
@@ -70,7 +73,7 @@ jest.mock('../../../src/main/logoManager.js', () => {
         }
       }),
       processTeamLogoForSave: jest.fn(async (team, teamKey) => {
-        const logosDir = path.join(process.cwd(), 'tests', 'temp-test-logos');
+        const logosDir = mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
         await fs.mkdir(logosDir, { recursive: true });
         
         // Очищаем только файлы для текущей команды перед сохранением
@@ -78,7 +81,7 @@ jest.mock('../../../src/main/logoManager.js', () => {
           const files = await fs.readdir(logosDir);
           for (const file of files) {
             if (file.startsWith(`logo_${teamKey.toLowerCase()}_`) && file.endsWith('.png')) {
-              await fs.unlink(path.join(logosDir, file));
+              await fs.unlink(mockPath.join(logosDir, file));
             }
           }
         } catch (error) {
@@ -88,7 +91,7 @@ jest.mock('../../../src/main/logoManager.js', () => {
         if (team.logoBase64) {
           const timestamp = Date.now();
           const fileName = `logo_${teamKey.toLowerCase()}_${timestamp}.png`;
-          const filePath = path.join(logosDir, fileName);
+          const filePath = mockPath.join(logosDir, fileName);
           
           const base64Data = team.logoBase64.split(',')[1] || team.logoBase64;
           const buffer = Buffer.from(base64Data, 'base64');

@@ -2,6 +2,7 @@
  * Тесты для компонента ScoreButtons
  */
 
+import { jest, describe, it, beforeEach, expect } from '@jest/globals';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ScoreButtons from '../../../src/renderer/components/ScoreButtons.jsx';

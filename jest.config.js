@@ -8,20 +8,16 @@ export default {
   testEnvironment: 'jsdom',
   
   // Поддержка ES модулей
-  extensionsToTreatAsEsm: ['.js'],
-  globals: {
-    'ts-jest': {
-      useESM: true
-    }
-  },
+  // .js автоматически определяется на основе "type": "module" в package.json
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
   
   // Корневая директория проекта
   rootDir: '.',
   
   // Папки для поиска тестов
   testMatch: [
-    '**/__tests__/**/*.test.js',
-    '**/tests/**/*.test.js',
+    '**/__tests__/**/*.test.{js,ts}',
+    '**/tests/**/*.test.{js,ts}',
   ],
   
   // Папки, которые нужно игнорировать
@@ -39,18 +35,27 @@ export default {
   // Настройки для модулей
   moduleFileExtensions: ['js', 'jsx', 'json', 'ts', 'tsx'],
   
-  // Расширения для разрешения модулей
-  extensionsToTreatAsEsm: ['.ts', '.tsx'],
-  
   // Трансформация файлов
   transform: {
+    // TypeScript файлы обрабатываются через ts-jest (должно быть первым для приоритета)
+    '^.+\\.tsx?$': ['ts-jest', {
+      useESM: true,
+      tsconfig: {
+        jsx: 'react-jsx',
+        module: 'ESNext',
+        moduleResolution: 'bundler', // Используем bundler для поддержки расширений .ts в импортах
+        allowSyntheticDefaultImports: true,
+        esModuleInterop: true,
+        isolatedModules: true,
+      },
+    }],
     '^.+\\.jsx?$': 'babel-jest',
   },
   
   // Настройки для покрытия кода
   collectCoverageFrom: [
-    'src/**/*.{js,jsx}',
-    '!src/**/*.test.{js,jsx}',
+    'src/**/*.{js,jsx,ts,tsx}',
+    '!src/**/*.test.{js,jsx,ts,tsx}',
     '!src/**/__tests__/**',
     '!src/renderer/index.jsx',
     '!src/main/main.js', // Точка входа Electron
@@ -88,8 +93,8 @@ export default {
   // Настройки для модулей
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    // Мокируем TypeScript файлы
-    '^.*/types/Match$': '<rootDir>/tests/__mocks__/Match.js',
+    // Убрали мокирование Match.ts, так как TypeScript файлы обрабатываются напрямую через ts-jest
+    // Мок вызывал проблемы с ESM синтаксисом
   },
   
   // Настройки для setup файлов

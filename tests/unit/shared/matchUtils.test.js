@@ -3,7 +3,8 @@
  * Высокий приоритет тестирования
  */
 
-const { createNewMatch, validateMatch, generateUUID } = require('../../../src/shared/matchUtils');
+import { jest, describe, test, beforeEach, afterEach, expect } from '@jest/globals';
+import { createNewMatch, validateMatch, generateUUID } from '../../../src/shared/matchUtils.js';
 
 describe('matchUtils', () => {
   let consoleErrorSpy;
