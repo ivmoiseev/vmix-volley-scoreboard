@@ -2,6 +2,17 @@
  * Типы данных для матча
  */
 
+/**
+ * Константы состояний партий
+ */
+export const SET_STATUS = {
+  PENDING: 'pending',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+} as const;
+
+export type SetStatus = typeof SET_STATUS[keyof typeof SET_STATUS];
+
 export interface Player {
   number: number;
   name: string;
@@ -32,7 +43,11 @@ export interface Set {
   setNumber: number;
   scoreA: number;
   scoreB: number;
-  completed: boolean;
+  completed: boolean; // Оставить для обратной совместимости
+  status?: SetStatus; // Новое поле: 'pending' | 'in_progress' | 'completed'
+  startTime?: number; // Timestamp начала партии (milliseconds)
+  endTime?: number; // Timestamp завершения партии (milliseconds)
+  duration?: number; // Продолжительность в минутах (вычисляемое поле)
 }
 
 export interface CurrentSet {
@@ -40,6 +55,8 @@ export interface CurrentSet {
   scoreA: number;
   scoreB: number;
   servingTeam: 'A' | 'B';
+  status?: SetStatus; // Статус текущей партии: 'pending' | 'in_progress'
+  startTime?: number; // Timestamp начала текущей партии
 }
 
 export interface Statistics {
@@ -66,6 +83,7 @@ export interface Match {
   venue?: string; // Место проведения
   date?: string; // ISO date
   time?: string; // ISO time
+  timezone?: string; // Часовой пояс (IANA timezone, например "Europe/Moscow")
   teamA: Team;
   teamB: Team;
   officials?: Officials;
@@ -81,6 +99,10 @@ export interface Match {
  */
 export function createNewMatch(): Match {
   const now = new Date().toISOString();
+  // Получаем часовой пояс по умолчанию из системы
+  const defaultTimezone = typeof Intl !== 'undefined' && Intl.DateTimeFormat 
+    ? Intl.DateTimeFormat().resolvedOptions().timeZone 
+    : 'UTC';
   
   return {
     matchId: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : generateUUID(),
@@ -90,6 +112,7 @@ export function createNewMatch(): Match {
     venue: '',
     date: new Date().toISOString().split('T')[0],
     time: new Date().toTimeString().split(' ')[0].substring(0, 5),
+    timezone: defaultTimezone,
     teamA: {
       name: 'Команда А',
       color: '#3498db',
@@ -119,6 +142,7 @@ export function createNewMatch(): Match {
       scoreA: 0,
       scoreB: 0,
       servingTeam: 'A',
+      status: SET_STATUS.PENDING, // Добавить статус по умолчанию
     },
     statistics: {
       enabled: false,

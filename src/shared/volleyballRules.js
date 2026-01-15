@@ -58,8 +58,15 @@ function isSetball(scoreA, scoreB, setNumber = 1) {
  */
 function isMatchball(sets, currentSetNumber, scoreA, scoreB) {
   // Подсчитываем выигранные партии
-  const winsA = sets.filter(s => s.completed && s.scoreA > s.scoreB).length;
-  const winsB = sets.filter(s => s.completed && s.scoreB > s.scoreA).length;
+  // Учитываем только завершенные партии (completed === true или status === 'completed')
+  const winsA = sets.filter(s => {
+    const isCompleted = s.completed === true || s.status === 'completed';
+    return isCompleted && s.scoreA > s.scoreB;
+  }).length;
+  const winsB = sets.filter(s => {
+    const isCompleted = s.completed === true || s.status === 'completed';
+    return isCompleted && s.scoreB > s.scoreA;
+  }).length;
   
   // Матчбол возможен, если одна из команд уже выиграла 2 сета
   // и находится на сетболе в текущем сете
@@ -159,19 +166,7 @@ function isMatchFinished(sets) {
   return getMatchWinner(sets) !== null;
 }
 
-// Экспорт для использования в ES6 модулях
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    isSetball,
-    isMatchball,
-    canFinishSet,
-    getSetWinner,
-    getMatchWinner,
-    isMatchFinished,
-  };
-}
-
-// Экспорт для использования в ES6 модулях (Vite/React)
+// Экспорт для использования в ES-модулях
 export {
   isSetball,
   isMatchball,

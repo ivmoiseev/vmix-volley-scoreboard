@@ -7,6 +7,10 @@
  */
 function createNewMatch() {
   const now = new Date().toISOString();
+  // Получаем часовой пояс по умолчанию из системы
+  const defaultTimezone = typeof Intl !== 'undefined' && Intl.DateTimeFormat 
+    ? Intl.DateTimeFormat().resolvedOptions().timeZone 
+    : 'UTC';
 
   return {
     matchId: generateUUID(),
@@ -16,6 +20,7 @@ function createNewMatch() {
     venue: "",
     date: new Date().toISOString().split("T")[0],
     time: new Date().toTimeString().split(" ")[0].substring(0, 5),
+    timezone: defaultTimezone,
     teamA: {
       name: "Команда А",
       color: "#3498db",
@@ -128,8 +133,51 @@ function generateUUID() {
   });
 }
 
-module.exports = {
+/**
+ * Создает объект завершенной партии на основе текущей партии
+ * @param {Object} currentSet - текущая партия
+ * @param {number} endTime - время завершения (timestamp)
+ * @param {Function} calculateDuration - функция для вычисления продолжительности
+ * @returns {Object} объект завершенной партии
+ */
+function createCompletedSet(currentSet, endTime, calculateDuration) {
+  const { setNumber, scoreA, scoreB, startTime } = currentSet;
+  
+  const duration = startTime && calculateDuration
+    ? calculateDuration(startTime, endTime)
+    : null;
+
+  return {
+    setNumber,
+    scoreA,
+    scoreB,
+    completed: true,
+    status: 'completed',
+    startTime: startTime || undefined,
+    endTime,
+    duration,
+  };
+}
+
+/**
+ * Создает новую партию со статусом PENDING (после завершения предыдущей)
+ * Сохраняет текущий номер и счет - они обновятся при начале новой партии
+ * @param {Object} currentSet - текущая партия
+ * @param {string} winner - победитель предыдущей партии ('A' или 'B')
+ * @returns {Object} новая партия со статусом PENDING
+ */
+function createPendingSet(currentSet, winner) {
+  return {
+    ...currentSet,
+    servingTeam: winner,
+    status: 'pending',
+  };
+}
+
+export {
   createNewMatch,
   validateMatch,
   generateUUID,
+  createCompletedSet,
+  createPendingSet,
 };

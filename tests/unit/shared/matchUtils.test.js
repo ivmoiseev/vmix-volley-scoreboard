@@ -87,6 +87,40 @@ describe('matchUtils', () => {
       expect(match.officials.lineJudge2).toBe('');
       expect(match.officials.scorer).toBe('');
     });
+
+    test('должен создавать матч с часовым поясом по умолчанию', () => {
+      const match = createNewMatch();
+      
+      expect(match.timezone).toBeDefined();
+      expect(typeof match.timezone).toBe('string');
+      expect(match.timezone.length).toBeGreaterThan(0);
+      
+      // Если доступен Intl API, должен быть системный часовой пояс
+      if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+        const systemTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        expect(match.timezone).toBe(systemTimezone);
+      } else {
+        // Иначе должен быть UTC
+        expect(match.timezone).toBe('UTC');
+      }
+    });
+
+    test('должен устанавливать timezone при создании матча', () => {
+      const match = createNewMatch();
+      
+      // Проверяем, что timezone установлен
+      expect(match.timezone).toBeDefined();
+      expect(typeof match.timezone).toBe('string');
+      
+      // Если Intl доступен, должен быть системный часовой пояс или UTC
+      if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+        const systemTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        expect(match.timezone).toBe(systemTimezone);
+      } else {
+        // Если Intl недоступен, должен быть UTC
+        expect(match.timezone).toBe('UTC');
+      }
+    });
   });
 
   describe('validateMatch', () => {

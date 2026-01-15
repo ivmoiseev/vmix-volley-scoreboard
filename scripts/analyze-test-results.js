@@ -7,8 +7,8 @@
  *   node scripts/analyze-test-results.js [test-results.json]
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 const resultsFile = process.argv[2] || 'test-results.json';
 

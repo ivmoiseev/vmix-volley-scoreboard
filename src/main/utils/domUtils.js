@@ -72,6 +72,6 @@ function getSanitizationFunctions() {
   `;
 }
 
-module.exports = {
+export {
   getSanitizationFunctions,
 };

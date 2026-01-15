@@ -3,7 +3,14 @@
  * Пробует подключиться к портам 5173, 5174, 5175, 5176
  */
 
-const http = require('http');
+import http from 'http';
+import fs from 'fs';
+import path, { dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+// Получаем __dirname для ES-модулей
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const ports = [5173, 5174, 5175, 5176];
 const maxAttempts = 120; // 120 попыток по 500ms = 60 секунд
@@ -52,8 +59,6 @@ async function waitForVite() {
     if (availablePort) {
       console.log(`✓ Vite dev server найден на порту ${availablePort.port}`);
       // Сохраняем порт в файл для Electron
-      const fs = require('fs');
-      const path = require('path');
       const portFile = path.join(__dirname, '..', '.vite-port');
       fs.writeFileSync(portFile, availablePort.port.toString(), 'utf8');
       process.exit(0);

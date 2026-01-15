@@ -1,21 +1,29 @@
-const {
+import {
   app,
   BrowserWindow,
   ipcMain,
   Menu,
   dialog,
   globalShortcut,
-} = require("electron");
-const path = require("path");
-const fs = require("fs");
+} from "electron";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+import http from "http";
+import * as fileManager from "./fileManager.js";
+import { getVMixClient } from "./vmix-client.js";
+import * as vmixConfig from "./vmix-config.js";
+import { getMobileServer } from "./server.js";
+import * as settingsManager from "./settingsManager.js";
+import * as logoManager from "./logoManager.js";
+import errorHandler from "../shared/errorHandler.js";
+
+// Получаем __dirname и __filename для ES-модулей
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
-const fileManager = require("./fileManager");
-const { getVMixClient } = require("./vmix-client");
-const vmixConfig = require("./vmix-config");
-const { getMobileServer } = require("./server");
-const settingsManager = require("./settingsManager");
-const logoManager = require("./logoManager");
-const errorHandler = require("../shared/errorHandler");
 
 let mainWindow;
 let currentMatch = null;
@@ -100,14 +108,14 @@ function createWindow() {
   }
   const iconExists = fs.existsSync(iconPath);
 
-  // Путь к preload.js - в production он в ASAR
+  // Путь к preload.cjs - в production он в ASAR
   let preloadPath;
   if (isDev) {
-    preloadPath = path.join(__dirname, "preload.js");
+    preloadPath = path.join(__dirname, "preload.cjs");
   } else {
-    // В production preload.js находится в ASAR по тому же пути относительно appPath
+    // В production preload.cjs находится в ASAR по тому же пути относительно appPath
     const appPath = app.getAppPath();
-    preloadPath = path.join(appPath, "src/main/preload.js");
+    preloadPath = path.join(appPath, "src/main/preload.cjs");
   }
 
   mainWindow = new BrowserWindow({
@@ -137,7 +145,6 @@ function createWindow() {
   if (isDev) {
     // Функция для проверки доступности порта с проверкой, что это Vite
     const checkPort = (port, callback) => {
-      const http = require("http");
       const req = http.get(`http://localhost:${port}`, (res) => {
         res.on("data", () => {
           // Игнорируем данные
@@ -270,12 +277,25 @@ function createWindow() {
     // loadFile автоматически обрабатывает пути к assets внутри ASAR
     mainWindow.loadFile(distPath).catch((err) => {
       console.error("[Production] Failed to load index.html:", err);
+      console.error("[Production] Error details:", err.message, err.stack);
       // Попробуем альтернативный способ через loadURL с file:// протоколом
       const fileUrl = `file://${distPath.replace(/\\/g, "/")}`;
       console.log("[Production] Trying alternative URL:", fileUrl);
       mainWindow.loadURL(fileUrl).catch((urlErr) => {
         console.error("[Production] Failed to load via URL:", urlErr);
+        console.error("[Production] URL Error details:", urlErr.message, urlErr.stack);
       });
+    });
+    
+    // Обработка ошибок загрузки страницы
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+      console.error(`[Production] Failed to load: ${errorCode} - ${errorDescription}`);
+      console.error(`[Production] URL: ${validatedURL}`);
+    });
+    
+    // Обработка успешной загрузки
+    mainWindow.webContents.on('did-finish-load', () => {
+      console.log("[Production] Page loaded successfully");
     });
   }
 
@@ -341,11 +361,20 @@ function createWindow() {
     "console-message",
     (event, level, message, line, sourceId) => {
       const levelNames = ["debug", "log", "info", "warning", "error"];
-      console.log(
-        `[Renderer ${
-          levelNames[level] || level
-        }] ${message} (${sourceId}:${line})`
-      );
+      try {
+        console.log(
+          `[Renderer ${
+            levelNames[level] || level
+          }] ${message} (${sourceId}:${line})`
+        );
+      } catch (error) {
+        // Игнорируем ошибки записи в консоль (EPIPE и т.д.)
+        // Это может происходить, если окно закрыто или pipe разорван
+        if (error.code !== 'EPIPE') {
+          // Логируем только не-EPIPE ошибки
+          console.error('[main] Ошибка при логировании сообщения renderer:', error.message);
+        }
+      }
     }
   );
 }

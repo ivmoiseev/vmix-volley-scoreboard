@@ -89,5 +89,5 @@ class ErrorHandler {
 // Singleton экземпляр
 const errorHandler = new ErrorHandler();
 
-module.exports = errorHandler;
+export default errorHandler;
 

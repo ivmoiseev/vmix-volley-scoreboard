@@ -74,4 +74,3 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('autosave-settings-changed', handler);
   },
 });
-

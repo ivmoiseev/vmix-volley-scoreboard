@@ -1,11 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { isSetball, isMatchball, canFinishSet, getSetWinner } from '../../shared/volleyballRules';
+import { SET_STATUS } from '../../shared/types/Match';
+import { calculateDuration } from '../../shared/timeUtils';
+import { validateSetUpdate } from '../../shared/setValidation';
+import { migrateMatchToSetStatus } from '../../shared/matchMigration';
 
 /**
  * Хук для управления состоянием матча
  */
 export function useMatch(initialMatch) {
-  const [match, setMatch] = useState(initialMatch);
+  // Применяем миграцию при инициализации
+  const migratedMatch = initialMatch && migrateMatchToSetStatus(initialMatch);
+  const [match, setMatch] = useState(migratedMatch);
   const [actionHistory, setActionHistory] = useState([]);
   const prevInitialMatchRef = useRef(initialMatch);
   const lastStatsUpdateRef = useRef({ team: null, category: null, timestamp: 0 });
@@ -17,8 +23,10 @@ export function useMatch(initialMatch) {
       // Обновляем только если изменился matchId или updatedAt
       if (!prevMatch || prevMatch.matchId !== initialMatch.matchId || 
           prevMatch.updatedAt !== initialMatch.updatedAt) {
-        setMatch(initialMatch);
-        prevInitialMatchRef.current = initialMatch;
+        // Применяем миграцию при обновлении
+        const migratedMatch = migrateMatchToSetStatus(initialMatch);
+        setMatch(migratedMatch);
+        prevInitialMatchRef.current = migratedMatch;
       }
     }
   }, [initialMatch]);
@@ -49,6 +57,11 @@ export function useMatch(initialMatch) {
    */
   const changeScore = useCallback((team, delta) => {
     if (!match) return;
+    
+    // Проверяем, что партия начата
+    if (match.currentSet.status !== SET_STATUS.IN_PROGRESS) {
+      return; // Не изменяем счет, если партия не начата
+    }
     
     setMatch(prevMatch => {
       if (!prevMatch) return prevMatch;
@@ -135,6 +148,89 @@ export function useMatch(initialMatch) {
   }, [addToHistory, match]);
 
   /**
+   * Начинает текущую партию
+   */
+  const startSet = useCallback(() => {
+    if (!match) return;
+    
+    setMatch(prevMatch => {
+      if (!prevMatch) return prevMatch;
+      
+      // Проверяем, что партия еще не начата
+      if (prevMatch.currentSet.status === SET_STATUS.IN_PROGRESS) {
+        console.warn('Партия уже начата');
+        return prevMatch;
+      }
+      
+      const previousState = { ...prevMatch };
+      const newMatch = { ...prevMatch };
+      
+      // Вычисляем номер следующей партии
+      // Если есть завершенные партии в sets, берем максимальный номер + 1
+      // Если завершенных партий нет, но currentSet.setNumber установлен и партия еще не начата (PENDING),
+      // используем этот номер (для начала матча)
+      let nextSetNumber;
+      if (prevMatch.sets.length > 0) {
+        // Есть завершенные партии - берем максимальный номер + 1
+        const maxSetNumberInSets = Math.max(...prevMatch.sets.map(s => s.setNumber));
+        nextSetNumber = maxSetNumberInSets + 1;
+        console.log('[useMatch.startSet] Есть завершенные партии:', {
+          setsCount: prevMatch.sets.length,
+          sets: prevMatch.sets.map(s => ({ setNumber: s.setNumber, status: s.status })),
+          maxSetNumber: maxSetNumberInSets,
+          nextSetNumber,
+        });
+      } else {
+        // Нет завершенных партий - используем номер текущей партии (если она еще не начата)
+        // или начинаем с 1
+        if (prevMatch.currentSet.setNumber && prevMatch.currentSet.status === SET_STATUS.PENDING) {
+          nextSetNumber = prevMatch.currentSet.setNumber;
+          console.log('[useMatch.startSet] Нет завершенных партий, используем номер текущей партии:', {
+            currentSetNumber: prevMatch.currentSet.setNumber,
+            currentSetStatus: prevMatch.currentSet.status,
+            nextSetNumber,
+          });
+        } else {
+          nextSetNumber = 1;
+          console.log('[useMatch.startSet] Нет завершенных партий, начинаем с партии 1:', {
+            currentSetNumber: prevMatch.currentSet.setNumber,
+            currentSetStatus: prevMatch.currentSet.status,
+            nextSetNumber,
+          });
+        }
+      }
+      
+      // Устанавливаем статус и время начала, обнуляем счет, обновляем номер партии
+      const previousSetNumber = newMatch.currentSet.setNumber;
+      newMatch.currentSet = {
+        ...newMatch.currentSet,
+        setNumber: nextSetNumber, // Обновляем номер партии при начале
+        status: SET_STATUS.IN_PROGRESS,
+        startTime: Date.now(),
+        scoreA: 0,
+        scoreB: 0,
+      };
+      
+      console.log('[useMatch.startSet] Партия начата:', {
+        previousSetNumber,
+        newSetNumber: nextSetNumber,
+        status: newMatch.currentSet.status,
+        startTime: newMatch.currentSet.startTime,
+        setsCount: prevMatch.sets.length,
+      });
+      
+      newMatch.updatedAt = new Date().toISOString();
+      
+      addToHistory({
+        type: 'set_start',
+        previousState,
+      });
+      
+      return newMatch;
+    });
+  }, [addToHistory, match]);
+
+  /**
    * Завершает текущую партию
    */
   const finishSet = useCallback(() => {
@@ -146,7 +242,7 @@ export function useMatch(initialMatch) {
       const previousState = { ...prevMatch };
       const newMatch = { ...prevMatch };
       
-      const { scoreA, scoreB, setNumber } = newMatch.currentSet;
+      const { scoreA, scoreB, setNumber, startTime } = newMatch.currentSet;
       
       // Проверяем, можно ли завершить партию
       if (!canFinishSet(scoreA, scoreB, setNumber)) {
@@ -155,27 +251,51 @@ export function useMatch(initialMatch) {
         return prevMatch;
       }
       
-      // Сохраняем завершенную партию
+      // Фиксируем время завершения
+      const endTime = Date.now();
+      
+      // Вычисляем продолжительность
+      const duration = startTime 
+        ? calculateDuration(startTime, endTime)
+        : null;
+      
+      // Создаем завершенную партию
       const completedSet = {
         setNumber: newMatch.currentSet.setNumber,
         scoreA,
         scoreB,
         completed: true,
+        status: SET_STATUS.COMPLETED,
+        startTime: startTime || undefined,
+        endTime,
+        duration,
       };
+      
+      console.log('[useMatch.finishSet] Создана завершенная партия:', {
+        setNumber: completedSet.setNumber,
+        scoreA: completedSet.scoreA,
+        scoreB: completedSet.scoreB,
+        completed: completedSet.completed,
+        status: completedSet.status,
+        startTime: completedSet.startTime,
+        endTime: completedSet.endTime,
+        duration: completedSet.duration,
+        fullObject: completedSet,
+      });
       
       newMatch.sets = [...newMatch.sets, completedSet];
       
-      // Переходим к следующей партии
-      const nextSetNumber = newMatch.currentSet.setNumber + 1;
-      
-      // Определяем, кто будет подавать в следующей партии (победитель предыдущей)
+      // Создаем новую партию со статусом PENDING
+      // Номер партии и счет сохраняются - обновятся при начале новой партии
       const winner = getSetWinner(scoreA, scoreB);
-      
       newMatch.currentSet = {
-        setNumber: nextSetNumber,
-        scoreA: 0,
-        scoreB: 0,
+        ...newMatch.currentSet,
         servingTeam: winner,
+        status: SET_STATUS.PENDING,
+        scoreA: 0, // Обнуляем счет для новой партии
+        scoreB: 0, // Обнуляем счет для новой партии
+        startTime: null, // Сбрасываем время начала
+        endTime: null, // Сбрасываем время завершения
       };
       
       newMatch.updatedAt = new Date().toISOString();
@@ -187,6 +307,382 @@ export function useMatch(initialMatch) {
       
       return newMatch;
     });
+  }, [addToHistory, match]);
+
+  /**
+   * Переключает статус партии (для toggle-кнопки)
+   */
+  const toggleSetStatus = useCallback(() => {
+    if (!match) return;
+    
+    const currentStatus = match.currentSet.status || SET_STATUS.PENDING;
+    
+    if (currentStatus === SET_STATUS.PENDING) {
+      startSet();
+    } else if (currentStatus === SET_STATUS.IN_PROGRESS) {
+      finishSet();
+    }
+  }, [match, startSet, finishSet]);
+
+  /**
+   * Обновляет данные партии (для модального окна редактирования)
+   * @param {number} setNumber - Номер партии для обновления
+   * @param {Object} updates - Обновления (scoreA, scoreB, status, startTime, endTime)
+   */
+  const updateSet = useCallback((setNumber, updates) => {
+    if (!match) return false;
+    
+    setMatch(prevMatch => {
+      if (!prevMatch) return prevMatch;
+      
+      const previousState = { ...prevMatch };
+      const newMatch = { 
+        ...prevMatch,
+        currentSet: { ...prevMatch.currentSet }, // Создаем копию currentSet для иммутабельности
+      };
+      
+      // Определяем, обновляем ли мы текущую партию или завершенную
+      // КРИТИЧНО: Проверяем не только setNumber, но и статус.
+      // Если currentSet имеет тот же setNumber, но статус PENDING, значит это следующая партия,
+      // и мы обновляем завершенную партию, а не текущую.
+      const isCurrentSet = setNumber === prevMatch.currentSet.setNumber && 
+                           prevMatch.currentSet.status === SET_STATUS.IN_PROGRESS;
+      
+      if (isCurrentSet) {
+        // Обновляем текущую партию
+        const set = prevMatch.currentSet;
+        const validation = validateSetUpdate(set, updates, setNumber, prevMatch);
+        
+        if (!validation.valid) {
+          alert(validation.errors.join('\n'));
+          return prevMatch;
+        }
+        
+        // Применяем обновления
+        const updatedSet = {
+          ...prevMatch.currentSet,
+          ...updates,
+        };
+        
+        // Логика удаления времени в зависимости от статуса
+        if (updates.status !== undefined) {
+          if (updates.status === SET_STATUS.PENDING) {
+            // При переходе в pending удаляем время начала и завершения
+            updatedSet.startTime = null;
+            updatedSet.endTime = null;
+            updatedSet.duration = undefined;
+            console.log('[useMatch.updateSet] Партия сброшена в PENDING:', {
+              setNumber: updatedSet.setNumber,
+              previousStatus: prevMatch.currentSet.status,
+              newStatus: SET_STATUS.PENDING,
+              startTime: updatedSet.startTime,
+              endTime: updatedSet.endTime,
+            });
+          } else if (updates.status === SET_STATUS.IN_PROGRESS) {
+            // При переходе в in_progress удаляем время завершения
+            updatedSet.endTime = null;
+            updatedSet.duration = undefined;
+          }
+        }
+        
+        // Если updates явно содержит null для времени, используем это значение
+        if (updates.startTime === null) {
+          updatedSet.startTime = null;
+        }
+        if (updates.endTime === null) {
+          updatedSet.endTime = null;
+        }
+        
+        // Пересчитываем duration, если изменилось время
+        if (updates.startTime !== undefined || updates.endTime !== undefined) {
+          const startTime = updatedSet.startTime;
+          const endTime = updatedSet.endTime;
+          if (startTime && endTime) {
+            updatedSet.duration = calculateDuration(startTime, endTime);
+          } else {
+            updatedSet.duration = undefined;
+          }
+        }
+        
+        newMatch.currentSet = updatedSet;
+      } else {
+        // Обновляем завершенную партию
+        const setIndex = prevMatch.sets.findIndex(s => s.setNumber === setNumber);
+        if (setIndex === -1) {
+          console.error(`Партия ${setNumber} не найдена`);
+          return prevMatch;
+        }
+        
+        const set = prevMatch.sets[setIndex];
+        
+        // Проверка: если пытаемся изменить статус завершенной партии на in_progress,
+        // нужно убедиться, что следующая партия еще не началась
+        if (updates.status === SET_STATUS.IN_PROGRESS && set.status === SET_STATUS.COMPLETED) {
+          const nextSetNumber = setNumber + 1;
+          // Проверяем, не началась ли следующая партия
+          const nextSetStarted = prevMatch.sets.some(s => s.setNumber === nextSetNumber && s.status === SET_STATUS.IN_PROGRESS) ||
+                                 (prevMatch.currentSet.setNumber === nextSetNumber && prevMatch.currentSet.status === SET_STATUS.IN_PROGRESS);
+          
+          if (nextSetStarted) {
+            alert(`Нельзя вернуть партию ${setNumber} в статус "В игре", так как партия ${nextSetNumber} уже началась.`);
+            return prevMatch;
+          }
+          
+          // Если следующая партия не началась, возвращаем завершенную партию в игру
+          // Партия становится текущей (currentSet), удаляется из sets
+          const validation = validateSetUpdate(set, updates, setNumber, prevMatch);
+          
+          if (!validation.valid) {
+            alert(validation.errors.join('\n'));
+            return prevMatch;
+          }
+          
+          // Применяем обновления
+          const updatedSet = {
+            ...set,
+            ...updates,
+            status: SET_STATUS.IN_PROGRESS,
+            completed: false,
+          };
+          
+          // Удаляем время завершения и длительность
+          updatedSet.endTime = null;
+          updatedSet.duration = undefined;
+          
+          // Если updates явно содержит null для времени, используем это значение
+          if (updates.startTime === null) {
+            updatedSet.startTime = null;
+          }
+          if (updates.endTime === null) {
+            updatedSet.endTime = null;
+          }
+          
+          // Пересчитываем duration, если изменилось время
+          if (updates.startTime !== undefined || updates.endTime !== undefined) {
+            const startTime = updatedSet.startTime;
+            const endTime = updatedSet.endTime;
+            if (startTime && endTime) {
+              updatedSet.duration = calculateDuration(startTime, endTime);
+            } else {
+              updatedSet.duration = undefined;
+            }
+          }
+          
+          // Удаляем партию из sets и делаем её текущей
+          const newSets = prevMatch.sets.filter(s => s.setNumber !== setNumber);
+          newMatch.sets = newSets;
+          newMatch.currentSet = updatedSet;
+          
+          console.log('[useMatch.updateSet] Возвращаем завершенную партию в игру:', {
+            setNumber,
+            updatedSet: {
+              setNumber: updatedSet.setNumber,
+              status: updatedSet.status,
+              completed: updatedSet.completed,
+              scoreA: updatedSet.scoreA,
+              scoreB: updatedSet.scoreB,
+            },
+            previousCurrentSet: {
+              setNumber: prevMatch.currentSet.setNumber,
+              status: prevMatch.currentSet.status,
+            },
+            setsBefore: prevMatch.sets.map(s => ({ setNumber: s.setNumber, status: s.status })),
+            setsAfter: newSets.map(s => ({ setNumber: s.setNumber, status: s.status })),
+          });
+          
+          // Обновляем время изменения для триггера обновления vMix
+          newMatch.updatedAt = new Date().toISOString();
+          
+          addToHistory({
+            type: 'set_resume',
+            setNumber,
+            previousState,
+          });
+        } else {
+          // Обычное обновление завершенной партии (без изменения статуса на in_progress)
+          const validation = validateSetUpdate(set, updates, setNumber, prevMatch);
+          
+          if (!validation.valid) {
+            alert(validation.errors.join('\n'));
+            return prevMatch;
+          }
+          
+          // Применяем обновления к завершенной партии
+          // ВАЖНО: При обновлении завершенной партии обновляем только нужные поля
+          // И убеждаемся, что счет - это числа, а не строки
+          const updatedSet = {
+            ...set,
+            // Обновляем счет, если он указан (преобразуем в число, если нужно)
+            scoreA: updates.scoreA !== undefined ? (typeof updates.scoreA === 'string' ? parseInt(updates.scoreA, 10) : updates.scoreA) : set.scoreA,
+            scoreB: updates.scoreB !== undefined ? (typeof updates.scoreB === 'string' ? parseInt(updates.scoreB, 10) : updates.scoreB) : set.scoreB,
+            // Обновляем статус, если он указан
+            status: updates.status !== undefined ? updates.status : set.status,
+            // Обновляем время, если оно указано
+            startTime: updates.startTime !== undefined ? updates.startTime : set.startTime,
+            endTime: updates.endTime !== undefined ? updates.endTime : set.endTime,
+          };
+          
+          // Логика удаления времени в зависимости от статуса
+          if (updates.status !== undefined) {
+            if (updates.status === SET_STATUS.PENDING) {
+              // При переходе в pending удаляем время начала и завершения
+              updatedSet.startTime = null;
+              updatedSet.endTime = null;
+              updatedSet.duration = undefined;
+              updatedSet.completed = false;
+            } else if (updates.status === SET_STATUS.IN_PROGRESS) {
+              // При переходе в in_progress удаляем время завершения
+              updatedSet.endTime = null;
+              updatedSet.duration = undefined;
+              updatedSet.completed = false;
+            } else if (updates.status === SET_STATUS.COMPLETED) {
+              // При статусе completed устанавливаем completed = true
+              updatedSet.completed = true;
+            }
+          } else {
+            // Если статус не изменяется, сохраняем текущий completed
+            updatedSet.completed = set.completed;
+          }
+          
+          // Если updates явно содержит null для времени, используем это значение
+          if (updates.startTime === null) {
+            updatedSet.startTime = null;
+          }
+          if (updates.endTime === null) {
+            updatedSet.endTime = null;
+          }
+          
+          // Пересчитываем duration, если изменилось время
+          if (updates.startTime !== undefined || updates.endTime !== undefined) {
+            const startTime = updatedSet.startTime;
+            const endTime = updatedSet.endTime;
+            if (startTime && endTime) {
+              updatedSet.duration = calculateDuration(startTime, endTime);
+            } else {
+              updatedSet.duration = undefined;
+            }
+          }
+          
+          // Обновляем массив партий
+          console.log('[useMatch.updateSet] Перед обновлением sets:', {
+            setIndex,
+            setsLength: prevMatch.sets.length,
+            setBefore: prevMatch.sets[setIndex] ? {
+              setNumber: prevMatch.sets[setIndex].setNumber,
+              scoreA: prevMatch.sets[setIndex].scoreA,
+              scoreB: prevMatch.sets[setIndex].scoreB,
+              status: prevMatch.sets[setIndex].status,
+            } : 'не найден',
+            updatedSet: {
+              setNumber: updatedSet.setNumber,
+              scoreA: updatedSet.scoreA,
+              scoreB: updatedSet.scoreB,
+              status: updatedSet.status,
+            },
+          });
+          const newSets = [...prevMatch.sets];
+          newSets[setIndex] = updatedSet;
+          newMatch.sets = newSets;
+          console.log('[useMatch.updateSet] После обновления sets:', {
+            setsLength: newMatch.sets.length,
+            setAfter: newMatch.sets[setIndex] ? {
+              setNumber: newMatch.sets[setIndex].setNumber,
+              scoreA: newMatch.sets[setIndex].scoreA,
+              scoreB: newMatch.sets[setIndex].scoreB,
+              status: newMatch.sets[setIndex].status,
+            } : 'не найден',
+          });
+          
+          // ВАЖНО: При обновлении завершенной партии НЕ изменяем currentSet,
+          // если это не текущая партия. 
+          // 
+          // КРИТИЧНО: Проверяем не только setNumber, но и статус currentSet.
+          // Если currentSet имеет тот же setNumber, но статус PENDING, значит это следующая партия,
+          // и мы обновляем завершенную партию, а не текущую.
+          const isActuallyCurrentSet = prevMatch.currentSet.setNumber === setNumber && 
+                                       prevMatch.currentSet.status === SET_STATUS.IN_PROGRESS;
+          
+          if (!isActuallyCurrentSet) {
+            // Это не текущая партия - currentSet не должен изменяться
+            // 
+            // ВАЖНО: Если следующая партия уже начата (IN_PROGRESS), НЕ трогаем её!
+            // Мы обновляем только завершенную партию, а текущая партия должна продолжать идти.
+            if (prevMatch.currentSet.status === SET_STATUS.IN_PROGRESS) {
+              // Следующая партия уже идет - не трогаем её, просто создаем новый объект для иммутабельности
+              newMatch.currentSet = { 
+                ...prevMatch.currentSet,
+              };
+            } else if (prevMatch.currentSet.status !== SET_STATUS.PENDING) {
+              // Если currentSet почему-то не в статусе PENDING и не IN_PROGRESS, исправляем это
+              console.warn('[useMatch.updateSet] Исправляем статус currentSet с', prevMatch.currentSet.status, 'на PENDING');
+              newMatch.currentSet = {
+                ...prevMatch.currentSet,
+                status: SET_STATUS.PENDING,
+                // Убеждаемся, что счет не наследуется из обновленной партии
+                scoreA: prevMatch.currentSet.scoreA,
+                scoreB: prevMatch.currentSet.scoreB,
+              };
+            } else {
+              // currentSet в статусе PENDING - просто создаем новый объект для иммутабельности
+              // И что счет не наследуется из обновленной партии
+              newMatch.currentSet = { 
+                ...prevMatch.currentSet,
+                // Явно сохраняем счет currentSet, чтобы он не изменился
+                scoreA: prevMatch.currentSet.scoreA,
+                scoreB: prevMatch.currentSet.scoreB,
+              };
+            }
+          }
+          
+          console.log('[useMatch.updateSet] Обновление завершенной партии:', {
+            setNumber,
+            isActuallyCurrentSet,
+            updatedSet: {
+              setNumber: updatedSet.setNumber,
+              status: updatedSet.status,
+              completed: updatedSet.completed,
+              scoreA: updatedSet.scoreA,
+              scoreB: updatedSet.scoreB,
+            },
+            currentSetBefore: {
+              setNumber: prevMatch.currentSet.setNumber,
+              status: prevMatch.currentSet.status,
+              scoreA: prevMatch.currentSet.scoreA,
+              scoreB: prevMatch.currentSet.scoreB,
+            },
+            currentSetAfter: {
+              setNumber: newMatch.currentSet.setNumber,
+              status: newMatch.currentSet.status,
+              scoreA: newMatch.currentSet.scoreA,
+              scoreB: newMatch.currentSet.scoreB,
+            },
+            setsAfter: newMatch.sets.map(s => ({ 
+              setNumber: s.setNumber, 
+              status: s.status, 
+              completed: s.completed,
+              scoreA: s.scoreA, 
+              scoreB: s.scoreB 
+            })),
+            setIndex,
+            setsLength: newMatch.sets.length,
+          });
+        }
+      }
+      
+      // Обновляем время изменения для триггера обновления vMix и пересчета компонентов
+      newMatch.updatedAt = new Date().toISOString();
+      
+      addToHistory({
+        type: 'set_update',
+        setNumber,
+        updates,
+        previousState,
+      });
+      
+      return newMatch;
+    });
+    
+    return true;
   }, [addToHistory, match]);
 
   /**
@@ -248,10 +744,13 @@ export function useMatch(initialMatch) {
   }, []); // Убрали match из зависимостей, используем функциональное обновление
 
   // Вычисляемые значения (с проверкой на null)
-  const setballInfo = match?.currentSet 
+  // Сетбол показывается только для партии, которая идет (IN_PROGRESS)
+  const setballInfo = match?.currentSet && match.currentSet.status === SET_STATUS.IN_PROGRESS
     ? isSetball(match.currentSet.scoreA, match.currentSet.scoreB, match.currentSet.setNumber)
     : { isSetball: false, team: null };
-  const matchballInfo = match?.currentSet && match?.sets
+  // Матчбол показывается только для партии, которая идет (IN_PROGRESS)
+  // Если партия еще не начата (PENDING), матчбол не показывается
+  const matchballInfo = match?.currentSet && match?.sets && match.currentSet.status === SET_STATUS.IN_PROGRESS
     ? isMatchball(
         match.sets,
         match.currentSet.setNumber,
@@ -269,6 +768,9 @@ export function useMatch(initialMatch) {
     changeScore,
     changeServingTeam,
     finishSet,
+    startSet, // Добавить
+    toggleSetStatus, // Добавить
+    updateSet, // Добавить
     changeStatistics,
     toggleStatistics,
     undoLastAction,
@@ -278,6 +780,7 @@ export function useMatch(initialMatch) {
     matchballTeam: matchballInfo.team,
     canFinish,
     hasHistory: actionHistory.length > 0,
+    currentSetStatus: match?.currentSet?.status || SET_STATUS.PENDING, // Добавить для удобства
   };
 }
 

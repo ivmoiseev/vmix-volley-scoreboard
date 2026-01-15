@@ -1,4 +1,4 @@
-const settingsManager = require('./settingsManager');
+import * as settingsManager from './settingsManager.js';
 
 /**
  * Получает настройки vMix
@@ -51,7 +51,7 @@ async function setVMixSetting(key, value) {
   await setVMixConfig(config);
 }
 
-module.exports = {
+export {
   getVMixConfig,
   setVMixConfig,
   getVMixSetting,

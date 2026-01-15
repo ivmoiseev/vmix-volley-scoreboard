@@ -1,10 +1,22 @@
-const express = require('express');
-const { v4: uuidv4 } = require('uuid');
-const os = require('os');
-const path = require('path');
-const errorHandler = require('../shared/errorHandler');
-const settingsManager = require('./settingsManager');
-const domUtils = require('./utils/domUtils');
+import express from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import os from 'os';
+import path from 'path';
+import fs from 'fs/promises';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import { createRequire } from 'module';
+import errorHandler from '../shared/errorHandler.js';
+import * as settingsManager from './settingsManager.js';
+import * as domUtils from './utils/domUtils.js';
+import { calculateDuration } from '../shared/timeUtils.js';
+
+// Получаем __dirname для ES-модулей
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Создаем require для динамических импортов (например, electron)
+const require = createRequire(import.meta.url);
 
 /**
  * HTTP сервер для мобильного доступа
@@ -30,6 +42,7 @@ class MobileServer {
    */
   getLogosPath() {
     try {
+      // Используем createRequire для доступа к electron
       const { app } = require('electron');
       const isPackaged = app && app.isPackaged;
       
@@ -76,7 +89,6 @@ class MobileServer {
     const logosPath = this.getLogosPath();
     
     // Убеждаемся, что папка существует
-    const fs = require('fs').promises;
     fs.access(logosPath).catch(() => {
       return fs.mkdir(logosPath, { recursive: true });
     }).catch(err => {
@@ -122,8 +134,6 @@ class MobileServer {
 
     // API: Проверка доступности логотипов (для отладки)
     this.app.get('/api/logos/check', async (req, res) => {
-      const fs = require('fs').promises;
-      
       // Используем метод getLogosPath для определения пути
       const logosPath = this.getLogosPath();
       
@@ -223,6 +233,47 @@ class MobileServer {
       }
     });
 
+    // API: Начало партии
+    this.app.post('/api/match/:sessionId/set/start', (req, res) => {
+      try {
+        const { sessionId } = req.params;
+        
+        if (!this.validateSession(sessionId)) {
+          return res.status(403).json({ error: 'Неверная или истекшая сессия' });
+        }
+
+        if (!this.currentMatch) {
+          return res.status(404).json({ error: 'Матч не найден' });
+        }
+
+        // Проверяем, что партия еще не начата
+        if (this.currentMatch.currentSet.status === 'in_progress') {
+          return res.status(400).json({ error: 'Партия уже начата' });
+        }
+
+        // Вычисляем номер следующей партии (если партия еще не начата)
+        const nextSetNumber = this.currentMatch.sets.length + 1;
+
+        // Устанавливаем статус и время начала, обнуляем счет, обновляем номер партии
+        this.currentMatch.currentSet.setNumber = nextSetNumber; // Обновляем номер партии при начале
+        this.currentMatch.currentSet.status = 'in_progress';
+        this.currentMatch.currentSet.startTime = Date.now();
+        this.currentMatch.currentSet.scoreA = 0;
+        this.currentMatch.currentSet.scoreB = 0;
+        this.currentMatch.updatedAt = new Date().toISOString();
+
+        // Уведомляем основное приложение об изменении матча
+        if (this.onMatchUpdate) {
+          this.onMatchUpdate(this.currentMatch);
+        }
+
+        res.json({ success: true, match: this.currentMatch });
+      } catch (error) {
+        const friendlyError = errorHandler.handleError(error, 'API: start set');
+        res.status(500).json({ error: friendlyError });
+      }
+    });
+
     // API: Завершение партии
     this.app.post('/api/match/:sessionId/set', (req, res) => {
       try {
@@ -236,36 +287,43 @@ class MobileServer {
           return res.status(404).json({ error: 'Матч не найден' });
         }
 
-        const { scoreA, scoreB } = this.currentMatch.currentSet;
+        const { scoreA, scoreB, setNumber, startTime } = this.currentMatch.currentSet;
         
         // Проверяем, можно ли завершить партию
         const maxScore = Math.max(scoreA, scoreB);
         const minScore = Math.min(scoreA, scoreB);
-        if (maxScore < 25 || (maxScore - minScore) < 2) {
+        const finishThreshold = setNumber === 5 ? 15 : 25;
+        
+        if (maxScore < finishThreshold || (maxScore - minScore) < 2) {
           return res.status(400).json({ 
-            error: 'Партия не может быть завершена. Необходимо набрать 25 очков с разницей минимум 2 очка.' 
+            error: `Партия не может быть завершена. Необходимо набрать ${finishThreshold} очков с разницей минимум 2 очка.` 
           });
         }
         
-        // Сохраняем завершенную партию
+        // Фиксируем время завершения
+        const endTime = Date.now();
+        const duration = startTime ? calculateDuration(startTime, endTime) : null;
+
+        // Создаем завершенную партию
         const completedSet = {
           setNumber: this.currentMatch.currentSet.setNumber,
           scoreA,
           scoreB,
           completed: true,
+          status: 'completed',
+          startTime: startTime || undefined,
+          endTime,
+          duration,
         };
-        
         this.currentMatch.sets.push(completedSet);
         
-        // Переходим к следующей партии
-        const nextSetNumber = this.currentMatch.currentSet.setNumber + 1;
+        // Создаем новую партию со статусом PENDING
+        // Номер партии и счет сохраняются - обновятся при начале новой партии
         const winner = scoreA > scoreB ? 'A' : 'B';
-        
         this.currentMatch.currentSet = {
-          setNumber: nextSetNumber,
-          scoreA: 0,
-          scoreB: 0,
+          ...this.currentMatch.currentSet,
           servingTeam: winner,
+          status: 'pending',
         };
         
         this.currentMatch.updatedAt = new Date().toISOString();
@@ -314,21 +372,64 @@ class MobileServer {
       res.json({ success: true, match: this.currentMatch });
     });
 
-    // API: Отмена последнего действия (упрощенная версия)
+    // API: Отмена последнего действия
     this.app.post('/api/match/:sessionId/undo', (req, res) => {
-      const { sessionId } = req.params;
-      
-      if (!this.validateSession(sessionId)) {
-        return res.status(403).json({ error: 'Неверная или истекшая сессия' });
-      }
+      try {
+        const { sessionId } = req.params;
+        const { previousState } = req.body;
+        
+        if (!this.validateSession(sessionId)) {
+          return res.status(403).json({ error: 'Неверная или истекшая сессия' });
+        }
 
-      if (!this.currentMatch) {
-        return res.status(404).json({ error: 'Матч не найден' });
-      }
+        if (!this.currentMatch) {
+          return res.status(404).json({ error: 'Матч не найден' });
+        }
 
-      // Упрощенная версия отмены - просто перезагружаем данные из основного приложения
-      // В реальном приложении можно добавить систему истории действий
-      res.json({ success: true, match: this.currentMatch });
+        if (!previousState) {
+          return res.status(400).json({ error: 'Предыдущее состояние не предоставлено' });
+        }
+
+        // Восстанавливаем предыдущее состояние
+        // Сохраняем текущие логотипы (они не должны меняться при отмене)
+        const currentLogoA = this.currentMatch.teamA?.logo || this.currentMatch.teamA?.logoBase64;
+        const currentLogoB = this.currentMatch.teamB?.logo || this.currentMatch.teamB?.logoBase64;
+        const currentLogoPathA = this.currentMatch.teamA?.logoPath;
+        const currentLogoPathB = this.currentMatch.teamB?.logoPath;
+        
+        this.currentMatch = previousState;
+        this.currentMatch.updatedAt = new Date().toISOString();
+        
+        // Восстанавливаем логотипы из текущего состояния (они не меняются при отмене)
+        if (this.currentMatch.teamA) {
+          if (currentLogoA) {
+            this.currentMatch.teamA.logo = currentLogoA;
+            this.currentMatch.teamA.logoBase64 = currentLogoA;
+          }
+          if (currentLogoPathA) {
+            this.currentMatch.teamA.logoPath = currentLogoPathA;
+          }
+        }
+        if (this.currentMatch.teamB) {
+          if (currentLogoB) {
+            this.currentMatch.teamB.logo = currentLogoB;
+            this.currentMatch.teamB.logoBase64 = currentLogoB;
+          }
+          if (currentLogoPathB) {
+            this.currentMatch.teamB.logoPath = currentLogoPathB;
+          }
+        }
+
+        // Уведомляем основное приложение об изменении матча
+        if (this.onMatchUpdate) {
+          this.onMatchUpdate(this.currentMatch);
+        }
+
+        res.json({ success: true, match: this.currentMatch });
+      } catch (error) {
+        const friendlyError = errorHandler.handleError(error, 'API: undo action');
+        res.status(500).json({ error: friendlyError });
+      }
     });
   }
 
@@ -886,9 +987,68 @@ class MobileServer {
       // Список партий
       updateSetsList();
 
-      // Кнопка завершения партии
-      const canFinish = canFinishSet(matchData.currentSet.scoreA, matchData.currentSet.scoreB, matchData.currentSet.setNumber);
-      document.getElementById('finishBtn').disabled = !canFinish;
+      // Кнопка начала/завершения партии (toggle)
+      const finishBtn = document.getElementById('finishBtn');
+      if (finishBtn) {
+        const currentStatus = matchData.currentSet.status || 'pending';
+        
+        if (currentStatus === 'pending') {
+          finishBtn.textContent = 'Начать партию';
+          finishBtn.onclick = () => startSet();
+          finishBtn.style.background = 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)';
+          finishBtn.disabled = false;
+        } else {
+          finishBtn.textContent = 'Завершить партию';
+          finishBtn.onclick = () => finishSet();
+          
+          // Для завершения партии проверяем canFinish
+          const canFinish = canFinishSet(
+            matchData.currentSet.scoreA, 
+            matchData.currentSet.scoreB, 
+            matchData.currentSet.setNumber
+          );
+          finishBtn.disabled = !canFinish;
+          
+          // Устанавливаем цвет и стиль в зависимости от доступности
+          if (canFinish) {
+            finishBtn.style.background = 'linear-gradient(135deg, #27ae60 0%, #229954 100%)';
+            finishBtn.style.opacity = '1';
+            finishBtn.style.cursor = 'pointer';
+          } else {
+            finishBtn.style.background = 'linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%)';
+            finishBtn.style.opacity = '0.6';
+            finishBtn.style.cursor = 'not-allowed';
+          }
+        }
+      }
+
+      // Блокируем кнопки изменения счета и "Отменить", если партия не начата
+      const isSetInProgress = matchData.currentSet.status === 'in_progress';
+      
+      // Кнопки изменения счета
+      const scoreButtons = document.querySelectorAll('.button.button-minus, .button.button-plus');
+      scoreButtons.forEach(btn => {
+        btn.disabled = !isSetInProgress;
+        btn.style.opacity = isSetInProgress ? '1' : '0.6';
+        btn.style.cursor = isSetInProgress ? 'pointer' : 'not-allowed';
+      });
+      
+      // Кнопка "Отменить"
+      const undoBtn = document.getElementById('undoBtn');
+      if (undoBtn) {
+        const hasHistory = actionHistory.length > 0;
+        undoBtn.disabled = !hasHistory || !isSetInProgress;
+        if (!isSetInProgress) {
+          undoBtn.style.opacity = '0.6';
+          undoBtn.style.cursor = 'not-allowed';
+        } else if (!hasHistory) {
+          undoBtn.style.opacity = '0.6';
+          undoBtn.style.cursor = 'not-allowed';
+        } else {
+          undoBtn.style.opacity = '1';
+          undoBtn.style.cursor = 'pointer';
+        }
+      }
     }
 
     function updateIndicators() {
@@ -1013,13 +1173,15 @@ class MobileServer {
     function createSetItem(set, setNumber, currentSetNum, currentSet) {
       const setItem = document.createElement('div');
       setItem.className = 'set-item';
-      
-      // Определяем, является ли эта партия текущей
+
+      // Приоритет: если партия завершена в sets, показываем как завершенную
+      // даже если currentSet имеет тот же номер (новая партия еще не начата)
+      const isCompleted = set && set.status === 'completed';
       const isCurrent = setNumber === currentSetNum;
-      const isCompleted = set && set.completed;
-      
-      // Устанавливаем класс для текущей партии
-      if (isCurrent) {
+      const isInProgress = isCurrent && currentSet.status === 'in_progress' && !isCompleted;
+
+      // Устанавливаем класс для текущей партии (только если она идет)
+      if (isInProgress) {
         setItem.classList.add('current');
       }
       
@@ -1028,16 +1190,22 @@ class MobileServer {
       setNumberEl.textContent = \`Партия \${setNumber}\`;
       
       const scoreEl = document.createElement('div');
-      if (isCompleted && set) {
-        // Завершенная партия - показываем счет
-        scoreEl.textContent = \`\${set.scoreA} - \${set.scoreB}\`;
+      if (isCompleted) {
+        // Завершенная партия (приоритет над текущей) - показываем счет и продолжительность
+        // Показываем длительность, даже если она равна 0
+        const duration = (set.duration !== null && set.duration !== undefined) ? \` (\${set.duration}')\` : '';
+        scoreEl.textContent = \`\${set.scoreA}:\${set.scoreB}\${duration}\`;
         scoreEl.style.fontWeight = 'bold';
         scoreEl.style.color = '#27ae60';
-      } else if (isCurrent && currentSet) {
-        // Текущая партия - показываем текущий счет
-        scoreEl.textContent = \`\${currentSet.scoreA} - \${currentSet.scoreB}\`;
+      } else if (isInProgress) {
+        // Текущая партия в игре - показываем статус и счет
+        scoreEl.textContent = \`В игре (\${currentSet.scoreA}:\${currentSet.scoreB})\`;
         scoreEl.style.fontWeight = 'bold';
         scoreEl.style.color = '#3498db';
+      } else if (isCurrent && currentSet) {
+        // Текущая партия не начата
+        scoreEl.textContent = 'Не начата';
+        scoreEl.style.color = '#7f8c8d';
       } else {
         // Будущая партия - показываем прочерк
         scoreEl.textContent = '-';
@@ -1099,17 +1267,40 @@ class MobileServer {
       }
     }
 
-    async function changeScore(team, delta) {
-      // Сохраняем состояние для отмены
-      if (matchData) {
-        actionHistory.push({
-          type: 'score',
-          team,
-          delta,
-          previousState: JSON.parse(JSON.stringify(matchData)),
-        });
-        document.getElementById('undoBtn').disabled = false;
+    // Функция для создания облегченной копии матча (без логотипов в base64)
+    function createLightweightMatchCopy(match) {
+      const copy = JSON.parse(JSON.stringify(match));
+      
+      // Удаляем base64 логотипы из копии (они не меняются при изменении счета/подачи)
+      // Оставляем только logoPath для ссылки
+      if (copy.teamA) {
+        delete copy.teamA.logo;
+        delete copy.teamA.logoBase64;
+        // Оставляем только logoPath, если есть
       }
+      if (copy.teamB) {
+        delete copy.teamB.logo;
+        delete copy.teamB.logoBase64;
+        // Оставляем только logoPath, если есть
+      }
+      
+      return copy;
+    }
+
+    async function changeScore(team, delta) {
+      // Проверяем, что партия начата
+      if (!matchData || matchData.currentSet.status !== 'in_progress') {
+        return; // Не изменяем счет, если партия не начата
+      }
+
+      // Сохраняем состояние для отмены (без логотипов в base64)
+      actionHistory.push({
+        type: 'score',
+        team,
+        delta,
+        previousState: createLightweightMatchCopy(matchData),
+      });
+      document.getElementById('undoBtn').disabled = false;
 
       updateStatus('syncing', 'Синхронизация...', true); // Локальное обновление
       
@@ -1138,6 +1329,11 @@ class MobileServer {
     }
 
     async function changeServingTeam(team) {
+      // Проверяем, что партия начата
+      if (!matchData || matchData.currentSet.status !== 'in_progress') {
+        return; // Не изменяем подачу, если партия не начата
+      }
+
       // Проверяем, что передана корректная команда
       if (team !== 'A' && team !== 'B') {
         console.error('changeServingTeam: некорректная команда', team);
@@ -1145,19 +1341,17 @@ class MobileServer {
       }
       
       // Если подача уже у этой команды, ничего не делаем
-      if (matchData && matchData.currentSet.servingTeam === team) {
+      if (matchData.currentSet.servingTeam === team) {
         return;
       }
       
-      // Сохраняем состояние для отмены
-      if (matchData) {
-        actionHistory.push({
-          type: 'serve',
-          team,
-          previousState: JSON.parse(JSON.stringify(matchData)),
-        });
-        document.getElementById('undoBtn').disabled = false;
-      }
+      // Сохраняем состояние для отмены (без логотипов в base64)
+      actionHistory.push({
+        type: 'serve',
+        team,
+        previousState: createLightweightMatchCopy(matchData),
+      });
+      document.getElementById('undoBtn').disabled = false;
 
       updateStatus('syncing', 'Синхронизация...', true); // Локальное обновление
       
@@ -1182,6 +1376,33 @@ class MobileServer {
         console.error('Ошибка:', error);
         alert('Ошибка подключения');
         updateStatus('disconnected', 'Ошибка');
+      }
+    }
+
+    async function startSet() {
+      updateStatus('syncing', 'Синхронизация...', true); // Локальное обновление
+      
+      try {
+        const response = await fetch(\`/api/match/\${sessionId}/set/start\`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          matchData = result.match;
+          updateUI();
+          updateStatus('connected', null, false); // Обновление с сервера
+        } else {
+          const error = await response.json();
+          alert('Ошибка: ' + (error.error || 'Не удалось начать партию'));
+          updateStatus('disconnected', 'Ошибка');
+        }
+      } catch (error) {
+        console.error('Ошибка при начале партии:', error);
+        updateStatus('disconnected', 'Ошибка соединения');
       }
     }
 
@@ -1225,15 +1446,52 @@ class MobileServer {
     async function undoAction() {
       if (actionHistory.length === 0) return;
       
+      // Проверяем, что партия начата
+      if (!matchData || matchData.currentSet.status !== 'in_progress') {
+        return; // Не отменяем действия, если партия не начата
+      }
+
       const lastAction = actionHistory.pop();
       
-      // Восстанавливаем предыдущее состояние
-      // Для упрощения просто перезагружаем данные
-      // В реальном приложении можно добавить API endpoint для отмены
-      await loadMatch();
+      if (!lastAction || !lastAction.previousState) {
+        // Если нет предыдущего состояния, просто обновляем UI
+        if (actionHistory.length === 0) {
+          document.getElementById('undoBtn').disabled = true;
+        }
+        return;
+      }
+
+      updateStatus('syncing', 'Синхронизация...', true); // Локальное обновление
       
-      if (actionHistory.length === 0) {
-        document.getElementById('undoBtn').disabled = true;
+      try {
+        const response = await fetch(\`/api/match/\${sessionId}/undo\`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ previousState: lastAction.previousState }),
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          matchData = result.match;
+          updateUI();
+          updateStatus('connected', null, false); // Обновление с сервера
+          
+          if (actionHistory.length === 0) {
+            document.getElementById('undoBtn').disabled = true;
+          }
+        } else {
+          const error = await response.json();
+          alert('Ошибка: ' + (error.error || 'Не удалось отменить действие'));
+          updateStatus('disconnected', 'Ошибка');
+          // Возвращаем действие в историю при ошибке
+          actionHistory.push(lastAction);
+        }
+      } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Ошибка подключения');
+        updateStatus('disconnected', 'Ошибка');
+        // Возвращаем действие в историю при ошибке
+        actionHistory.push(lastAction);
       }
     }
 
@@ -1619,7 +1877,7 @@ function getMobileServer() {
   return serverInstance;
 }
 
-module.exports = {
+export {
   MobileServer,
   getMobileServer,
 };

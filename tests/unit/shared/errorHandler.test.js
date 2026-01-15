@@ -3,7 +3,7 @@
  * Средний приоритет тестирования
  */
 
-const errorHandler = require('../../../src/shared/errorHandler');
+import errorHandler from '../../../src/shared/errorHandler.js';
 
 describe('errorHandler', () => {
   let consoleErrorSpy;
@@ -19,7 +19,9 @@ describe('errorHandler', () => {
 
   afterEach(() => {
     // Восстанавливаем оригинальный console.error после каждого теста
-    consoleErrorSpy.mockRestore();
+    if (consoleErrorSpy) {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   describe('handleError', () => {

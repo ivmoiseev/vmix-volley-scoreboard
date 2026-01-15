@@ -688,13 +688,21 @@ export function useVMix(_match) {
 
   /**
    * Рассчитывает счет по сетам для команды
+   * Учитывает только завершенные партии (completed === true или status === COMPLETED)
    */
   const calculateSetsScore = useCallback((match, team) => {
-    if (!match?.sets) return 0;
-    return match.sets.filter((set) => {
-      if (!set.completed) return false;
+    if (!match?.sets) {
+      return 0;
+    }
+    
+    const score = match.sets.filter((set) => {
+      // Партия считается завершенной, если completed === true или status === 'completed'
+      const isCompleted = set.completed === true || set.status === 'completed';
+      if (!isCompleted) return false;
       return team === "A" ? set.scoreA > set.scoreB : set.scoreB > set.scoreA;
     }).length;
+    
+    return score;
   }, []);
 
   // Маппинг значений для полей текущего счета
@@ -1016,15 +1024,6 @@ export function useVMix(_match) {
         );
         const logoUrl = hasLogo ? `${logoBaseUrl}/${logoFileName}` : "";
         
-        // Логирование для отладки
-        if (hasLogo) {
-          console.log(`[getRosterFieldValue] teamLogo для teamKey=${teamKey}:`);
-          console.log(`  team.name: ${team?.name || 'N/A'}`);
-          console.log(`  team.logoPath: ${team?.logoPath || 'N/A'}`);
-          console.log(`  logoFileName (fallback из teamKey): ${logoFileName}`);
-          console.log(`  Сформированный URL: ${logoUrl}`);
-        }
-        
         return logoUrl;
       }
 
@@ -1316,10 +1315,6 @@ export function useVMix(_match) {
         );
 
         if (result.success) {
-          console.log(
-            `[updateCoachData] Данные тренера команды ${team} обновлены:`,
-            fields
-          );
         }
 
         return result;
@@ -1395,10 +1390,6 @@ export function useVMix(_match) {
         );
 
         if (result.success) {
-          console.log(
-            `[updateReferee1Data] Данные первого судьи обновлены:`,
-            fields
-          );
         }
 
         return result;
@@ -1474,10 +1465,6 @@ export function useVMix(_match) {
         );
 
         if (result.success) {
-          console.log(
-            `[updateReferee2ShowData] Данные второго судьи обновлены:`,
-            fields
-          );
         }
 
         return result;
@@ -1569,10 +1556,6 @@ export function useVMix(_match) {
             Object.keys(changedFields).forEach((key) => {
               lastSentValuesRef.current[inputKey].fields[key] = fields[key];
             });
-            console.log(
-              `[updateReferee2Data] Данные судей обновлены (только измененные):`,
-              changedFields
-            );
           }
 
           return result;
@@ -1598,7 +1581,6 @@ export function useVMix(_match) {
             };
           }
           lastSentValuesRef.current[inputKey].fields = { ...fields };
-          console.log(`[updateReferee2Data] Данные судей обновлены:`, fields);
         }
 
         return result;
@@ -1630,11 +1612,6 @@ export function useVMix(_match) {
       const team = teamKey === "A" ? match.teamA : match.teamB;
       const roster = team?.roster || [];
       
-      // Логирование для отладки проблемы с логотипами
-      console.log(`[formatRosterData] Вызов для teamKey=${teamKey}, inputKey=${inputKey}`);
-      console.log(`  team.name: ${team?.name || 'N/A'}`);
-      console.log(`  team.logoPath: ${team?.logoPath || 'N/A'}`);
-
       const fields = {};
       const imageFields = {};
 
@@ -1709,10 +1686,6 @@ export function useVMix(_match) {
 
       // Логирование итоговых imageFields для отладки
       if (Object.keys(imageFields).length > 0) {
-        console.log(`[formatRosterData] Итоговые imageFields для teamKey=${teamKey}:`);
-        Object.entries(imageFields).forEach(([fieldIdentifier, imagePath]) => {
-          console.log(`  ${fieldIdentifier}: ${imagePath}`);
-        });
       }
 
       return { fields, imageFields };
@@ -2326,16 +2299,6 @@ export function useVMix(_match) {
           forceUpdate
         );
         
-        // Логирование для отладки проблемы с логотипами
-        if (Object.keys(imageFields).length > 0) {
-          console.log('[updateRosterTeamAInput] Логотипы для команды A:');
-          Object.entries(imageFields).forEach(([fieldName, imagePath]) => {
-            console.log(`  ${fieldName}: ${imagePath}`);
-            if (imagePath && imagePath.includes('logo')) {
-              console.log(`    [DEBUG] teamKey=A, ожидаемый файл: logo_a.png, URL содержит: ${imagePath.includes('logo_a.png') ? 'logo_a.png ✓' : imagePath.includes('logo_b.png') ? 'logo_b.png ✗ ОШИБКА!' : 'неизвестно'}`);
-            }
-          });
-        }
 
         // Фильтруем только измененные поля, если не forceUpdate
         let fieldsToSend = fields;
@@ -2446,16 +2409,6 @@ export function useVMix(_match) {
           forceUpdate
         );
         
-        // Логирование для отладки проблемы с логотипами
-        if (Object.keys(imageFields).length > 0) {
-          console.log('[updateRosterTeamBInput] Логотипы для команды B:');
-          Object.entries(imageFields).forEach(([fieldName, imagePath]) => {
-            console.log(`  ${fieldName}: ${imagePath}`);
-            if (imagePath && imagePath.includes('logo')) {
-              console.log(`    [DEBUG] teamKey=B, ожидаемый файл: logo_b.png, URL содержит: ${imagePath.includes('logo_b.png') ? 'logo_b.png ✓' : imagePath.includes('logo_a.png') ? 'logo_a.png ✗ ОШИБКА!' : 'неизвестно'}`);
-            }
-          });
-        }
 
         // Фильтруем только измененные поля, если не forceUpdate
         let fieldsToSend = fields;

@@ -1,6 +1,6 @@
-const axios = require('axios');
-const xml2js = require('xml2js');
-const errorHandler = require('../shared/errorHandler');
+import axios from 'axios';
+import xml2js from 'xml2js';
+import errorHandler from '../shared/errorHandler.js';
 
 /**
  * Клиент для работы с vMix HTTP API
@@ -498,7 +498,7 @@ function getVMixClient(host, port) {
   return vmixClientInstance;
 }
 
-module.exports = {
+export {
   VMixClient,
   getVMixClient,
 };

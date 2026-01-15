@@ -2,9 +2,18 @@
  * Конфигурация Jest для тестирования
  */
 
-module.exports = {
+export default {
   // Тестовое окружение
-  testEnvironment: 'node',
+  // Используем jsdom для тестов React компонентов, node для остальных
+  testEnvironment: 'jsdom',
+  
+  // Поддержка ES модулей
+  extensionsToTreatAsEsm: ['.js'],
+  globals: {
+    'ts-jest': {
+      useESM: true
+    }
+  },
   
   // Корневая директория проекта
   rootDir: '.',
@@ -28,7 +37,10 @@ module.exports = {
   ],
   
   // Настройки для модулей
-  moduleFileExtensions: ['js', 'jsx', 'json'],
+  moduleFileExtensions: ['js', 'jsx', 'json', 'ts', 'tsx'],
+  
+  // Расширения для разрешения модулей
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
   
   // Трансформация файлов
   transform: {
@@ -76,6 +88,8 @@ module.exports = {
   // Настройки для модулей
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // Мокируем TypeScript файлы
+    '^.*/types/Match$': '<rootDir>/tests/__mocks__/Match.js',
   },
   
   // Настройки для setup файлов

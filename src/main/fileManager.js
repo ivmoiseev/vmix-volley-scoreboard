@@ -1,9 +1,15 @@
-const fs = require('fs').promises;
-const path = require('path');
-const { dialog } = require('electron');
-const { validateMatch, createNewMatch } = require('../shared/matchUtils');
-const errorHandler = require('../shared/errorHandler');
-const logoManager = require('./logoManager');
+import fs from 'fs/promises';
+import path from 'path';
+import { dialog } from 'electron';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import { validateMatch, createNewMatch } from '../shared/matchUtils.js';
+import errorHandler from '../shared/errorHandler.js';
+import * as logoManager from './logoManager.js';
+
+// Получаем __dirname для ES-модулей
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Определяем путь к папке matches с учетом production режима
 // Используем lazy evaluation, так как app может быть не готов при импорте модуля
@@ -59,8 +65,6 @@ async function saveMatch(match, filePath = null) {
   
   // Проверяем, нужно ли перегенерировать логотипы
   // Если logoPath уже существует и файл существует, используем существующие пути
-  const fs = require('fs').promises;
-  const path = require('path');
   const logosDir = logoManager.getLogosDir();
   
   let needRegenerateLogos = false;
@@ -177,6 +181,18 @@ async function openMatch(filePath) {
       });
     }
 
+    // Применяем миграцию, если необходимо
+    try {
+      const { migrateMatchToSetStatus, needsMigration } = await import('../shared/matchMigration.js');
+      if (needsMigration(match)) {
+        match = migrateMatchToSetStatus(match);
+        console.log('[fileManager] Применена миграция данных матча к новой структуре');
+      }
+    } catch (migrationError) {
+      console.warn('[fileManager] Не удалось загрузить модуль миграции:', migrationError.message);
+      // Продолжаем без миграции, если модуль не загрузился
+    }
+
     if (!validateMatch(match)) {
       console.error('Validation failed for match:', match);
       throw new Error('Файл содержит некорректные данные матча');
@@ -252,7 +268,7 @@ async function saveMatchDialog(match) {
   return await saveMatch(match, result.filePath);
 }
 
-module.exports = {
+export {
   createMatch,
   saveMatch,
   openMatch,

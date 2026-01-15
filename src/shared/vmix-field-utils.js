@@ -83,12 +83,10 @@ function hasFieldSuffix(fieldIdentifier, type) {
   return String(fieldIdentifier).endsWith(suffix);
 }
 
-// Экспорт для использования в CommonJS (Node.js/Electron main)
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    getFullFieldName,
-    removeFieldSuffix,
-    hasFieldSuffix,
-    FIELD_SUFFIXES,
-  };
-}
+// Экспорт для использования в ES-модулях
+export {
+  getFullFieldName,
+  removeFieldSuffix,
+  hasFieldSuffix,
+  FIELD_SUFFIXES,
+};

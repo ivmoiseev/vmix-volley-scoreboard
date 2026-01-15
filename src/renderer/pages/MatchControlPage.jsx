@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMatch } from "../hooks/useMatch";
 import { useVMix } from "../hooks/useVMix";
@@ -8,6 +8,8 @@ import SetsDisplay from "../components/SetsDisplay";
 import ServeControl from "../components/ServeControl";
 import ScoreButtons from "../components/ScoreButtons";
 import VMixOverlayButtons from "../components/VMixOverlayButtons";
+import SetEditModal from "../components/SetEditModal";
+import { SET_STATUS } from "../../shared/types/Match";
 
 function MatchControlPage({ match: initialMatch, onMatchChange }) {
   const navigate = useNavigate();
@@ -40,6 +42,9 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
   // Флаг принудительного обновления из location.state (например, при F5)
   const forceUpdateFromState = location.state?.forceUpdateVMix || false;
 
+  // Состояние для модального окна редактирования партии
+  const [editingSetNumber, setEditingSetNumber] = useState(null);
+
   // ВСЕ хуки должны вызываться ДО любых условных возвратов
   const {
     match,
@@ -47,6 +52,9 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
     changeScore,
     changeServingTeam,
     finishSet,
+    startSet,
+    toggleSetStatus,
+    updateSet,
     changeStatistics,
     toggleStatistics,
     undoLastAction,
@@ -56,6 +64,7 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
     matchballTeam,
     canFinish,
     hasHistory,
+    currentSetStatus,
   } = useMatch(effectiveInitialMatch);
 
   const {
@@ -70,6 +79,41 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
     updateReferee1Data,
     updateReferee2ShowData,
   } = useVMix(match);
+  
+  // Вычисляем данные для модального окна с помощью useMemo, чтобы избежать бесконечных ре-рендеров
+  const modalData = useMemo(() => {
+    if (!editingSetNumber || !match) return null;
+    
+    // Сначала ищем завершенную партию в sets
+    const completedSet = match.sets.find(s => s.setNumber === editingSetNumber);
+    // Если не нашли в sets, проверяем currentSet
+    const setToEdit = completedSet || (editingSetNumber === match.currentSet.setNumber ? match.currentSet : null);
+    // Определяем, является ли это текущей партией (только если она не завершена)
+    const isCurrentSet = !completedSet && editingSetNumber === match.currentSet.setNumber;
+    
+    if (!setToEdit) {
+      return null;
+    }
+    
+    return { setToEdit, isCurrentSet };
+  }, [editingSetNumber, match?.currentSet?.setNumber, match?.sets]);
+  
+  // Callback для сохранения изменений партии
+  const handleSetSave = useCallback((updates) => {
+    if (!editingSetNumber || !match) return false;
+    
+    const wasCompletedSet = match.sets.find(s => s.setNumber === editingSetNumber);
+    const success = updateSet(editingSetNumber, updates);
+    if (success) {
+      setEditingSetNumber(null);
+      // Если статус изменен на IN_PROGRESS для завершенной партии, 
+      // useEffect автоматически обновит vMix при изменении match.updatedAt
+      if (updates.status === SET_STATUS.IN_PROGRESS && wasCompletedSet) {
+        console.log('[MatchControlPage] Партия возвращена в игру, ожидаем автоматического обновления vMix через useEffect');
+      }
+    }
+    return success;
+  }, [editingSetNumber, match, updateSet]);
 
   // Синхронизируем match из location.state с родительским компонентом
   useEffect(() => {
@@ -132,10 +176,14 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
         window.history.replaceState({}, document.title);
       }
     } else {
-      console.log("[MatchControlPage] updateMatchData не вызван:", {
-        hasMatch: !!match,
-        connected: connectionStatus.connected,
-      });
+      // Логируем, почему не обновляется vMix
+      if (match && !connectionStatus.connected) {
+        console.log("[MatchControlPage] Обновление vMix пропущено (vMix не подключен):", {
+          hasMatch: !!match,
+          vMixConnected: connectionStatus.connected,
+          message: connectionStatus.message || "Не подключено",
+        });
+      }
       // Сбрасываем флаг первой загрузки, если нет матча
       if (!match) {
         previousMatchIdRef.current = null;
@@ -368,7 +416,8 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
           {/* Счет по партиям */}
           <SetsDisplay
             sets={match.sets}
-            currentSetNumber={match.currentSet.setNumber}
+            currentSet={match.currentSet}
+            onSetClick={(setNumber) => setEditingSetNumber(setNumber)}
           />
 
           {/* Текущий счет */}
@@ -383,6 +432,10 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
           >
             <h3 style={{ textAlign: "center", marginTop: 0 }}>
               Партия #{match.currentSet.setNumber}
+              {currentSetStatus === SET_STATUS.PENDING && 
+               match.sets.some(s => s.setNumber === match.currentSet.setNumber && s.status === SET_STATUS.COMPLETED) 
+                ? " - завершена" 
+                : ""}
             </h3>
             <ScoreDisplay
               teamA={match.teamA.name}
@@ -410,6 +463,7 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
             teamAName={match.teamA.name}
             teamBName={match.teamB.name}
             onScoreChange={changeScore}
+            disabled={currentSetStatus !== SET_STATUS.IN_PROGRESS}
           />
 
           {/* Кнопки управления партией */}
@@ -422,28 +476,35 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
             }}
           >
             <button
-              onClick={handleFinishSet}
-              disabled={!canFinish}
+              onClick={toggleSetStatus}
+              disabled={currentSetStatus === SET_STATUS.IN_PROGRESS && !canFinish}
               style={{
                 padding: "0.75rem 1.5rem",
                 fontSize: "1rem",
-                backgroundColor: canFinish ? "#27ae60" : "#95a5a6",
+                backgroundColor: currentSetStatus === SET_STATUS.PENDING 
+                  ? "#3498db" 
+                  : (canFinish ? "#27ae60" : "#95a5a6"),
                 color: "white",
                 border: "none",
                 borderRadius: "4px",
-                cursor: canFinish ? "pointer" : "not-allowed",
+                cursor: (currentSetStatus === SET_STATUS.IN_PROGRESS && !canFinish) 
+                  ? "not-allowed" 
+                  : "pointer",
                 fontWeight: "bold",
+                opacity: (currentSetStatus === SET_STATUS.IN_PROGRESS && !canFinish) ? 0.6 : 1,
               }}
             >
-              Завершить партию
+              {currentSetStatus === SET_STATUS.PENDING 
+                ? "Начать партию" 
+                : "Завершить партию"}
             </button>
             <button
               onClick={undoLastAction}
-              disabled={!hasHistory}
+              disabled={!hasHistory || currentSetStatus !== SET_STATUS.IN_PROGRESS}
               style={{
                 padding: "0.75rem 1.5rem",
                 fontSize: "1rem",
-                backgroundColor: hasHistory ? "#e74c3c" : "#95a5a6",
+                backgroundColor: (hasHistory && currentSetStatus === SET_STATUS.IN_PROGRESS) ? "#e74c3c" : "#95a5a6",
                 color: "white",
                 border: "none",
                 borderRadius: "4px",
@@ -1020,6 +1081,20 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
           Мобильный доступ
         </button>
       </div>
+
+      {/* Модальное окно редактирования партии */}
+      {modalData && (
+        <SetEditModal
+          key={editingSetNumber} // Добавляем key для предотвращения проблем с ре-рендерами
+          isOpen={true}
+          onClose={() => setEditingSetNumber(null)}
+          set={modalData.setToEdit}
+          isCurrentSet={modalData.isCurrentSet}
+          timezone={match.timezone}
+          match={match}
+          onSave={handleSetSave}
+        />
+      )}
     </div>
   );
 }

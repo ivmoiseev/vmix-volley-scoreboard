@@ -23,6 +23,7 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     venue: '',
     date: '',
     time: '',
+    timezone: '',
     teamAName: '',
     teamAColor: '#3498db',
     teamALiberoColor: '',
@@ -37,6 +38,32 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     lineJudge2: '',
     scorer: '',
   });
+
+  // Список популярных часовых поясов
+  const timezones = [
+    { value: 'Europe/Moscow', label: 'Москва (MSK, UTC+3)' },
+    { value: 'Europe/Kaliningrad', label: 'Калининград (UTC+2)' },
+    { value: 'Europe/Samara', label: 'Самара (UTC+4)' },
+    { value: 'Asia/Yekaterinburg', label: 'Екатеринбург (UTC+5)' },
+    { value: 'Asia/Omsk', label: 'Омск (UTC+6)' },
+    { value: 'Asia/Krasnoyarsk', label: 'Красноярск (UTC+7)' },
+    { value: 'Asia/Irkutsk', label: 'Иркутск (UTC+8)' },
+    { value: 'Asia/Yakutsk', label: 'Якутск (UTC+9)' },
+    { value: 'Asia/Vladivostok', label: 'Владивосток (UTC+10)' },
+    { value: 'Asia/Magadan', label: 'Магадан (UTC+11)' },
+    { value: 'Asia/Kamchatka', label: 'Камчатка (UTC+12)' },
+    { value: 'Europe/Kiev', label: 'Киев (UTC+2)' },
+    { value: 'Europe/Minsk', label: 'Минск (UTC+3)' },
+    { value: 'Europe/Warsaw', label: 'Варшава (UTC+1/+2)' },
+    { value: 'Europe/Berlin', label: 'Берлин (UTC+1/+2)' },
+    { value: 'Europe/Paris', label: 'Париж (UTC+1/+2)' },
+    { value: 'Europe/London', label: 'Лондон (UTC+0/+1)' },
+    { value: 'America/New_York', label: 'Нью-Йорк (UTC-5/-4)' },
+    { value: 'America/Los_Angeles', label: 'Лос-Анджелес (UTC-8/-7)' },
+    { value: 'Asia/Tokyo', label: 'Токио (UTC+9)' },
+    { value: 'Asia/Shanghai', label: 'Шанхай (UTC+8)' },
+    { value: 'UTC', label: 'UTC (UTC+0)' },
+  ];
 
   // Загружаем матч из Electron API, если его нет
   useEffect(() => {
@@ -79,6 +106,11 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
       return () => clearTimeout(timer);
     }
 
+    // Получаем часовой пояс по умолчанию из системы, если не указан в матче
+    const defaultTimezone = typeof Intl !== 'undefined' && Intl.DateTimeFormat 
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone 
+      : 'UTC';
+    
     // Заполняем форму данными из матча
     setFormData({
       tournament: match.tournament || '',
@@ -87,6 +119,7 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
       venue: match.venue || '',
       date: match.date || '',
       time: match.time || '',
+      timezone: match.timezone || defaultTimezone,
       teamAName: match.teamA.name || '',
       teamAColor: match.teamA.color || '#3498db',
       teamALiberoColor: match.teamA.liberoColor || '',
@@ -126,6 +159,7 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
       venue: formData.venue,
       date: formData.date,
       time: formData.time,
+      timezone: formData.timezone,
       teamA: {
         ...match.teamA,
         name: formData.teamAName,
@@ -286,79 +320,88 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
       }}>
         <h3 style={{ marginTop: 0 }}>Информация о турнире</h3>
         <div style={{ display: 'grid', gap: '1rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-              Заголовок (название турнира)
-            </label>
-            <input
-              type="text"
-              value={formData.tournament}
-              onChange={(e) => handleInputChange('tournament', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                fontSize: '1rem',
-                border: '1px solid #bdc3c7',
-                borderRadius: '4px',
-              }}
-              placeholder="Введите заголовок турнира"
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-              Подзаголовок (название турнира)
-            </label>
-            <input
-              type="text"
-              value={formData.tournamentSubtitle}
-              onChange={(e) => handleInputChange('tournamentSubtitle', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                fontSize: '1rem',
-                border: '1px solid #bdc3c7',
-                borderRadius: '4px',
-              }}
-              placeholder="Введите подзаголовок турнира"
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-              Город, страна
-            </label>
-            <input
-              type="text"
-              value={formData.location}
-              onChange={(e) => handleInputChange('location', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                fontSize: '1rem',
-                border: '1px solid #bdc3c7',
-                borderRadius: '4px',
-              }}
-              placeholder="Введите город и страну"
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-              Место проведения
-            </label>
-            <input
-              type="text"
-              value={formData.venue}
-              onChange={(e) => handleInputChange('venue', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                fontSize: '1rem',
-                border: '1px solid #bdc3c7',
-                borderRadius: '4px',
-              }}
-              placeholder="Введите место проведения"
-            />
-          </div>
+          {/* Первая строка: Заголовок | Подзаголовок */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                Заголовок (название турнира)
+              </label>
+              <input
+                type="text"
+                value={formData.tournament}
+                onChange={(e) => handleInputChange('tournament', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  fontSize: '1rem',
+                  border: '1px solid #bdc3c7',
+                  borderRadius: '4px',
+                }}
+                placeholder="Введите заголовок турнира"
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                Подзаголовок (название турнира)
+              </label>
+              <input
+                type="text"
+                value={formData.tournamentSubtitle}
+                onChange={(e) => handleInputChange('tournamentSubtitle', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  fontSize: '1rem',
+                  border: '1px solid #bdc3c7',
+                  borderRadius: '4px',
+                }}
+                placeholder="Введите подзаголовок турнира"
+              />
+            </div>
+          </div>
+          
+          {/* Вторая строка: Город, страна | Место проведения */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                Город, страна
+              </label>
+              <input
+                type="text"
+                value={formData.location}
+                onChange={(e) => handleInputChange('location', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  fontSize: '1rem',
+                  border: '1px solid #bdc3c7',
+                  borderRadius: '4px',
+                }}
+                placeholder="Введите город и страну"
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                Место проведения
+              </label>
+              <input
+                type="text"
+                value={formData.venue}
+                onChange={(e) => handleInputChange('venue', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  fontSize: '1rem',
+                  border: '1px solid #bdc3c7',
+                  borderRadius: '4px',
+                }}
+                placeholder="Введите место проведения"
+              />
+            </div>
+          </div>
+          
+          {/* Третья строка: Дата проведения | Время начала | Часовой пояс */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
                 Дата проведения
@@ -392,6 +435,29 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                   borderRadius: '4px',
                 }}
               />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                Часовой пояс
+              </label>
+              <select
+                value={formData.timezone}
+                onChange={(e) => handleInputChange('timezone', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  fontSize: '1rem',
+                  border: '1px solid #bdc3c7',
+                  borderRadius: '4px',
+                  backgroundColor: 'white',
+                }}
+              >
+                {timezones.map(tz => (
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -462,28 +528,10 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                       updateMatchData(finalSwappedMatch, true);
                     }
                     
-                    // Обновляем форму с данными из finalSwappedMatch
-                    setFormData({
-                      tournament: finalSwappedMatch.tournament || '',
-                      tournamentSubtitle: finalSwappedMatch.tournamentSubtitle || '',
-                      location: finalSwappedMatch.location || '',
-                      venue: finalSwappedMatch.venue || '',
-                      date: finalSwappedMatch.date || '',
-                      time: finalSwappedMatch.time || '',
-                      teamAName: finalSwappedMatch.teamA.name || '',
-                      teamAColor: finalSwappedMatch.teamA.color || '#3498db',
-                      teamALiberoColor: finalSwappedMatch.teamA.liberoColor || '',
-                      teamACity: finalSwappedMatch.teamA.city || '',
-                      teamBName: finalSwappedMatch.teamB.name || '',
-                      teamBColor: finalSwappedMatch.teamB.color || '#e74c3c',
-                      teamBLiberoColor: finalSwappedMatch.teamB.liberoColor || '',
-                      teamBCity: finalSwappedMatch.teamB.city || '',
-                      referee1: finalSwappedMatch.officials?.referee1 || '',
-                      referee2: finalSwappedMatch.officials?.referee2 || '',
-                      lineJudge1: finalSwappedMatch.officials?.lineJudge1 || '',
-                      lineJudge2: finalSwappedMatch.officials?.lineJudge2 || '',
-                      scorer: finalSwappedMatch.officials?.scorer || '',
-                    });
+                    // Получаем часовой пояс по умолчанию из системы, если не указан в матче
+                    const defaultTimezone = typeof Intl !== 'undefined' && Intl.DateTimeFormat 
+                      ? Intl.DateTimeFormat().resolvedOptions().timeZone 
+                      : 'UTC';
                     
                     // Обновляем форму с данными из finalSwappedMatch
                     setFormData({
@@ -493,6 +541,7 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                       venue: finalSwappedMatch.venue || '',
                       date: finalSwappedMatch.date || '',
                       time: finalSwappedMatch.time || '',
+                      timezone: finalSwappedMatch.timezone || defaultTimezone,
                       teamAName: finalSwappedMatch.teamA.name || '',
                       teamAColor: finalSwappedMatch.teamA.color || '#3498db',
                       teamALiberoColor: finalSwappedMatch.teamA.liberoColor || '',

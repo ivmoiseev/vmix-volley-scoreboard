@@ -1,6 +1,12 @@
-const fs = require('fs').promises;
-const path = require('path');
-const { app } = require('electron');
+import fs from 'fs/promises';
+import path from 'path';
+import { app } from 'electron';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// Получаем __dirname для ES-модулей
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Определяем путь к папке logos с учетом production режима
 // Используем lazy evaluation, так как app может быть не готов при импорте модуля
@@ -406,7 +412,7 @@ async function cleanupLogosDirectory() {
   }
 }
 
-module.exports = {
+export {
   saveLogoToFile,
   loadLogoFromFile,
   processTeamLogoForSave,

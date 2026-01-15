@@ -3,7 +3,7 @@
  * Конвертирует старые типы полей (color, visibility) в новые (fill, text с visible)
  */
 
-const { removeFieldSuffix } = require('../shared/vmix-field-utils');
+import { removeFieldSuffix } from '../shared/vmix-field-utils.js';
 
 /**
  * Мигрирует конфигурацию одного поля
@@ -91,7 +91,7 @@ function migrateVMixConfig(config) {
   return migrated;
 }
 
-module.exports = {
+export {
   migrateFieldConfig,
   migrateInputConfig,
   migrateVMixConfig,

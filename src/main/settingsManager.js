@@ -1,8 +1,14 @@
-const fs = require('fs').promises;
-const path = require('path');
-const { app } = require('electron');
-const { getDefaultFieldsForInput, migrateInputToNewFormat } = require('./vmix-input-configs');
-const { migrateVMixConfig } = require('./vmix-field-migration');
+import fs from 'fs/promises';
+import path from 'path';
+import { app } from 'electron';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import { getDefaultFieldsForInput, migrateInputToNewFormat } from './vmix-input-configs.js';
+import { migrateVMixConfig } from './vmix-field-migration.js';
+
+// Получаем __dirname для ES-модулей
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Определяем путь к файлу настроек с учетом production режима
 function getSettingsFilePath() {
@@ -519,7 +525,7 @@ async function setAutoSaveSettings(autoSaveConfig) {
   await saveSettings(settings);
 }
 
-module.exports = {
+export {
   loadSettings,
   saveSettings,
   getVMixSettings,

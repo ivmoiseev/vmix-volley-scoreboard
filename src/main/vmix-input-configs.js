@@ -248,7 +248,7 @@ function migrateInputToNewFormat(inputValue, inputKey) {
   };
 }
 
-module.exports = {
+export {
   getDefaultFieldsForInput,
   migrateInputToNewFormat,
 };
