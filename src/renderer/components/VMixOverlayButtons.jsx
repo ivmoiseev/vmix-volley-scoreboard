@@ -151,6 +151,21 @@ function VMixOverlayButtons({
           const isInputEnabled = inputConfig && inputConfig.enabled !== false;
           const isVMixConnected = connectionStatus.connected;
 
+          // Для инпутов "Счет после X партии" проверяем, завершена ли партия
+          let isButtonDisabled = false;
+          if (key.startsWith('set') && key.endsWith('Score')) {
+            const setNumber = parseInt(key.replace('set', '').replace('Score', ''), 10);
+            if (!isNaN(setNumber)) {
+              // Проверяем, завершена ли партия с этим номером
+              const completedSets = match?.sets?.filter(
+                set => set.setNumber <= setNumber && 
+                (set.status === 'completed' || set.completed === true)
+              ) || [];
+              const isSetCompleted = completedSets.some(set => set.setNumber === setNumber);
+              isButtonDisabled = !isSetCompleted;
+            }
+          }
+
           // Для кнопок тренера и судей проверяем наличие данных
           let isDataAvailable = true;
           if (key === "coachTeamA") {
@@ -183,12 +198,13 @@ function VMixOverlayButtons({
             });
           }
 
-          // Кнопка disabled если: vMix не подключен, инпут отключен, нет нужных данных, или заблокирована другой активной кнопкой
+          // Кнопка disabled если: vMix не подключен, инпут отключен, нет нужных данных, заблокирована другой активной кнопкой, или партия не завершена (для инпутов "Счет после X партии")
           const disabled =
             !isVMixConnected ||
             !isInputEnabled ||
             !isDataAvailable ||
-            isBlocked;
+            isBlocked ||
+            isButtonDisabled;
 
           // Определяем причину отключения для tooltip
           let tooltipText = "";
@@ -198,6 +214,9 @@ function VMixOverlayButtons({
             tooltipText = "Инпут не настроен";
           } else if (!isInputEnabled) {
             tooltipText = "Инпут отключен в настройках";
+          } else if (isButtonDisabled) {
+            const setNumber = key.replace('set', '').replace('Score', '');
+            tooltipText = `Партия ${setNumber} еще не завершена`;
           } else if (!isDataAvailable) {
             if (key === "coachTeamA" || key === "coachTeamB") {
               tooltipText = "Тренер не указан";
@@ -234,7 +253,7 @@ function VMixOverlayButtons({
                 fontWeight: active ? "bold" : "normal",
                 position: "relative",
                 opacity:
-                  disabled && !isVMixConnected ? 0.6 : disabled ? 0.7 : 1,
+                  disabled && !isVMixConnected ? 0.6 : disabled ? 0.5 : 1,
               }}
               title={tooltipText}
             >

@@ -12,6 +12,7 @@
 - **[Улучшения составов](roster-inputs-split-and-improvements.md)** - описание улучшений системы управления составами команд
 - **[Состояния партий и тайминг - План](set-status-and-timing-plan.md)** - план реализации функционала управления состояниями партий
 - **[Состояния партий и тайминг - Руководство](set-status-and-timing-implementation-guide.md)** - руководство по реализации функционала управления состояниями партий
+- **[Инпуты "Счет после X партии" - Руководство](set-score-inputs-implementation-guide.md)** - ✅ **ЗАВЕРШЕНО**: руководство по реализации функционала инпутов "Счет после X партии" (set1Score - set5Score) с использованием TDD подхода и JavaScript
 
 ### Документация логики
 - **[Логика управления счетом и состояниями партий](score-and-set-status-logic-documentation.md)** - ⚠️ **ВАЖНО**: подробная документация всей логики управления счетом, начисления счета, смены состояний партий, управления кнопками, отмены действий, модальных окон и редактирования партий. Создана для анализа и рефакторинга.
@@ -33,6 +34,7 @@ development/
 ├── roster-inputs-split-and-improvements.md # Улучшения составов
 ├── set-status-and-timing-plan.md          # План реализации состояний партий
 ├── set-status-and-timing-implementation-guide.md # Руководство по реализации состояний партий
+├── set-score-inputs-implementation-guide.md # Руководство по реализации инпутов "Счет после X партии"
 ├── score-and-set-status-logic-documentation.md # Документация логики управления счетом и партиями
 ├── score-and-set-status-refactoring-plan.md # План рефакторинга управления счетом и партиями
 ├── score-and-set-status-refactoring-implementation-guide.md # Руководство по реализации рефакторинга

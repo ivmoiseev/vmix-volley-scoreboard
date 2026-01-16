@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { debounce } from "../utils/debounce";
 import { getFullFieldName } from "../utils/vmix-field-utils";
 import { getContrastTextColor } from "../utils/colorContrast";
+import { calculateDuration, formatDuration } from "../../shared/timeUtils.js";
 
 // Константы для типов полей и ключей
 const FIELD_TYPES = {
@@ -80,6 +81,36 @@ export function useVMix(_match) {
       textColorFields: {},
     },
     referee2: {
+      fields: {},
+      colorFields: {},
+      visibilityFields: {},
+      imageFields: {},
+    },
+    set1Score: {
+      fields: {},
+      colorFields: {},
+      visibilityFields: {},
+      imageFields: {},
+    },
+    set2Score: {
+      fields: {},
+      colorFields: {},
+      visibilityFields: {},
+      imageFields: {},
+    },
+    set3Score: {
+      fields: {},
+      colorFields: {},
+      visibilityFields: {},
+      imageFields: {},
+    },
+    set4Score: {
+      fields: {},
+      colorFields: {},
+      visibilityFields: {},
+      imageFields: {},
+    },
+    set5Score: {
       fields: {},
       colorFields: {},
       visibilityFields: {},
@@ -282,6 +313,36 @@ export function useVMix(_match) {
           imageFields: {},
         },
         referee2: {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+        },
+        set1Score: {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+        },
+        set2Score: {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+        },
+        set3Score: {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+        },
+        set4Score: {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+        },
+        set5Score: {
           fields: {},
           colorFields: {},
           visibilityFields: {},
@@ -812,6 +873,223 @@ export function useVMix(_match) {
       return { fields, colorFields, visibilityFields };
     },
     [calculateSetsScore, getCurrentScoreFieldValue, normalizeColor]
+  );
+
+  /**
+   * Получает значение поля для инпута "Счет после X партии"
+   * @param {string} fieldKey - ключ поля из конфигурации (teamA, teamB, set1Duration, и т.д.)
+   * @param {Object} match - данные матча
+   * @param {number} setNumber - номер инпута (1-5)
+   * @returns {string} значение поля
+   */
+  const getSetScoreFieldValue = useCallback((fieldKey, match, setNumber) => {
+    // Общие поля
+    if (fieldKey === 'teamA') {
+      return match.teamA?.name || '';
+    }
+    if (fieldKey === 'teamB') {
+      return match.teamB?.name || '';
+    }
+    if (fieldKey === 'scoreASets' || fieldKey === 'scoreBSets') {
+      // Получаем завершенные партии до указанного номера
+      const completedSets = (match.sets || []).filter(
+        (set) =>
+          set.setNumber <= setNumber &&
+          (set.status === 'completed' || set.completed === true)
+      );
+      
+      if (fieldKey === 'scoreASets') {
+        const score = completedSets.filter(set => set.scoreA > set.scoreB).length;
+        return String(score);
+      } else {
+        const score = completedSets.filter(set => set.scoreB > set.scoreA).length;
+        return String(score);
+      }
+    }
+
+    // Поля для партий (set1Duration, set1ScoreA, set1ScoreB, и т.д.)
+    const setMatch = fieldKey.match(/^set(\d+)(Duration|ScoreA|ScoreB)$/);
+    if (setMatch) {
+      const setNum = parseInt(setMatch[1], 10);
+      const fieldType = setMatch[2];
+      
+      // Проверяем, что номер партии не превышает setNumber
+      if (setNum > setNumber) {
+        return '';
+      }
+
+      // Находим партию
+      const set = (match.sets || []).find(s => s.setNumber === setNum);
+      
+      // Если партия не завершена, возвращаем пустую строку
+      if (!set || (set.status !== 'completed' && set.completed !== true)) {
+        return '';
+      }
+
+      if (fieldType === 'Duration') {
+        if (set.startTime && set.endTime) {
+          // Используем ту же функцию, что и в основном компоненте
+          const durationMinutes = calculateDuration(set.startTime, set.endTime);
+          // Форматируем с символом "'" (например, "23'")
+          return formatDuration(durationMinutes);
+        }
+        return '';
+      } else if (fieldType === 'ScoreA') {
+        return String(set.scoreA || 0);
+      } else if (fieldType === 'ScoreB') {
+        return String(set.scoreB || 0);
+      }
+    }
+
+    return '';
+  }, []);
+
+  /**
+   * Форматирует данные для инпута "Счет после X партии" для отправки в vMix
+   * @param {Object} match - данные матча
+   * @param {string} inputKey - ключ инпута ('set1Score', 'set2Score', и т.д.)
+   * @returns {Object} - объект с полями для отправки в vMix
+   */
+  const formatSetScoreInputDataForVMix = useCallback((match, inputKey) => {
+    if (!match) return { fields: {} };
+
+    const inputConfig = vmixConfigRef.current?.inputs?.[inputKey];
+    if (!inputConfig?.fields) {
+      return { fields: {} };
+    }
+
+    // Извлекаем номер инпута из ключа (set1Score -> 1, set2Score -> 2, и т.д.)
+    const setNumber = parseInt(inputKey.replace('set', '').replace('Score', ''), 10);
+    if (isNaN(setNumber) || setNumber < 1 || setNumber > 5) {
+      console.error(`[useVMix] Неверный номер инпута: ${inputKey}`);
+      return { fields: {} };
+    }
+
+    const fields = {};
+
+    // Проходим по всем полям конфигурации и получаем значения по fieldKey
+    Object.entries(inputConfig.fields).forEach(([fieldKey, fieldConfig]) => {
+      if (fieldConfig.enabled === false || !fieldConfig.fieldIdentifier) {
+        return;
+      }
+
+      const fieldIdentifier = fieldConfig.fieldIdentifier;
+      const fullFieldName = getFullFieldName(fieldIdentifier, fieldConfig.type);
+      
+      // Получаем значение по fieldKey (как в других инпутах)
+      const value = getSetScoreFieldValue(fieldKey, match, setNumber);
+      
+      if (fullFieldName) {
+        fields[fullFieldName] = value;
+      }
+    });
+
+    return { fields };
+  }, [getSetScoreFieldValue]);
+
+  /**
+   * Обновляет инпут "Счет после X партии" в vMix
+   * @param {Object} match - данные матча
+   * @param {string} inputKey - ключ инпута ('set1Score', 'set2Score', и т.д.)
+   * @param {boolean} forceUpdate - принудительное обновление всех полей
+   */
+  const updateSetScoreInput = useCallback(
+    async (match, inputKey, forceUpdate = false) => {
+      if (!isVMixReady()) {
+        return { success: false, error: 'vMix не подключен' };
+      }
+
+      try {
+        const inputConfig = vmixConfigRef.current.inputs?.[inputKey];
+        
+        if (!inputConfig) {
+          return { success: false, error: 'Инпут не найден в конфигурации' };
+        }
+        
+        if (!inputConfig.fields) {
+          return { success: false, error: 'Инпут не имеет полей в конфигурации' };
+        }
+        
+        const validation = validateInputConfig(inputConfig);
+        if (!validation.valid) {
+          return { success: false, error: validation.error };
+        }
+
+        const formatted = formatSetScoreInputDataForVMix(match, inputKey);
+        const fields = formatted.fields || {};
+
+        // Фильтруем только измененные поля, если не forceUpdate
+        let fieldsToSend = fields;
+        if (!forceUpdate) {
+          const lastSent = lastSentValuesRef.current[inputKey] || {
+            fields: {},
+            colorFields: {},
+            visibilityFields: {},
+            imageFields: {},
+          };
+          fieldsToSend = filterChangedFields(fields, lastSent.fields);
+        }
+
+        const hasFields = Object.keys(fieldsToSend).length > 0;
+        
+        // При forceUpdate всегда отправляем, даже если полей нет (для очистки данных в vMix)
+        // При обычном обновлении пропускаем, если нет измененных полей
+        if (!hasFields && !forceUpdate) {
+          return {
+            success: true,
+            skipped: true,
+            message: 'Нет измененных полей для обновления',
+          };
+        }
+
+        // Логирование перед отправкой
+        if (hasFields || forceUpdate) {
+          console.log(`[useVMix] Отправка данных в ${inputKey} (${validation.inputIdentifier}):`, {
+            fieldsCount: Object.keys(fieldsToSend).length,
+            fields: Object.keys(fieldsToSend),
+            sampleValues: Object.fromEntries(Object.entries(fieldsToSend).slice(0, 3)),
+            forceUpdate,
+          });
+        }
+
+        const result = await window.electronAPI.updateVMixInputFields(
+          validation.inputIdentifier,
+          fieldsToSend,
+          {}, // colorFields
+          {}  // visibilityFields
+        );
+
+        // Логирование результата
+        if (result.success) {
+          console.log(`[useVMix] Данные успешно отправлены в ${inputKey}`);
+        } else {
+          console.error(`[useVMix] Ошибка при отправке данных в ${inputKey}:`, result.error);
+        }
+
+        // Обновляем кэш только при успешной отправке
+        if (result.success) {
+          updateLastSentValues(
+            inputKey,
+            fieldsToSend,
+            {},
+            {},
+            {}
+          );
+        }
+
+        return result;
+      } catch (error) {
+        console.error(`[useVMix] Ошибка при обновлении ${inputKey}:`, error);
+        return { success: false, error: error.message };
+      }
+    },
+    [
+      isVMixReady,
+      validateInputConfig,
+      formatSetScoreInputDataForVMix,
+      filterChangedFields,
+      updateLastSentValues,
+    ]
   );
 
   /**
@@ -1941,46 +2219,50 @@ export function useVMix(_match) {
           if (liberoBackgroundMatch && fullFieldName) {
             const liberoIndex = parseInt(liberoBackgroundMatch[1]) - 1; // 0 или 1
             const startingLineupIndex = liberoIndex + 6; // 6 или 7
-            const libero = startingLineup[startingLineupIndex];
+            const libero = startingLineup && startingLineup[startingLineupIndex] ? startingLineup[startingLineupIndex] : null;
+            
+            // Цвет подложки либеро (используем цвет команды или liberoColor)
+            const liberoColor = team.liberoColor || team.color || "#ffffff";
             
             if (libero) {
-              // Либеро указан - используем цвет из настроек
-              const liberoColor = team.liberoColor || team.color || "#ffffff";
+              // Если либеро указан - устанавливаем нужный цвет
               colorFields[fullFieldName] = normalizeColor(liberoColor, "#ffffff");
             } else {
-              // Либеро не указан - устанавливаем прозрачный цвет (RGBA)
+              // Если либеро не указан - устанавливаем прозрачный цвет (RGBA)
               colorFields[fullFieldName] = "#00000000";
             }
             return;
           }
         }
 
-        // Обработка полей номеров либеро - устанавливаем контрастный цвет текста
+        // Обработка полей либеро (номер, имя, номер на карте) - устанавливаем контрастный цвет текста и отправляем значения
         if (fieldConfig.type === FIELD_TYPES.TEXT) {
-          const liberoNumberMatch = fieldKey.match(/^libero(\d+)(Number|NumberOnCard)$/);
-          if (liberoNumberMatch && fullFieldName) {
-            const liberoIndex = parseInt(liberoNumberMatch[1]) - 1; // 0 или 1
+          const liberoMatch = fieldKey.match(/^libero(\d+)(Number|Name|NumberOnCard)$/);
+          if (liberoMatch && fullFieldName) {
+            const liberoIndex = parseInt(liberoMatch[1]) - 1; // 0 или 1
             const startingLineupIndex = liberoIndex + 6; // 6 или 7
-            const libero = startingLineup[startingLineupIndex];
+            const libero = startingLineup && startingLineup[startingLineupIndex] ? startingLineup[startingLineupIndex] : null;
             
             if (libero) {
-              // Либеро указан - устанавливаем контрастный цвет текста относительно цвета подложки
-              const liberoBackgroundColor = team.liberoColor || team.color || "#ffffff";
-              const contrastTextColor = getContrastTextColor(liberoBackgroundColor);
-              // Для текстовых полей цвет текста устанавливается через SetTextColour
-              // Пробуем оба варианта: с суффиксом .Text и без него
-              // Сначала пробуем с суффиксом (для GT Titles)
-              if (fieldIdentifier) {
-                // Для GT Titles нужно использовать имя поля с суффиксом .Text
-                const textColorFieldName = `${fieldIdentifier}.Text`;
-                textColorFields[textColorFieldName] = contrastTextColor;
+              // Если либеро указан - устанавливаем контрастный цвет текста для номеров
+              const fieldType = liberoMatch[2]; // "Number", "Name" или "NumberOnCard"
+              if (fieldType === "Number" || fieldType === "NumberOnCard") {
+                const liberoBackgroundColor = team.liberoColor || team.color || "#ffffff";
+                const contrastTextColor = getContrastTextColor(liberoBackgroundColor);
+                // Для текстовых полей цвет текста устанавливается через SetTextColour
+                if (fieldIdentifier) {
+                  // Для GT Titles нужно использовать имя поля с суффиксом .Text
+                  const textColorFieldName = `${fieldIdentifier}.Text`;
+                  textColorFields[textColorFieldName] = contrastTextColor;
+                }
               }
             }
             // Если либеро не указан, цвет текста не устанавливаем (остается по умолчанию)
             
-            // Отправляем значение текстового поля
+            // ВАЖНО: Отправляем значение текстового поля всегда (даже пустую строку для очистки)
+            // value уже содержит пустую строку, если либеро не указан (из getStartingLineupFieldValue)
             if (fullFieldName) {
-              fields[fullFieldName] = value;
+              fields[fullFieldName] = value || "";
             }
             return;
           }
@@ -2521,12 +2803,14 @@ export function useVMix(_match) {
           // Обновляем данные судей в "Плашка 2 судьи"
           await updateReferee2Data(matchData, forceUpdate);
 
-          // Обновляем счет по партиям
-          matchData.sets?.forEach((set) => {
-            if (set.completed) {
-              // TODO: Реализовать для set scores позже
+          // Обновляем инпуты "Счет после X партии"
+          const setScoreInputs = ['set1Score', 'set2Score', 'set3Score', 'set4Score', 'set5Score'];
+          for (const inputKey of setScoreInputs) {
+            const result = await updateSetScoreInput(matchData, inputKey, forceUpdate);
+            if (result && !result.success && !result.skipped) {
+              console.error(`[useVMix] Ошибка при обновлении ${inputKey}:`, result.error);
             }
-          });
+          }
 
           // Обновляем статистику, если включена
           if (matchData.statistics?.enabled) {
@@ -2546,6 +2830,7 @@ export function useVMix(_match) {
     updateStartingLineupTeamAInput,
     updateStartingLineupTeamBInput,
     updateReferee2Data,
+    updateSetScoreInput,
   ]);
 
   // Неиспользуемые функции оставлены для возможного будущего использования

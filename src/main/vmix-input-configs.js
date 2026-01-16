@@ -3,6 +3,44 @@
  */
 
 /**
+ * Генерирует конфигурацию полей для инпута "Счет после X партии"
+ * @param {number} setNumber - номер инпута (1-5)
+ * @returns {Object} объект с полями конфигурации
+ */
+function generateSetScoreFields(setNumber) {
+  const fields = {
+    teamA: { enabled: true, type: 'text', fieldName: 'Команда А', fieldIdentifier: 'TeamA' },
+    teamB: { enabled: true, type: 'text', fieldName: 'Команда Б', fieldIdentifier: 'TeamB' },
+    scoreASets: { enabled: true, type: 'text', fieldName: 'Счет по сетам А', fieldIdentifier: 'ScoreASets' },
+    scoreBSets: { enabled: true, type: 'text', fieldName: 'Счет по сетам Б', fieldIdentifier: 'ScoreBSets' },
+  };
+
+  // Добавляем поля для каждой партии от 1 до setNumber
+  for (let i = 1; i <= setNumber; i++) {
+    fields[`set${i}Duration`] = {
+      enabled: true,
+      type: 'text',
+      fieldName: `Время партии ${i}`,
+      fieldIdentifier: `Set${i}Duration`,
+    };
+    fields[`set${i}ScoreA`] = {
+      enabled: true,
+      type: 'text',
+      fieldName: `Команда А партия ${i}`,
+      fieldIdentifier: `Set${i}ScoreA`,
+    };
+    fields[`set${i}ScoreB`] = {
+      enabled: true,
+      type: 'text',
+      fieldName: `Команда Б партия ${i}`,
+      fieldIdentifier: `Set${i}ScoreB`,
+    };
+  }
+
+  return fields;
+}
+
+/**
  * Получает конфигурацию полей по умолчанию для указанного инпута
  * @param {string} inputKey - ключ инпута (например, 'currentScore', 'roster', 'lineup')
  * @returns {Object|null} - объект с полями или null, если инпут не найден
@@ -186,6 +224,13 @@ function getDefaultFieldsForInput(inputKey) {
       referee1Name: { enabled: true, type: 'text', fieldName: 'Судья 1', fieldIdentifier: 'Referee1Name' },
       referee2Name: { enabled: true, type: 'text', fieldName: 'Судья 2', fieldIdentifier: 'Referee2Name' },
     },
+
+    // Инпуты "Счет после X партии"
+    set1Score: generateSetScoreFields(1),
+    set2Score: generateSetScoreFields(2),
+    set3Score: generateSetScoreFields(3),
+    set4Score: generateSetScoreFields(4),
+    set5Score: generateSetScoreFields(5),
   };
 
   return configs[inputKey] || null;

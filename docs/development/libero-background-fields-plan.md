@@ -32,14 +32,23 @@
 
 ## Логика работы
 
-1. **Цвет подложки**: Используется `match.teamA.liberoColor` или `match.teamB.liberoColor` в зависимости от команды
-   - Если либеро указан в стартовом составе: используется цвет из настроек (`liberoColor` или `color`)
-   - Если либеро не указан: устанавливается прозрачный цвет `#00000000`
-2. **Цвет текста номеров либеро**: 
-   - Если либеро указан в стартовом составе: автоматически устанавливается контрастный цвет текста (черный или белый) на основе цвета подложки
+1. **Текстовые поля либеро** (номер, имя, номер на карте):
+   - **ВАЖНО**: Всегда отправляются значения в vMix, даже если либеро не указан (пустые строки)
+   - Это необходимо для очистки вывода в vMix при удалении либеро из состава
+   - Если либеро указан: отправляется значение (номер, имя и т.д.)
+   - Если либеро не указан: отправляется пустая строка `""`
+
+2. **Цвет подложки**: Используется `match.teamA.liberoColor` или `match.teamB.liberoColor` в зависимости от команды
+   - Если конкретный либеро указан (например, Либеро 1 для поля `libero1Background`): устанавливается цвет из настроек (`liberoColor` или `color`)
+   - Если конкретный либеро не указан: устанавливается прозрачный цвет `#00000000`
+   - Каждое поле подложки проверяет свой конкретный либеро (libero1Background проверяет Либеро 1, libero2Background проверяет Либеро 2)
+
+3. **Цвет текста номеров либеро**: 
+   - Если конкретный либеро указан: автоматически устанавливается контрастный цвет текста (черный или белый) на основе цвета подложки
    - Используется функция `getContrastTextColor()` для расчета оптимального цвета
    - Цвет текста устанавливается через команду `SetTextColour` в vMix API
-   - Работает для всех полей: `Libero1Number.Text`, `Libero1NumberOnCard.Text`, `Libero2Number.Text`, `Libero2NumberOnCard.Text`
+   - Работает для полей номеров: `Libero1Number.Text`, `Libero1NumberOnCard.Text`, `Libero2Number.Text`, `Libero2NumberOnCard.Text`
+   - Если конкретный либеро не указан: цвет текста не устанавливается (остается по умолчанию)
 
 ## План реализации (TDD подход)
 
@@ -128,9 +137,10 @@ libero2BackgroundOnCard: { enabled: true, type: 'fill', fieldName: 'Подлож
 - Автоматическая установка контрастного цвета текста для полей номеров либеро
 - Используется функция `getContrastTextColor()` для расчета оптимального цвета (черный или белый)
 - Цвет текста определяется на основе цвета подложки либеро из настроек матча
-- Устанавливается только если либеро указан в стартовом составе
-- Работает для всех полей: `Libero1Number.Text`, `Libero1NumberOnCard.Text`, `Libero2Number.Text`, `Libero2NumberOnCard.Text`
+- Если конкретный либеро указан, контрастный цвет устанавливается для его номеров
+- Работает для полей номеров: `Libero1Number.Text`, `Libero1NumberOnCard.Text`, `Libero2Number.Text`, `Libero2NumberOnCard.Text`
 - Используется команда `SetTextColour` в vMix API для установки цвета текста в GT Titles
+- **ВАЖНО**: Все текстовые поля либеро (номер, имя, номер на карте) всегда отправляются в vMix, даже если либеро не указан (пустые строки для очистки)
 
 ### Технические детали
 - Добавлен метод `setTextColour()` в `vmix-client.js`
@@ -148,20 +158,49 @@ libero2BackgroundOnCard: { enabled: true, type: 'fill', fieldName: 'Подлож
 // Обработка полей fill для подложек либеро
 if (fieldConfig.type === FIELD_TYPES.FILL) {
   const liberoBackgroundMatch = fieldKey.match(/^libero(\d+)(Background|BackgroundOnCard)$/);
-  if (liberoBackgroundMatch) {
+  if (liberoBackgroundMatch && fullFieldName) {
     const liberoIndex = parseInt(liberoBackgroundMatch[1]) - 1; // 0 или 1
     const startingLineupIndex = liberoIndex + 6; // 6 или 7
-    const libero = startingLineup[startingLineupIndex];
+    const libero = startingLineup && startingLineup[startingLineupIndex] ? startingLineup[startingLineupIndex] : null;
     
-    if (libero && fullFieldName) {
-      // Либеро указан - устанавливаем цвет и видимость
-      const liberoColor = team.liberoColor || team.color || "#ffffff";
+    // Цвет подложки либеро (используем цвет команды или liberoColor)
+    const liberoColor = team.liberoColor || team.color || "#ffffff";
+    
+    if (libero) {
+      // Если конкретный либеро указан - устанавливаем нужный цвет
       colorFields[fullFieldName] = normalizeColor(liberoColor, "#ffffff");
-      visibilityFields[fullFieldName] = { visible: true, fieldConfig };
-    } else if (fullFieldName) {
-      // Либеро не указан - скрываем подложку
-      visibilityFields[fullFieldName] = { visible: false, fieldConfig };
+    } else {
+      // Если конкретный либеро не указан - устанавливаем прозрачный цвет (RGBA)
+      colorFields[fullFieldName] = "#00000000";
     }
+    return;
+  }
+}
+
+// Обработка полей либеро (номер, имя, номер на карте)
+if (fieldConfig.type === FIELD_TYPES.TEXT) {
+  const liberoMatch = fieldKey.match(/^libero(\d+)(Number|Name|NumberOnCard)$/);
+  if (liberoMatch && fullFieldName) {
+    const liberoIndex = parseInt(liberoMatch[1]) - 1; // 0 или 1
+    const startingLineupIndex = liberoIndex + 6; // 6 или 7
+    const libero = startingLineup && startingLineup[startingLineupIndex] ? startingLineup[startingLineupIndex] : null;
+    
+    if (libero) {
+      // Если конкретный либеро указан - устанавливаем контрастный цвет текста для номеров
+      const fieldType = liberoMatch[2]; // "Number", "Name" или "NumberOnCard"
+      if (fieldType === "Number" || fieldType === "NumberOnCard") {
+        const liberoBackgroundColor = team.liberoColor || team.color || "#ffffff";
+        const contrastTextColor = getContrastTextColor(liberoBackgroundColor);
+        if (fieldIdentifier) {
+          const textColorFieldName = `${fieldIdentifier}.Text`;
+          textColorFields[textColorFieldName] = contrastTextColor;
+        }
+      }
+    }
+    // Если либеро не указан, цвет текста не устанавливаем (остается по умолчанию)
+    
+    // ВАЖНО: Отправляем значение текстового поля всегда (даже пустую строку для очистки)
+    fields[fullFieldName] = value || "";
     return;
   }
 }
@@ -189,3 +228,26 @@ if (fieldConfig.type === FIELD_TYPES.FILL) {
 3. **Управление видимостью**:
    - Убедиться, что видимость правильно обрабатывается для полей fill
    - Проверить, что скрытие работает корректно
+
+## Исправления
+
+### Исправление передачи данных для полей либеро (2024)
+
+**Проблема 1: Текстовые поля либеро не очищались**
+- Текстовые поля либеро (номер, имя, номер на карте) не отправлялись в vMix, если либеро не был указан
+- Это приводило к тому, что старые значения оставались в vMix при удалении либеро из состава
+
+**Проблема 2: Неправильная логика для подложек и цвета текста**
+- Изначально была реализована логика "если указан хотя бы один либеро, все подложки получают цвет"
+- Это было неправильно: каждое поле должно проверять свой конкретный либеро
+
+**Решение:**
+1. **Текстовые поля**: Всегда отправляются значения в vMix, даже если либеро не указан (пустые строки для очистки)
+2. **Подложки**: Если конкретный либеро указан - передаем нужный цвет; если не указан - прозрачный цвет
+3. **Цвет текста**: Если конкретный либеро указан - устанавливаем контрастный цвет; если не указан - не устанавливаем
+
+**Измененные файлы:**
+- `src/renderer/hooks/useVMix.js` - функция `formatStartingLineupData`
+- `docs/development/libero-background-fields-plan.md` - обновлена документация логики
+- `docs/architecture/ARCHITECTURE.md` - обновлено описание обработки полей либеро
+- `CHANGELOG.md` - добавлена запись об исправлении
