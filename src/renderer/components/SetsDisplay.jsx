@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { SET_STATUS } from '../../shared/types/Match';
 import { formatDuration } from '../../shared/timeUtils';
 // @ts-ignore - временно, пока не будет TypeScript версии
-import { SetDomain } from '../../shared/domain/SetDomain.ts';
+import { SetDomain } from '../../shared/domain/SetDomain.js';
 
 function SetsDisplay({ 
   sets, 

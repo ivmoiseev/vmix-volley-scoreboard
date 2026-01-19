@@ -4,15 +4,15 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { Match } from '../../shared/types/Match';
-import { SET_STATUS } from '../../shared/types/Match';
+import type { Match } from '../../shared/types/Match.js';
+import { SET_STATUS } from '../../shared/types/Match.js';
 // @ts-ignore - временно, пока не будет TypeScript версии
 import { isSetball, isMatchball, canFinishSet } from '../../shared/volleyballRules.js';
 // @ts-ignore - временно, пока не будет TypeScript версии
 import { migrateMatchToSetStatus } from '../../shared/matchMigration.js';
-import { SetService } from '../../shared/services/SetService';
-import { ScoreService } from '../../shared/services/ScoreService';
-import { HistoryService } from '../../shared/services/HistoryService';
+import { SetService } from '../../shared/services/SetService.js';
+import { ScoreService } from '../../shared/services/ScoreService.js';
+import { HistoryService } from '../../shared/services/HistoryService.js';
 
 /**
  * Хук для управления состоянием матча

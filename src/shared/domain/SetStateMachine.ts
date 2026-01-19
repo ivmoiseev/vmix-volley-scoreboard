@@ -3,7 +3,7 @@
  * Управление переходами между состояниями партий
  */
 
-import { SET_STATUS } from '../types/Match';
+import { SET_STATUS } from '../types/Match.js';
 
 /**
  * Контекст для переходов состояний

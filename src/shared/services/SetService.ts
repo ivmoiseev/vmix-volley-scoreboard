@@ -3,10 +3,10 @@
  * Оркестрация операций с партиями, использование Domain Layer и Validator Layer
  */
 
-import { Match, Set, SET_STATUS } from '../types/Match';
-import { SetDomain } from '../domain/SetDomain';
-import { SetStateMachine } from '../domain/SetStateMachine';
-import { SetValidator } from '../validators/SetValidator';
+import { Match, Set, SET_STATUS } from '../types/Match.js';
+import { SetDomain } from '../domain/SetDomain.js';
+import { SetStateMachine } from '../domain/SetStateMachine.js';
+import { SetValidator } from '../validators/SetValidator.js';
 // @ts-ignore - временно, пока не будет TypeScript версии
 import { canFinishSet, getSetWinner } from '../volleyballRules.js';
 // @ts-ignore - временно, пока не будет TypeScript версии
@@ -98,7 +98,7 @@ export class SetService {
     const endTime = Date.now();
 
     // 4. Вычисляем продолжительность
-    const duration = startTime ? calculateDuration(startTime, endTime) : null;
+    const duration = startTime ? calculateDuration(startTime, endTime) : undefined;
 
     // 5. Создаем завершенную партию
     const completedSet: Set = {
@@ -114,6 +114,8 @@ export class SetService {
 
     // 6. Определяем победителя для следующей партии (подача)
     const winner = getSetWinner(scoreA, scoreB);
+    // Если winner null (не должно происходить при корректном счете), используем команду A по умолчанию
+    const servingTeam: 'A' | 'B' = winner || 'A';
 
     // 7. Создание нового матча (immutability)
     // ВАЖНО: Счет НЕ обнуляется здесь - он будет обнулен при начале следующей партии (startSet)
@@ -124,7 +126,7 @@ export class SetService {
       sets: [...match.sets, completedSet],
       currentSet: {
         ...match.currentSet,
-        servingTeam: winner,
+        servingTeam: servingTeam,
         status: SET_STATUS.PENDING,
         // Счет сохраняется до начала следующей партии
         // scoreA и scoreB остаются с текущими значениями
@@ -220,7 +222,9 @@ export class SetService {
         const startTime = updatedCurrentSet.startTime;
         const endTime = (updatedCurrentSet as any).endTime;
         if (startTime && endTime) {
-          (updatedCurrentSet as any).duration = calculateDuration(startTime, endTime);
+          const duration = calculateDuration(startTime, endTime);
+          // Преобразуем null в undefined для соответствия типу
+          (updatedCurrentSet as any).duration = duration ?? undefined;
         } else {
           delete (updatedCurrentSet as any).duration;
         }
@@ -248,7 +252,9 @@ export class SetService {
         const startTime = updatedSet.startTime;
         const endTime = updatedSet.endTime;
         if (startTime && endTime) {
-          updatedSet.duration = calculateDuration(startTime, endTime);
+          const duration = calculateDuration(startTime, endTime);
+          // Преобразуем null в undefined для соответствия типу
+          updatedSet.duration = duration ?? undefined;
         } else {
           delete updatedSet.duration;
         }

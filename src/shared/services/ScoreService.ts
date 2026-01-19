@@ -3,7 +3,7 @@
  * Изменение счета, изменение подачи
  */
 
-import { Match, SET_STATUS } from '../types/Match';
+import { Match, SET_STATUS } from '../types/Match.js';
 
 /**
  * Сервис для работы со счетом
