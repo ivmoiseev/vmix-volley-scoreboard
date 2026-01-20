@@ -132,7 +132,8 @@ ISC License
 
 ## Автор
 
-Разработано для управления счетом волейбольных матчей с интеграцией vMix.
+Илья Моисеев ilyamoiseev@inbox.ru(mailto:ilyamoiseev@inbox.ru)
+webcastmaster.ru(https://webcastmaster.ru)
 
 ---
 
