@@ -132,8 +132,8 @@ ISC License
 
 ## Автор
 
-Илья Моисеев ilyamoiseev@inbox.ru(mailto:ilyamoiseev@inbox.ru)
-webcastmaster.ru(https://webcastmaster.ru)
+Илья Моисеев ilyamoiseev@inbox.ru
+webcastmaster.ru
 
 ---
 
