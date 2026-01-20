@@ -1,6 +1,6 @@
 {
   "name": "vmix-volley-scoreboard",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "VolleyScore Master: An Electron-based application designed for volleyball tournament graphics management. It integrates seamlessly with vMix for live broadcasts, providing real-time control over on-screen titles, scoreboards, and match infographics.",
   "main": "src/main/main-entry.js",
   "tsx": {
@@ -14,8 +14,10 @@
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "clean:release": "node scripts/clean-release.js",
     "compile:typescript": "node scripts/compile-typescript.js",
-    "build:electron": "npm run clean:release && npm run compile:typescript && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false vite build && electron-builder --win",
-    "build:electron:all": "npm run clean:release && npm run compile:typescript && vite build && electron-builder",
+    "update:year": "node scripts/update-year.js",
+    "prepare:icons": "node scripts/prepare-icons.js",
+    "build:electron": "npm run clean:release && npm run update:year && npm run prepare:icons && npm run compile:typescript && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false vite build && electron-builder --win",
+    "build:electron:all": "npm run clean:release && npm run update:year && npm run prepare:icons && npm run compile:typescript && vite build && electron-builder",
     "lint": "eslint src --ext .js,.jsx",
     "lint:fix": "eslint src --ext .js,.jsx --fix",
     "lint:unused": "eslint src --ext .js,.jsx --rule 'unused-imports/no-unused-imports: error' --rule 'unused-imports/no-unused-vars: warn'",
@@ -35,7 +37,7 @@
     "url": "git+https://github.com/ivmoiseev/vmix-volley-scoreboard.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "Илья Моисеев <ilyamoiseev@inbox.ru> (https://webcastmaster.ru)",
   "license": "ISC",
   "type": "module",
   "bugs": {
@@ -44,9 +46,10 @@
   "homepage": "https://github.com/ivmoiseev/vmix-volley-scoreboard#readme",
   "build": {
     "appId": "com.vmix.volley-scoreboard",
-    "productName": "VolleyScore Master",
+    "productName": "vMix Volley Scoreboard",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
@@ -71,7 +74,23 @@
         ]
       },
       {
+        "from": "assets/icon.ico",
+        "to": "assets/icon.ico"
+      },
+      {
         "from": "settings.json",
+        "to": "."
+      },
+      {
+        "from": "README.md",
+        "to": "."
+      },
+      {
+        "from": "INSTALLATION.md",
+        "to": "."
+      },
+      {
+        "from": "USER_GUIDE.md",
         "to": "."
       }
     ],
@@ -84,14 +103,16 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico",
-      "signAndEditExecutable": false
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
     },
     "mac": {
       "target": [
@@ -161,6 +182,7 @@
     "axios": "^1.13.2",
     "electron-store": "^11.0.2",
     "express": "^5.2.1",
+    "marked": "^17.0.1",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

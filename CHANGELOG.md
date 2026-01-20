@@ -7,6 +7,63 @@
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-01-20
+
+### Добавлено
+
+- **Информация об авторстве приложения**
+  - Добавлена информация об авторе на страницу "О программе":
+    - Илья Моисеев
+    - Волгоград, Россия
+    - Email: ilyamoiseev@inbox.ru
+    - Сайт: webcastmaster.ru
+  - Добавлено поле `author` в `package.json` с полной информацией об авторе
+  - Год в копирайте обновляется автоматически через `new Date().getFullYear()`
+
+- **Favicon для приложения**
+  - Добавлен `favicon.ico` в `src/renderer/` для отображения в окне приложения
+  - Настроено автоматическое копирование favicon в `dist/` при сборке через Vite плагин
+  - Добавлены ссылки на favicon в `index.html`
+
+- **Иконка для Electron приложения**
+  - Создан скрипт `scripts/prepare-icons.js` для автоматической подготовки иконок перед сборкой
+  - Иконка копируется в `assets/icon.ico` (для extraResources) и `build/icon.ico` (для electron-builder)
+  - Настроена иконка для окна приложения в dev и production режимах
+  - Настроена иконка для Windows exe файла через electron-builder
+  - Добавлены иконки для NSIS установщика (`installerIcon` и `uninstallerIcon`)
+  - Обновлены пути к иконкам в `main.js` с поддержкой production режима
+  - Добавлена иконка в `extraResources` для доступа в production
+  - Настроен `buildResources: "build"` в конфигурации electron-builder
+  - Включен `signAndEditExecutable: true` для встраивания иконки в exe файл
+
+### Изменено
+
+- **Обновление года в документации**
+  - В `USER_GUIDE.md` заменен плейсхолдер `{CURRENT_YEAR}` на актуальный год (2026)
+  - В `AboutPage.jsx` год обновляется динамически через `new Date().getFullYear()`
+
+### Технические детали
+
+- **Новые файлы**:
+  - `src/renderer/favicon.ico` - favicon приложения
+  - `scripts/prepare-icons.js` - скрипт подготовки иконок для сборки
+  - `assets/icon.ico` - иконка для extraResources
+  - `build/icon.ico` - иконка для electron-builder
+
+- **Обновленные файлы**:
+  - `src/renderer/index.html` - добавлены ссылки на favicon
+  - `src/renderer/pages/AboutPage.jsx` - добавлена информация об авторе
+  - `src/main/main.js` - обновлены пути к иконкам для окна приложения
+  - `package.json` - добавлено поле `author`, обновлена конфигурация electron-builder
+  - `vite.config.js` - добавлен плагин для копирования favicon
+  - `USER_GUIDE.md` - обновлен год
+
+- **Обновленные скрипты сборки**:
+  - Добавлен скрипт `prepare:icons` в `package.json`
+  - Скрипты `build:electron` и `build:electron:all` теперь включают подготовку иконок
+
+## [Unreleased]
+
 ### Добавлено
 
 - **Документация по использованию TypeScript в production**

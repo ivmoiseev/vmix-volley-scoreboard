@@ -1,22 +1,29 @@
-docs: добавлена документация по TypeScript в production, Webpack/Rollup и аудит vMix
+feat: добавлена информация об авторе, favicon и иконка приложения
 
-Добавлены новые документы:
-- docs/development/typescript-in-production-explanation.md
-  Объяснение проблем использования TypeScript напрямую в production сборке Electron,
-  описание решений через предварительную компиляцию и сравнение подходов (tsx vs tsc)
+Добавлена информация об авторстве:
+- Информация об авторе на странице "О программе" (Илья Моисеев, Волгоград, Россия)
+- Поле author в package.json с полными контактами
+- Автоматическое обновление года в копирайте
 
-- docs/development/webpack-rollup-vs-current-approach.md
-  Детальное сравнение инструментов сборки (Webpack, Rollup) с текущим подходом (tsc),
-  включая преимущества, недостатки, метрики производительности и рекомендации
+Добавлен favicon:
+- favicon.ico в src/renderer/ для отображения в окне приложения
+- Настроено автоматическое копирование при сборке через Vite плагин
+- Добавлены ссылки в index.html
 
-- docs/troubleshooting/vmix-connection-audit-report.md
-  Отчет об аудите автономности функций при недоступности vMix,
-  документирование функций, работающих независимо от подключения
+Настроена иконка для Electron приложения:
+- Создан скрипт prepare-icons.js для подготовки иконок перед сборкой
+- Иконка копируется в assets/ и build/ для разных целей
+- Настроена иконка для окна приложения (dev и production)
+- Настроена иконка для Windows exe файла через electron-builder
+- Добавлены иконки для NSIS установщика
+- Обновлены пути к иконкам в main.js с поддержкой production режима
+- Включен signAndEditExecutable для встраивания иконки в exe
 
-Обновлены документы:
-- docs/troubleshooting/typescript-production-fix.md
-  Полное описание решения проблемы с TypeScript в production,
-  включая все этапы исправления и технические детали
+Обновлен год в документации:
+- USER_GUIDE.md: заменен {CURRENT_YEAR} на 2026
+- AboutPage.jsx: динамическое обновление года
 
-- CHANGELOG.md
-  Добавлена секция с описанием новой документации в раздел [Unreleased]
+Технические детали:
+- Новые файлы: favicon.ico, prepare-icons.js, assets/icon.ico, build/icon.ico
+- Обновлены: index.html, AboutPage.jsx, main.js, package.json, vite.config.js
+- Добавлен скрипт prepare:icons в процесс сборки

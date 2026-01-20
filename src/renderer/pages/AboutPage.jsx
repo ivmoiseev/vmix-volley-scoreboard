@@ -65,8 +65,18 @@ function AboutPage() {
           <p>См. файл LICENSE в корне проекта</p>
         </div>
 
+        <div style={{ marginTop: '2rem', padding: '1rem', backgroundColor: '#fff', borderRadius: '4px' }}>
+          <h4>Автор:</h4>
+          <p style={{ lineHeight: '1.8' }}>
+            <strong>Илья Моисеев</strong><br />
+            Волгоград, Россия<br />
+            <a href="mailto:ilyamoiseev@inbox.ru" style={{ color: '#3498db' }}>ilyamoiseev@inbox.ru</a><br />
+            <a href="https://webcastmaster.ru" target="_blank" rel="noopener noreferrer" style={{ color: '#3498db' }}>webcastmaster.ru</a>
+          </p>
+        </div>
+
         <div style={{ marginTop: '2rem', textAlign: 'center', color: '#7f8c8d' }}>
-          <p>© 2024 vMix Volley Scoreboard</p>
+          <p>© {new Date().getFullYear()} vMix Volley Scoreboard</p>
         </div>
       </div>
     </div>

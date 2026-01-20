@@ -5,12 +5,14 @@ import {
   Menu,
   dialog,
   globalShortcut,
+  shell,
 } from "electron";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import http from "http";
+import * as documentationViewer from "./documentation-viewer.js";
 import * as fileManager from "./fileManager.js";
 import { getVMixClient } from "./vmix-client.js";
 import * as vmixConfig from "./vmix-config.js";
@@ -96,17 +98,52 @@ function createWindow() {
   // В production используем правильные пути для ASAR
   let iconPath;
   if (isDev) {
-    iconPath = path.join(__dirname, "../assets/icon.png");
-  } else {
-    // В production иконка должна быть в ASAR или использовать ресурсы
-    const appPath = app.getAppPath();
-    iconPath = path.join(appPath, "../assets/icon.png");
-    // Если иконка не найдена, пробуем альтернативный путь
+    // В dev режиме иконка в корне проекта в папке assets
+    iconPath = path.join(__dirname, "../../assets/icon.ico");
+    // Если .ico нет, пробуем .png
     if (!fs.existsSync(iconPath)) {
-      iconPath = path.join(__dirname, "../assets/icon.png");
+      iconPath = path.join(__dirname, "../../assets/icon.png");
+    }
+  } else {
+    // В production иконка находится в extraResources (вне ASAR)
+    // Путь: process.resourcesPath/assets/icon.ico
+    const resourcesPath = process.resourcesPath || app.getAppPath();
+    iconPath = path.join(resourcesPath, "assets/icon.ico");
+    
+    // Если не найдена, пробуем альтернативные пути
+    if (!fs.existsSync(iconPath)) {
+      iconPath = path.join(resourcesPath, "assets/icon.png");
+    }
+    // Также пробуем путь относительно appPath (для совместимости)
+    if (!fs.existsSync(iconPath)) {
+      const appPath = app.getAppPath();
+      iconPath = path.join(appPath, "../assets/icon.ico");
+    }
+    if (!fs.existsSync(iconPath)) {
+      iconPath = path.join(appPath, "../assets/icon.png");
     }
   }
   const iconExists = fs.existsSync(iconPath);
+  
+  // Логируем информацию об иконке для отладки
+  if (iconExists) {
+    console.log(`[Window] Иконка найдена: ${iconPath}`);
+  } else {
+    console.warn(`[Window] Иконка не найдена по пути: ${iconPath}`);
+    // Пробуем найти иконку в других местах для отладки
+    const alternativePaths = [
+      path.join(process.resourcesPath || '', 'assets/icon.ico'),
+      path.join(app.getAppPath(), '../assets/icon.ico'),
+      path.join(__dirname, '../../assets/icon.ico'),
+    ];
+    for (const altPath of alternativePaths) {
+      if (fs.existsSync(altPath)) {
+        console.log(`[Window] Альтернативный путь найден: ${altPath}`);
+        iconPath = altPath;
+        break;
+      }
+    }
+  }
 
   // Путь к preload.cjs - в production он в ASAR
   let preloadPath;
@@ -118,9 +155,17 @@ function createWindow() {
     preloadPath = path.join(appPath, "src/main/preload.cjs");
   }
 
-  mainWindow = new BrowserWindow({
+  // Получаем версию приложения для заголовка окна
+  const appVersion = app.getVersion();
+  const windowTitle = `vMix Volley Scoreboard - v.${appVersion}`;
+
+  // Создаем конфигурацию окна с иконкой
+  const windowOptions = {
     width: 1200,
     height: 800,
+    title: windowTitle,
+    // Показываем окно только после загрузки
+    show: false,
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,
@@ -129,17 +174,29 @@ function createWindow() {
       webSecurity: true,
       sandbox: false,
     },
-    ...(iconExists && { icon: iconPath }),
-    // Показываем окно только после загрузки
-    show: false,
-  });
+  };
+  
+  // Добавляем иконку, если она найдена
+  if (fs.existsSync(iconPath)) {
+    windowOptions.icon = iconPath;
+    console.log(`[Window] Иконка установлена для окна: ${iconPath}`);
+  }
+
+  mainWindow = new BrowserWindow(windowOptions);
 
   // Показываем окно после загрузки страницы
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
+    // Устанавливаем заголовок после загрузки, чтобы переопределить HTML title
+    mainWindow.setTitle(windowTitle);
     if (isDev) {
       mainWindow.webContents.openDevTools();
     }
+  });
+
+  // Также устанавливаем заголовок после загрузки страницы
+  mainWindow.webContents.once("did-finish-load", () => {
+    mainWindow.setTitle(windowTitle);
   });
 
   if (isDev) {
@@ -218,6 +275,8 @@ function createWindow() {
             console.log(`✓ Страница успешно загружена с порта ${checkedPort}`);
             isLoadingVite = false; // Сбрасываем флаг
             mainWindow.webContents.removeListener("did-fail-load", onLoadFail);
+            // Устанавливаем заголовок после загрузки, чтобы переопределить HTML title
+            mainWindow.setTitle(windowTitle);
             // Открываем DevTools для отладки
             mainWindow.webContents.openDevTools();
             // Также логируем текущий URL для проверки
@@ -296,6 +355,8 @@ function createWindow() {
     // Обработка успешной загрузки
     mainWindow.webContents.on('did-finish-load', () => {
       console.log("[Production] Page loaded successfully");
+      // Устанавливаем заголовок после загрузки, чтобы переопределить HTML title
+      mainWindow.setTitle(windowTitle);
     });
   }
 
@@ -310,6 +371,8 @@ function createWindow() {
 
   mainWindow.webContents.on("did-finish-load", () => {
     console.log("[Production] Page finished loading");
+    // Устанавливаем заголовок после загрузки, чтобы переопределить HTML title
+    mainWindow.setTitle(windowTitle);
   });
 
   // Логируем ошибки загрузки страницы
@@ -385,7 +448,17 @@ app.whenReady().then(async () => {
 
   // Регистрируем горячие клавиши для DevTools (работают в production)
   globalShortcut.register("F12", () => {
-    if (mainWindow) {
+    // Проверяем, есть ли открытое окно документации
+    const docWindow = documentationViewer.getDocumentationWindow();
+    if (docWindow && docWindow.isFocused()) {
+      // Если окно документации в фокусе, переключаем его DevTools
+      if (docWindow.webContents.isDevToolsOpened()) {
+        docWindow.webContents.closeDevTools();
+      } else {
+        docWindow.webContents.openDevTools();
+      }
+    } else if (mainWindow) {
+      // Иначе переключаем DevTools основного окна
       if (mainWindow.webContents.isDevToolsOpened()) {
         mainWindow.webContents.closeDevTools();
       } else {
@@ -396,7 +469,17 @@ app.whenReady().then(async () => {
 
   // Альтернативная комбинация Ctrl+Shift+I
   globalShortcut.register("CommandOrControl+Shift+I", () => {
-    if (mainWindow) {
+    // Проверяем, есть ли открытое окно документации
+    const docWindow = documentationViewer.getDocumentationWindow();
+    if (docWindow && docWindow.isFocused()) {
+      // Если окно документации в фокусе, переключаем его DevTools
+      if (docWindow.webContents.isDevToolsOpened()) {
+        docWindow.webContents.closeDevTools();
+      } else {
+        docWindow.webContents.openDevTools();
+      }
+    } else if (mainWindow) {
+      // Иначе переключаем DevTools основного окна
       if (mainWindow.webContents.isDevToolsOpened()) {
         mainWindow.webContents.closeDevTools();
       } else {
@@ -512,6 +595,7 @@ app.on("before-quit", async (event) => {
     // Если отмена - ничего не делаем, приложение продолжит работу
   }
 });
+
 
 /**
  * Создает главное меню приложения
@@ -725,6 +809,40 @@ async function createMenu() {
     {
       label: "Справка",
       submenu: [
+        {
+          label: "Руководство пользователя",
+          click: () => {
+            documentationViewer.openDocumentationWindow(
+              "USER_GUIDE.md",
+              "Руководство пользователя",
+              mainWindow,
+              isDev
+            );
+          },
+        },
+        {
+          label: "Инструкция по установке",
+          click: () => {
+            documentationViewer.openDocumentationWindow(
+              "INSTALLATION.md",
+              "Инструкция по установке",
+              mainWindow,
+              isDev
+            );
+          },
+        },
+        {
+          label: "README",
+          click: () => {
+            documentationViewer.openDocumentationWindow(
+              "README.md",
+              "README",
+              mainWindow,
+              isDev
+            );
+          },
+        },
+        { type: "separator" },
         {
           label: "О программе",
           click: () => {

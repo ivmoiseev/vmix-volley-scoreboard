@@ -1,6 +1,23 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
+
+// Плагин для копирования favicon.ico в корень dist
+const copyFaviconPlugin = () => {
+  return {
+    name: 'copy-favicon',
+    writeBundle() {
+      const faviconSource = path.resolve(__dirname, 'src/renderer/favicon.ico');
+      const faviconDest = path.resolve(__dirname, 'dist/favicon.ico');
+      
+      if (fs.existsSync(faviconSource)) {
+        fs.copyFileSync(faviconSource, faviconDest);
+        console.log('[vite] ✓ Скопирован favicon.ico в корень dist');
+      }
+    },
+  };
+};
 
 export default defineConfig({
   plugins: [
@@ -8,6 +25,7 @@ export default defineConfig({
       // Включаем поддержку React 18
       jsxRuntime: 'automatic',
     }),
+    copyFaviconPlugin(),
   ],
   base: './',
   root: path.resolve(__dirname, './src/renderer'),
