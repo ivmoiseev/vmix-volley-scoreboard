@@ -26,6 +26,14 @@
   - Удалена папка `build/` (заменена на использование `assets/`)
   - Упрощена конфигурация electron-builder
 
+- **Устаревшая документация**
+  - Удалены завершенные планы миграций: `es-modules-migration-plan.md`, `es-modules-migration-completed.md`
+  - Удалены устаревшие анализы: `jest-vs-alternatives-analysis.md`, `CHANGES_ANALYSIS.md`, `webpack-rollup-vs-current-approach.md`
+  - Удалены завершенные планы рефакторинга: `REFACTORING_LOGO_CACHE_PLAN.md`, `vmix-field-types-refactoring-plan.md`, `libero-background-fields-plan.md`, `set-status-and-timing-plan.md`, `score-and-set-status-refactoring-plan.md`
+  - Удалены устаревшие отчеты о тестировании: `TESTING_IMPLEMENTATION_STATUS.md`, `TESTING_IMPLEMENTATION_REPORT.md`, `TESTING_FINAL_REPORT.md`, `TESTING_FIXES_REPORT.md`, `TESTING_OUTPUT_FORMATS.md`
+  - Удалены дублирующиеся документы troubleshooting: `LOGO_DEBUG_LOGGING.md`, `LOGO_FIX_DEBUG_SUMMARY.md`, `LOGO_FIX_REPORT.md`, `logo-cleanup-and-vmix-force-update.md`, `logo-fixes-and-network-selection.md`
+  - Удалены устаревшие объяснения: `typescript-in-production-explanation.md`, `typescript-production-fix.md`
+
 ### Изменено
 
 - **Структура сборки**
@@ -37,17 +45,32 @@
   - Обновлены комментарии в `vite.config.js` (убран упоминание Jest)
   - Обновлен комментарий в `tests/setup.js` (добавлено уточнение о Vitest)
 
+- **Документация**
+  - Объединены 3 документа о проблемах с логотипами в один сводный документ `logo-issues-summary.md`
+  - Обновлены все README файлы в категориях документации для актуальной навигации
+  - Обновлен главный `docs/README.md` с упрощенной структурой
+  - Обновлен `QA_AUDIT_REPORT.md` с текущим состоянием проекта (2026-01-21)
+
 ### Технические детали
 
 - **Удаленные файлы:**
   - `jest.config.js` - конфигурация Jest
   - `build/icon.ico` - дубликат `assets/icon.ico`
   - Все файлы из корневых папок `services/`, `domain/`, `main/`, `shared/`, `types/`, `validators/`
+  - 18 устаревших документов из папки `docs/`
 
 - **Обновленные файлы:**
   - `package.json` - удалены зависимости Jest, обновлена конфигурация сборки
   - `scripts/prepare-icons.js` - упрощена логика, убрано копирование в `build/`
   - `vite.config.js` - обновлены комментарии
+  - `docs/README.md` - обновлена навигация по документации
+  - `docs/development/README.md` - обновлен список документов
+  - `docs/testing/README.md` - упрощен список документов
+  - `docs/troubleshooting/README.md` - обновлен список документов
+  - `docs/development/QA_AUDIT_REPORT.md` - обновлен с текущим состоянием проекта
+
+- **Созданные файлы:**
+  - `docs/troubleshooting/logo-issues-summary.md` - сводный документ о всех проблемах с логотипами
   - `tests/setup.js` - обновлен комментарий
 
 - **Новая документация:**

@@ -1,8 +1,14 @@
-# Исправления передачи логотипов и выбор сетевого интерфейса
+# Решение проблем с логотипами - Сводка
 
-## Проблемы, которые были решены
+*Последнее обновление: 2026-01-21*
 
-### 1. Логотипы не передавались в vMix через API команды
+## Обзор
+
+Этот документ описывает все проблемы с логотипами, которые были решены в проекте, и их решения.
+
+---
+
+## 1. Логотипы не передавались в vMix через API команды
 
 **Проблема:** После изменений в системе хранения логотипов (переход на `logoPath` и `logoBase64` вместо `logo`) функции формирования данных для vMix проверяли только поле `logo`, которое могло отсутствовать в объекте команды.
 
@@ -11,7 +17,12 @@
 - Теперь проверяются все возможные источники: `logo`, `logoPath`, `logoBase64`
 - Это обеспечивает корректное формирование URL для логотипов во всех случаях
 
-### 2. Неправильные пути для логотипов в функциях составов
+**Файлы:**
+- `src/renderer/hooks/useVMix.js`
+
+---
+
+## 2. Неправильные пути для логотипов в функциях составов
 
 **Проблема:** В функциях `getRosterFieldValue()` и `getStartingLineupFieldValue()` формировался двойной путь `/logos/logos/logo_a.png`, так как `logoBaseUrl` уже содержал `/logos`.
 
@@ -20,7 +31,12 @@
 - К нему добавляется только имя файла (`logo_a.png` или `logo_b.png`)
 - Результат: `http://[IP]:[PORT]/logos/logo_a.png` (корректный путь)
 
-### 3. Логотипы не сохранялись в файлы при обновлении матча
+**Файлы:**
+- `src/renderer/hooks/useVMix.js`
+
+---
+
+## 3. Логотипы не сохранялись в файлы при обновлении матча
 
 **Проблема:** Функция `processTeamLogoForSave()` проверяла только поле `logo` и не использовала `logoBase64`, поэтому при обновлении уже сохраненного матча логотипы не сохранялись в файлы.
 
@@ -28,7 +44,12 @@
 - Обновлена функция для проверки и `logo`, и `logoBase64`
 - Логотипы теперь всегда сохраняются в файлы при обновлении матча, независимо от источника данных
 
-### 4. Логотипы не работали в production сборке
+**Файлы:**
+- `src/main/logoManager.ts`
+
+---
+
+## 4. Логотипы не работали в production сборке
 
 **Проблема:** В production режиме папка `logos` находилась в `extraResources` (доступна только для чтения), что не позволяло сохранять и обновлять логотипы.
 
@@ -38,7 +59,13 @@
 - Сервер мобильного доступа обслуживает логотипы из `userData/logos/` в production режиме
 - Пути определяются динамически через `app.getPath('userData')` в production
 
-### 5. Проблема работы в разных подсетях
+**Файлы:**
+- `src/main/logoManager.ts`
+- `src/main/server.ts`
+
+---
+
+## 5. Проблема работы в разных подсетях
 
 **Проблема:** Компьютер может иметь несколько сетевых адаптеров (физических и виртуальных), и мобильный сервер мог запуститься на IP из одной подсети, а vMix находится в другой.
 
@@ -49,141 +76,75 @@
 - Мобильный сервер использует выбранный IP вместо автоматического определения
 - При изменении интерфейса требуется перезапуск сервера для применения изменений
 
+**Файлы:**
+- `src/main/server.ts`
+- `src/renderer/pages/MobileAccessPage.jsx`
+
+---
+
+## 6. Логотипы менялись местами после сохранения настроек
+
+**Проблема:** После нажатия "Поменять команды местами" и последующего сохранения настроек логотипы в vMix снова менялись местами, возвращаясь в исходное положение.
+
+**Решение:**
+- Обновление `logoPath` в матче после сохранения в `main.ts`
+- Использование обновленного матча с правильными `logoPath` при сохранении настроек
+- Правильное формирование URL логотипа на основе `teamKey` (не зависит от `logoPath`)
+
+**Файлы:**
+- `src/main/main.ts`
+- `src/renderer/pages/MatchSettingsPage.jsx`
+- `src/renderer/hooks/useVMix.js`
+
+---
+
+## 7. Очистка логотипов при открытии проекта без логотипов
+
+**Проблема:** При открытии проекта без логотипов после проекта с логотипами, логотипы из предыдущего проекта оставались в файлах `logo_a.png` и `logo_b.png` и могли сохраниться в новый проект при автосохранении.
+
+**Решение:**
+- Добавлена проверка наличия логотипов в исходном JSON до обработки
+- Если в открытом проекте нет логотипов, удаляются соответствующие файлы `logo_a.png` и `logo_b.png`
+- `processTeamLogoForLoad` возвращает команду с явно установленными `undefined` для всех полей логотипов при их отсутствии
+- При сохранении проекта без логотипов удаляются файлы и не устанавливается `logoPath`
+- При создании нового матча вызывается `clearLogosOnNewMatch()` для удаления файлов логотипов
+
+**Файлы:**
+- `src/main/fileManager.ts`
+- `src/main/logoManager.ts`
+- `src/main/main.ts`
+
+---
+
+## 8. Принудительное обновление vMix при открытии проекта
+
+**Проблема:** При открытии проекта из файла команды на обновление инпутов в vMix передавались только если поля в приложении не пустые. Это означало, что если в приложении пусто, данные в vMix не очищались.
+
+**Решение:**
+- Изменена проверка `hasFields` в функциях обновления для учета `forceUpdate`
+- При `forceUpdate=true` всегда отправляются команды, даже если все поля пустые
+- Изменены функции форматирования для отправки пустых полей при `forceUpdate=true`
+- Это позволяет очистить данные в vMix при открытии пустого проекта
+
+**Файлы:**
+- `src/renderer/hooks/useVMix.js`
+- `src/renderer/pages/MatchControlPage.jsx`
+
+---
+
 ## Технические детали
 
-### Изменения в `src/renderer/hooks/useVMix.js`
+### Пути к файлам в разных режимах
 
-#### `getLineupFieldValue()`:
-```javascript
-// Было:
-return logoBaseUrl && match.teamA?.logo ? `${logoBaseUrl}/logo_a.png` : "";
+**Dev режим:**
+- `logos/` - корень проекта (`__dirname/../../logos`)
+- `matches/` - корень проекта (`__dirname/../../matches`)
+- `settings.json` - `app.getPath('userData')/settings.json`
 
-// Стало:
-const hasLogoA = logoBaseUrl && (match.teamA?.logo || match.teamA?.logoPath || match.teamA?.logoBase64);
-return hasLogoA ? `${logoBaseUrl}/logo_a.png` : "";
-```
-
-#### `getRosterFieldValue()` и `getStartingLineupFieldValue()`:
-```javascript
-// Было:
-return logoBaseUrl && team?.logo ? `${logoBaseUrl}/logos/${logoFileName}` : "";
-
-// Стало:
-const hasLogo = logoBaseUrl && (team?.logo || team?.logoPath || team?.logoBase64);
-return hasLogo ? `${logoBaseUrl}/${logoFileName}` : ""; // logoBaseUrl уже содержит /logos
-```
-
-#### Исправление `logoBaseUrl`:
-- В `formatRosterData()`: `logoBaseUrl = http://${ip}:${port}/logos` (было без `/logos`)
-- В `formatStartingLineupData()`: `logoBaseUrl = http://${ip}:${port}/logos` (было без `/logos`)
-- В `formatLineupData()`: уже было правильно - `logoBaseUrl = http://${ip}:${port}/logos`
-
-### Изменения в `src/main/logoManager.js`
-
-#### `getLogosDir()`:
-```javascript
-// Было:
-if (process.resourcesPath) {
-  return path.join(process.resourcesPath, 'logos'); // read-only в production
-}
-
-// Стало:
-if (isPackaged) {
-  const userDataPath = app.getPath('userData');
-  return path.join(userDataPath, 'logos'); // writable в production
-}
-```
-
-#### `processTeamLogoForSave()`:
-```javascript
-// Теперь проверяет и logo, и logoBase64:
-let logoBase64 = null;
-if (team.logo) {
-  logoBase64 = team.logo;
-} else if (team.logoBase64) {
-  logoBase64 = team.logoBase64;
-}
-```
-
-#### Новые функции:
-- `migrateLogosFromExtraResources()` - миграция логотипов из extraResources в userData при первом запуске
-- `ensureLogosDir()` - теперь вызывает миграцию в production режиме
-
-### Изменения в `src/main/server.js`
-
-#### `getLogosPath()`:
-```javascript
-// Новая функция для определения пути к logos:
-getLogosPath() {
-  const isPackaged = app && app.isPackaged;
-  if (isPackaged) {
-    const userDataPath = app.getPath('userData');
-    return path.join(userDataPath, 'logos');
-  }
-  return path.join(__dirname, '../../logos');
-}
-```
-
-#### `getNetworkInterfaces()`:
-```javascript
-// Новая функция для получения списка всех сетевых интерфейсов:
-getNetworkInterfaces() {
-  // Возвращает массив объектов:
-  // { ip, name, interfaceName, isPrivate, isWireless, isVpn }
-  // Сортировка по приоритету: частный IP + Wi-Fi, затем частный IP, затем публичный
-}
-```
-
-#### `getLocalIP(selectedIP)`:
-```javascript
-// Обновлена функция для использования выбранного IP:
-getLocalIP(selectedIP = null) {
-  if (selectedIP) {
-    // Проверяем доступность выбранного IP и возвращаем его
-    const interfaces = this.getNetworkInterfaces();
-    const found = interfaces.find(iface => iface.ip === selectedIP);
-    if (found) return selectedIP;
-  }
-  // Иначе - автоматическое определение по приоритету
-}
-```
-
-### Изменения в `src/main/main.js`
-
-#### Новые IPC handlers:
-- `mobile:get-network-interfaces` - получение списка сетевых интерфейсов
-- `mobile:set-selected-ip` - сохранение выбранного IP адреса
-
-#### Инициализация logos:
-```javascript
-// При старте приложения:
-await logoManager.ensureLogosDir(); // Создает папку и выполняет миграцию
-```
-
-### Изменения в `src/main/settingsManager.js`
-
-#### Настройки мобильного сервера:
-```json
-{
-  "mobile": {
-    "enabled": false,
-    "port": 3000,
-    "sessionId": null,
-    "selectedIP": null  // Новое поле для выбранного IP
-  }
-}
-```
-
-### Изменения в `src/renderer/pages/MobileAccessPage.jsx`
-
-#### Новые элементы интерфейса:
-- Выпадающий список выбора сетевого интерфейса
-- Отображение имени интерфейса, IP адреса и типа (VPN/публичный)
-- Блокировка изменения при запущенном сервере
-- Автоматический выбор первого доступного интерфейса при загрузке
-- Сохранение выбора в настройки
-
-## Миграция данных
+**Production режим:**
+- `logos/` - `%APPDATA%/VolleyScore Master/logos/` (Windows) или `~/Library/Application Support/VolleyScore Master/logos/` (macOS)
+- `matches/` - `process.resourcesPath/matches/` (extraResources, read-only для чтения существующих файлов)
+- `settings.json` - `%APPDATA%/VolleyScore Master/settings.json` (userData, writable)
 
 ### Миграция логотипов из extraResources в userData
 
@@ -200,17 +161,7 @@ await logoManager.ensureLogosDir(); // Создает папку и выполн
 - При загрузке матча `logoPath` используется для определения пути к файлу
 - При сохранении матча `logoBase64` всегда сохраняется для портативности
 
-## Пути к файлам в разных режимах
-
-### Dev режим:
-- `logos/` - корень проекта (`__dirname/../../logos`)
-- `matches/` - корень проекта (`__dirname/../../matches`)
-- `settings.json` - корень проекта
-
-### Production режим:
-- `logos/` - `%APPDATA%/VolleyScore Master/logos/` (Windows) или `~/Library/Application Support/VolleyScore Master/logos/` (macOS)
-- `matches/` - `process.resourcesPath/matches/` (extraResources, read-only для чтения существующих файлов)
-- `settings.json` - `%APPDATA%/VolleyScore Master/settings.json` (userData, writable)
+---
 
 ## Использование выбора сетевого интерфейса
 
@@ -220,6 +171,8 @@ await logoManager.ensureLogosDir(); // Создает папку и выполн
 4. Выбранный IP сохранится в настройках автоматически
 5. Запустить сервер - он будет использовать выбранный IP
 6. При следующем запуске будет использоваться сохраненный выбор
+
+---
 
 ## Проверка работоспособности
 
@@ -231,6 +184,10 @@ await logoManager.ensureLogosDir(); // Создает папку и выполн
 5. ✅ Обслуживаться HTTP сервером из правильной папки (`userData/logos/` в production)
 6. ✅ Использовать выбранный сетевой интерфейс для формирования URL
 7. ✅ Работать в разных подсетях (сервер и vMix в разных подсетях)
+8. ✅ Корректно очищаться при открытии проекта без логотипов
+9. ✅ Корректно обновляться в vMix при открытии проекта
+
+---
 
 ## Отладка
 
@@ -244,3 +201,8 @@ await logoManager.ensureLogosDir(); // Создает папку и выполн
 - В настройках (`settings.json`) сохраняется `mobile.selectedIP`
 - В консоли сервера логируется используемый IP при запуске
 
+---
+
+**Связанные документы:**
+- [Архитектура проекта](../architecture/ARCHITECTURE.md)
+- [API vMix](../api/vmix-api-reference.md)
