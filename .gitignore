@@ -161,6 +161,7 @@ matches/*.json
 !matches/.gitkeep
 logos/*
 !logos/.gitkeep
+release-notes.txt
 
 # Test coverage
 coverage/

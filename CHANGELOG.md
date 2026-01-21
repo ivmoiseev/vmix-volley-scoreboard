@@ -7,74 +7,56 @@
 
 ## [Unreleased]
 
-### Удалено
+## [1.0.7] - 2026-01-21
 
-- **Jest и связанные зависимости**
-  - Удален `jest` и все связанные пакеты (`jest-environment-jsdom`, `jest-junit`, `babel-jest`, `ts-jest`, `@types/jest`)
-  - Удален файл `jest.config.js`
-  - Проект полностью использует Vitest для тестирования
+### Добавлено
 
-- **Дублирующиеся корневые папки**
-  - Удалена папка `services/` (дубликат `src/shared/services/`)
-  - Удалена папка `domain/` (дубликат `src/shared/domain/`)
-  - Удалена папка `main/` (дубликат `src/main/`)
-  - Удалена папка `shared/` (дубликат `src/shared/`)
-  - Удалена папка `types/` (дубликат `src/shared/types/`)
-  - Удалена папка `validators/` (дубликат `src/shared/validators/`)
+- **Система автоматических обновлений**
+  - Реализована автоматическая проверка обновлений при запуске приложения
+  - Интеграция с GitHub Releases через `electron-updater`
+  - Возможность отключения автоматических обновлений через настройки
+  - Ручная проверка обновлений на странице "О программе"
+  - Автоматическое извлечение release notes из CHANGELOG.md при публикации
 
-- **Папка build для ресурсов сборки**
-  - Удалена папка `build/` (заменена на использование `assets/`)
-  - Упрощена конфигурация electron-builder
+- **Настройки автоматических обновлений**
+  - Переключатель "Автоматическая проверка при запуске" на странице "О программе"
+  - Сохранение настроек в `settings.json`
+  - Отображение статуса обновлений (проверка, доступно, загрузка, установлено)
 
-- **Устаревшая документация**
-  - Удалены завершенные планы миграций: `es-modules-migration-plan.md`, `es-modules-migration-completed.md`
-  - Удалены устаревшие анализы: `jest-vs-alternatives-analysis.md`, `CHANGES_ANALYSIS.md`, `webpack-rollup-vs-current-approach.md`
-  - Удалены завершенные планы рефакторинга: `REFACTORING_LOGO_CACHE_PLAN.md`, `vmix-field-types-refactoring-plan.md`, `libero-background-fields-plan.md`, `set-status-and-timing-plan.md`, `score-and-set-status-refactoring-plan.md`
-  - Удалены устаревшие отчеты о тестировании: `TESTING_IMPLEMENTATION_STATUS.md`, `TESTING_IMPLEMENTATION_REPORT.md`, `TESTING_FINAL_REPORT.md`, `TESTING_FIXES_REPORT.md`, `TESTING_OUTPUT_FORMATS.md`
-  - Удалены дублирующиеся документы troubleshooting: `LOGO_DEBUG_LOGGING.md`, `LOGO_FIX_DEBUG_SUMMARY.md`, `LOGO_FIX_REPORT.md`, `logo-cleanup-and-vmix-force-update.md`, `logo-fixes-and-network-selection.md`
-  - Удалены устаревшие объяснения: `typescript-in-production-explanation.md`, `typescript-production-fix.md`
+- **Публикация релизов**
+  - Скрипт `build:electron:publish` для автоматической публикации на GitHub
+  - Автоматическое создание файла `latest.yml` для работы обновлений
+  - Интеграция с `dotenv-cli` для безопасного хранения GitHub токена
+  - Автоматическое извлечение release notes из CHANGELOG.md
 
 ### Изменено
 
-- **Структура сборки**
-  - `buildResources` теперь указывает на `assets/` вместо `build/`
-  - Пути к иконкам обновлены для использования `assets/` как `buildResources`
-  - Упрощен скрипт `prepare-icons.js` (убрано копирование в `build/`)
-
-- **Конфигурация тестирования**
-  - Обновлены комментарии в `vite.config.js` (убран упоминание Jest)
-  - Обновлен комментарий в `tests/setup.js` (добавлено уточнение о Vitest)
+- **Конфигурация electron-builder**
+  - Добавлена конфигурация для публикации на GitHub Releases
+  - Настроен автоматический экспорт release notes из CHANGELOG.md
 
 - **Документация**
-  - Объединены 3 документа о проблемах с логотипами в один сводный документ `logo-issues-summary.md`
-  - Обновлены все README файлы в категориях документации для актуальной навигации
-  - Обновлен главный `docs/README.md` с упрощенной структурой
-  - Обновлен `QA_AUDIT_REPORT.md` с текущим состоянием проекта (2026-01-21)
+  - Добавлено руководство `docs/development/auto-updates-setup.md` по настройке автоматических обновлений
+  - Обновлена документация с инструкциями по публикации релизов
 
 ### Технические детали
 
-- **Удаленные файлы:**
-  - `jest.config.js` - конфигурация Jest
-  - `build/icon.ico` - дубликат `assets/icon.ico`
-  - Все файлы из корневых папок `services/`, `domain/`, `main/`, `shared/`, `types/`, `validators/`
-  - 18 устаревших документов из папки `docs/`
+- **Новые зависимости:**
+  - `electron-updater` (перемещен в `dependencies` для production)
+  - `dotenv-cli` (для загрузки переменных окружения из `.env`)
+
+- **Новые файлы:**
+  - `src/main/updater.ts` - модуль управления обновлениями
+  - `scripts/extract-release-notes.js` - скрипт извлечения release notes из CHANGELOG.md
+  - `docs/development/auto-updates-setup.md` - документация по автоматическим обновлениям
+  - `.env` - файл для хранения GitHub токена (в `.gitignore`)
 
 - **Обновленные файлы:**
-  - `package.json` - удалены зависимости Jest, обновлена конфигурация сборки
-  - `scripts/prepare-icons.js` - упрощена логика, убрано копирование в `build/`
-  - `vite.config.js` - обновлены комментарии
-  - `docs/README.md` - обновлена навигация по документации
-  - `docs/development/README.md` - обновлен список документов
-  - `docs/testing/README.md` - упрощен список документов
-  - `docs/troubleshooting/README.md` - обновлен список документов
-  - `docs/development/QA_AUDIT_REPORT.md` - обновлен с текущим состоянием проекта
-
-- **Созданные файлы:**
-  - `docs/troubleshooting/logo-issues-summary.md` - сводный документ о всех проблемах с логотипами
-  - `tests/setup.js` - обновлен комментарий
-
-- **Новая документация:**
-  - `docs/development/project-structure-cleanup.md` - описание всех изменений по очистке структуры проекта
+  - `src/main/main.ts` - добавлена инициализация системы обновлений
+  - `src/main/preload.cjs` - добавлены IPC каналы для обновлений
+  - `src/main/settingsManager.ts` - добавлены настройки автоматических обновлений
+  - `src/renderer/pages/AboutPage.jsx` - добавлен UI для управления обновлениями
+  - `package.json` - добавлены скрипты для публикации и извлечения release notes
 
 ## [1.0.6] - 2026-01-20
 

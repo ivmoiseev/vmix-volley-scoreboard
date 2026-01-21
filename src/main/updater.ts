@@ -99,6 +99,27 @@ function setupUpdaterEventHandlers() {
 
   // Ошибка при проверке обновлений
   autoUpdater.on("error", (error) => {
+    // Проверяем, является ли ошибка отсутствием latest.yml (404)
+    // Это нормально, если релиз был создан вручную без electron-builder --publish
+    const isMissingLatestYml = 
+      error.message?.includes("latest.yml") || 
+      error.message?.includes("404") ||
+      error.code === "ERR_HTTP_RESPONSE_CODE_FAILURE";
+    
+    if (isMissingLatestYml) {
+      console.log(
+        "[Updater] Файл latest.yml не найден. Это нормально, если релиз был создан вручную. " +
+        "Для автоматических обновлений используйте 'electron-builder --publish always' при публикации релиза."
+      );
+      // Не отправляем ошибку в UI, так как это не критическая проблема
+      // Пользователь может проверить обновления вручную через GitHub Releases
+      sendUpdateStatusToRenderer("not-available", {
+        version: null,
+        message: "Автоматическая проверка обновлений недоступна. Проверьте обновления вручную на GitHub.",
+      });
+      return;
+    }
+    
     console.error("[Updater] Ошибка при проверке обновлений:", error);
     sendUpdateStatusToRenderer("error", {
       message: error.message,
@@ -233,6 +254,24 @@ export async function checkForUpdates() {
 
   console.log("[Updater] Запуск проверки обновлений...");
   autoUpdater.checkForUpdates().catch((error) => {
+    // Проверяем, является ли ошибка отсутствием latest.yml (404)
+    const isMissingLatestYml = 
+      error.message?.includes("latest.yml") || 
+      error.message?.includes("404") ||
+      error.code === "ERR_HTTP_RESPONSE_CODE_FAILURE";
+    
+    if (isMissingLatestYml) {
+      console.log(
+        "[Updater] Файл latest.yml не найден. Это нормально, если релиз был создан вручную. " +
+        "Для автоматических обновлений используйте 'electron-builder --publish always' при публикации релиза."
+      );
+      sendUpdateStatusToRenderer("not-available", {
+        version: null,
+        message: "Автоматическая проверка обновлений недоступна. Проверьте обновления вручную на GitHub.",
+      });
+      return;
+    }
+    
     console.error("[Updater] Ошибка при проверке обновлений:", error);
     sendUpdateStatusToRenderer("error", {
       message: error.message,

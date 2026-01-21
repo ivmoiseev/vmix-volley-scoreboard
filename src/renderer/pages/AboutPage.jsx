@@ -259,9 +259,30 @@ function AboutPage() {
           )}
           
           {updateStatus === 'not-available' && (
-            <p style={{ color: '#7f8c8d' }}>
-              У вас установлена последняя версия приложения
-            </p>
+            <div>
+              {updateData?.message ? (
+                <div>
+                  <p style={{ color: '#f39c12', fontWeight: 'bold' }}>
+                    {updateData.message}
+                  </p>
+                  <p style={{ fontSize: '0.9rem', color: '#7f8c8d', marginTop: '0.5rem' }}>
+                    Вы можете проверить наличие обновлений на{' '}
+                    <a 
+                      href="https://github.com/ivmoiseev/vmix-volley-scoreboard/releases" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{ color: '#3498db' }}
+                    >
+                      странице релизов GitHub
+                    </a>
+                  </p>
+                </div>
+              ) : (
+                <p style={{ color: '#7f8c8d' }}>
+                  У вас установлена последняя версия приложения
+                </p>
+              )}
+            </div>
           )}
           
           {updateStatus === 'error' && updateData && (

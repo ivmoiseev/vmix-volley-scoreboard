@@ -1,3 +1,11 @@
+fix: исправление ошибки с electron-updater в production сборке
+
+Исправление ошибки "Cannot find package 'electron-updater'":
+- Перемещен electron-updater из devDependencies в dependencies
+- electron-builder не включает devDependencies в production сборку
+- Пакет теперь корректно доступен в ASAR архиве
+- Добавлена документация по решению проблемы
+
 refactor(docs): рефакторинг документации - удаление устаревших документов и объединение дубликатов
 
 Рефакторинг документации:
