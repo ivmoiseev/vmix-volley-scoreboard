@@ -49,11 +49,12 @@ web_modules/
 *.tsbuildinfo
 
 # Compiled TypeScript files (generated from .ts files during build)
-# Note: We only ignore .js files that have corresponding .ts files
-# Existing .js files in src/main (like main.js, fileManager.js, etc.) are still tracked
+# Note: После миграции на Vite все .ts файлы обрабатываются напрямую, 
+# скомпилированные .js файлы больше не создаются рядом с исходниками
+# Игнорируем только скомпилированные файлы из shared (если они еще есть)
 src/shared/**/*.js
-src/main/server/**/*.js
-src/main/**/*.ts.js
+# Игнорируем временные файлы компиляции (если есть)
+src/**/*.ts.js
 
 # Optional npm cache directory
 .npm

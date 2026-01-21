@@ -3,8 +3,8 @@
  * Тестирование API контроллера и синхронизации
  */
 
-import { describe, it, expect, beforeEach } from '@jest/globals';
-import { MatchApiController } from '../../src/main/server/api/MatchApiController.js';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { MatchApiController } from '../../src/main/server/api/MatchApiController.ts';
 import { SetService } from '../../src/shared/services/SetService.ts';
 import { ScoreService } from '../../src/shared/services/ScoreService.ts';
 import { HistoryService } from '../../src/shared/services/HistoryService.ts';

@@ -2,20 +2,21 @@
  * Тесты для функций управления статусами партий в useMatch
  */
 
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SET_STATUS } from '../../../src/shared/types/Match.ts';
 import { calculateDuration } from '../../../src/shared/timeUtils.js';
 import { canFinishSet, getSetWinner } from '../../../src/shared/volleyballRules.js';
 
 // Мокируем зависимости
-jest.mock('../../../src/shared/volleyballRules.js', () => ({
-  canFinishSet: jest.fn(),
-  getSetWinner: jest.fn(),
-  isSetball: jest.fn(),
-  isMatchball: jest.fn(),
+vi.mock('../../../src/shared/volleyballRules.js', () => ({
+  canFinishSet: vi.fn(),
+  getSetWinner: vi.fn(),
+  isSetball: vi.fn(),
+  isMatchball: vi.fn(),
 }));
 
-jest.mock('../../../src/shared/timeUtils.js', () => ({
-  calculateDuration: jest.fn(),
+vi.mock('../../../src/shared/timeUtils.js', () => ({
+  calculateDuration: vi.fn(),
 }));
 
 describe('useMatch - Set Status Functions', () => {
@@ -39,7 +40,7 @@ describe('useMatch - Set Status Functions', () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     // Настройка моков по умолчанию
     canFinishSet.mockReturnValue(true);
     getSetWinner.mockReturnValue('A');

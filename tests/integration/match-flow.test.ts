@@ -3,7 +3,7 @@
  * Тестирование полного цикла работы с матчем через Service Layer
  */
 
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SetService } from '../../src/shared/services/SetService.ts';
 import { ScoreService } from '../../src/shared/services/ScoreService.ts';
 import { HistoryService } from '../../src/shared/services/HistoryService.ts';

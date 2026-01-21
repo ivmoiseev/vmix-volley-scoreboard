@@ -6,7 +6,7 @@
  * ВАЖНО: Эти тесты проверяют логику формирования URL, а не реальные HTTP запросы
  */
 
-import { jest, describe, test, expect } from '@jest/globals';
+import { describe, test, expect, vi } from 'vitest';
 
 describe('VMixClient - Logo API Tests', () => {
 

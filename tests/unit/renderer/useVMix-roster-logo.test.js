@@ -3,11 +3,13 @@
  * после смены команд местами и сохранения настроек
  */
 
+import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
+
 describe('useVMix - Roster Logo Tests', () => {
   // Моки для window.electronAPI
   const mockElectronAPI = {
-    getMobileServerInfo: jest.fn(),
-    updateVMixInputFields: jest.fn(),
+    getMobileServerInfo: vi.fn(),
+    updateVMixInputFields: vi.fn(),
   };
 
   beforeEach(() => {
@@ -22,7 +24,7 @@ describe('useVMix - Roster Logo Tests', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('getRosterFieldValue - teamLogo', () => {

@@ -2,14 +2,16 @@
  * Тесты для компонента SetEditModal
  */
 
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SetEditModal from '../../../src/renderer/components/SetEditModal.jsx';
 import { SET_STATUS } from '../../../src/shared/types/Match.ts';
 
 // Мокируем утилиты времени
-jest.mock('../../../src/shared/timeUtils.js', () => ({
-  formatTimestamp: jest.fn((timestamp, timezone) => {
+// ВАЖНО: vi.mock() hoisted наверх, поэтому все должно быть определено внутри factory
+vi.mock('../../../src/shared/timeUtils.js', () => ({
+  formatTimestamp: vi.fn((timestamp, timezone) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
     const options = {
@@ -24,17 +26,23 @@ jest.mock('../../../src/shared/timeUtils.js', () => ({
     }
     return date.toLocaleString('ru-RU', options);
   }),
-  calculateDuration: jest.fn((startTime, endTime) => {
+  calculateDuration: vi.fn((startTime, endTime) => {
     if (!startTime || !endTime) return null;
     return Math.round((endTime - startTime) / 60000);
   }),
-  formatDuration: jest.fn((minutes) => minutes !== null && minutes !== undefined ? `${minutes}'` : ''),
+  formatDuration: vi.fn((minutes) => minutes !== null && minutes !== undefined ? `${minutes}'` : ''),
 }));
+
+// Импортируем моки после определения vi.mock
+import * as timeUtils from '../../../src/shared/timeUtils.js';
+const mockFormatTimestamp = vi.mocked(timeUtils.formatTimestamp);
+const mockCalculateDuration = vi.mocked(timeUtils.calculateDuration);
+const mockFormatDuration = vi.mocked(timeUtils.formatDuration);
 
 describe('SetEditModal', () => {
   const defaultProps = {
     isOpen: true,
-    onClose: jest.fn(),
+    onClose: vi.fn(),
     set: {
       setNumber: 1,
       scoreA: 25,
@@ -45,11 +53,11 @@ describe('SetEditModal', () => {
       duration: 45,
     },
     isCurrentSet: false,
-    onSave: jest.fn(() => true),
+    onSave: vi.fn(() => true),
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('не должен отображаться, если isOpen=false', () => {
@@ -242,17 +250,16 @@ describe('SetEditModal', () => {
   });
 
   it('должен вычислять и отображать продолжительность', () => {
-    const { calculateDuration } = require('../../../src/shared/timeUtils.js');
-    calculateDuration.mockReturnValue(45);
+    mockCalculateDuration.mockReturnValue(45);
 
     render(<SetEditModal {...defaultProps} />);
 
     // Продолжительность должна отображаться
-    expect(calculateDuration).toHaveBeenCalled();
+    expect(mockCalculateDuration).toHaveBeenCalled();
   });
 
   it('должен вызывать onSave при нажатии на кнопку "Сохранить"', () => {
-    const onSave = jest.fn(() => true);
+    const onSave = vi.fn(() => true);
     render(<SetEditModal {...defaultProps} onSave={onSave} />);
 
     const saveButton = screen.getByText(/Сохранить/i);
@@ -262,8 +269,8 @@ describe('SetEditModal', () => {
   });
 
   it('должен вызывать onClose после успешного сохранения', () => {
-    const onClose = jest.fn();
-    const onSave = jest.fn(() => true);
+    const onClose = vi.fn();
+    const onSave = vi.fn(() => true);
     render(<SetEditModal {...defaultProps} onClose={onClose} onSave={onSave} />);
 
     const saveButton = screen.getByText(/Сохранить/i);
@@ -274,8 +281,8 @@ describe('SetEditModal', () => {
   });
 
   it('не должен вызывать onClose, если onSave вернул false', () => {
-    const onClose = jest.fn();
-    const onSave = jest.fn(() => false);
+    const onClose = vi.fn();
+    const onSave = vi.fn(() => false);
     render(<SetEditModal {...defaultProps} onClose={onClose} onSave={onSave} />);
 
     const saveButton = screen.getByText(/Сохранить/i);
@@ -286,7 +293,7 @@ describe('SetEditModal', () => {
   });
 
   it('должен вызывать onClose при нажатии на кнопку "Отмена"', () => {
-    const onClose = jest.fn();
+    const onClose = vi.fn();
     render(<SetEditModal {...defaultProps} onClose={onClose} />);
 
     const cancelButton = screen.getByText(/Отмена/i);
@@ -296,7 +303,7 @@ describe('SetEditModal', () => {
   });
 
   it('должен передавать обновленные данные в onSave', () => {
-    const onSave = jest.fn(() => true);
+    const onSave = vi.fn(() => true);
     render(<SetEditModal {...defaultProps} onSave={onSave} />);
 
     const scoreAInput = screen.getByDisplayValue('25');
@@ -337,7 +344,7 @@ describe('SetEditModal', () => {
     };
 
     // Симулируем ошибку валидации через onSave
-    const onSave = jest.fn(() => {
+    const onSave = vi.fn(() => {
       // В реальном компоненте ошибки устанавливаются через setErrors
       return false;
     });
@@ -439,31 +446,29 @@ describe('SetEditModal', () => {
   });
 
   it('должен использовать timezone при форматировании времени', () => {
-    const { formatTimestamp } = require('../../../src/shared/timeUtils.js');
-    formatTimestamp.mockClear();
+    mockFormatTimestamp.mockClear();
 
     const timezone = 'Europe/Moscow';
     render(<SetEditModal {...defaultProps} timezone={timezone} />);
 
     // Проверяем, что formatTimestamp вызывается с timezone
-    expect(formatTimestamp).toHaveBeenCalledWith(
+    expect(mockFormatTimestamp).toHaveBeenCalledWith(
       expect.any(Number),
       timezone
     );
   });
 
   it('должен работать без timezone', () => {
-    const { formatTimestamp } = require('../../../src/shared/timeUtils.js');
-    formatTimestamp.mockClear();
+    mockFormatTimestamp.mockClear();
 
     render(<SetEditModal {...defaultProps} />);
 
     // Проверяем, что formatTimestamp вызывается без timezone (undefined)
-    expect(formatTimestamp).toHaveBeenCalled();
+    expect(mockFormatTimestamp).toHaveBeenCalled();
   });
 
   it('должен удалять startTime и endTime при изменении статуса на pending', () => {
-    const onSave = jest.fn(() => true);
+    const onSave = vi.fn(() => true);
     const setInProgress = {
       setNumber: 1,
       scoreA: 15,
@@ -493,7 +498,7 @@ describe('SetEditModal', () => {
   });
 
   it('должен удалять endTime при изменении статуса завершенной партии на in_progress', () => {
-    const onSave = jest.fn(() => true);
+    const onSave = vi.fn(() => true);
     const setCompleted = {
       setNumber: 1,
       scoreA: 25,
@@ -524,7 +529,7 @@ describe('SetEditModal', () => {
   });
 
   it('должен сохранять startTime и endTime при статусе completed', () => {
-    const onSave = jest.fn(() => true);
+    const onSave = vi.fn(() => true);
     const setCompleted = {
       setNumber: 1,
       scoreA: 25,
@@ -551,7 +556,7 @@ describe('SetEditModal', () => {
   });
 
   it('должен сохранять startTime при статусе in_progress', () => {
-    const onSave = jest.fn(() => true);
+    const onSave = vi.fn(() => true);
     const setInProgress = {
       setNumber: 1,
       scoreA: 15,

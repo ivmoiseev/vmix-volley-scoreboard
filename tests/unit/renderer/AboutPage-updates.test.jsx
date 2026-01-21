@@ -3,7 +3,7 @@
  * @src/renderer/pages/AboutPage.jsx
  */
 
-import { jest, describe, test, beforeEach, expect } from '@jest/globals';
+import { describe, test, beforeEach, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AboutPage from '../../../src/renderer/pages/AboutPage.jsx';
@@ -11,26 +11,26 @@ import AboutPage from '../../../src/renderer/pages/AboutPage.jsx';
 describe('AboutPage - Updates Functionality', () => {
   beforeEach(() => {
     // Сбрасываем моки перед каждым тестом
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Настраиваем моки для electronAPI
     global.window.electronAPI = {
-      getVersion: jest.fn(() => Promise.resolve('1.0.6')),
-      checkForUpdates: jest.fn(() => Promise.resolve({ success: true })),
-      downloadUpdate: jest.fn(() => Promise.resolve({ success: true })),
-      installUpdate: jest.fn(() => Promise.resolve({ success: true })),
-      getAutoUpdateSettings: jest.fn(() =>
+      getVersion: vi.fn(() => Promise.resolve('1.0.6')),
+      checkForUpdates: vi.fn(() => Promise.resolve({ success: true })),
+      downloadUpdate: vi.fn(() => Promise.resolve({ success: true })),
+      installUpdate: vi.fn(() => Promise.resolve({ success: true })),
+      getAutoUpdateSettings: vi.fn(() =>
         Promise.resolve({ success: true, enabled: true })
       ),
-      setAutoUpdateSettings: jest.fn(() =>
+      setAutoUpdateSettings: vi.fn(() =>
         Promise.resolve({ success: true })
       ),
-      onUpdateStatus: jest.fn((callback) => {
+      onUpdateStatus: vi.fn((callback) => {
         // Сохраняем callback для последующего вызова
         global.updateStatusCallback = callback;
         return () => {}; // Возвращаем cleanup функцию
       }),
-      onAutoUpdateSettingsChanged: jest.fn((callback) => {
+      onAutoUpdateSettingsChanged: vi.fn((callback) => {
         global.autoUpdateSettingsCallback = callback;
         return () => {};
       }),
@@ -270,7 +270,7 @@ describe('AboutPage - Updates Functionality', () => {
   });
 
   test('должен отображать сообщение когда автообновления отключены', async () => {
-    global.window.electronAPI.getAutoUpdateSettings = jest.fn(() =>
+    global.window.electronAPI.getAutoUpdateSettings = vi.fn(() =>
       Promise.resolve({ success: true, enabled: false })
     );
     

@@ -6,7 +6,7 @@
  * структуру данных и события, но не выполняют реальные операции с electron-updater
  */
 
-import { jest, describe, test, beforeEach, afterEach, expect } from '@jest/globals';
+import { describe, test, beforeEach, afterEach, expect, vi } from 'vitest';
 
 describe('Updater Module - Logic Tests', () => {
   describe('Конфигурация autoUpdater', () => {
@@ -66,7 +66,7 @@ describe('Updater Module - Logic Tests', () => {
   describe('Методы autoUpdater', () => {
     test('должен поддерживать метод checkForUpdates', () => {
       // Проверяем, что метод должен возвращать Promise
-      const mockCheckForUpdates = jest.fn(() => Promise.resolve());
+      const mockCheckForUpdates = vi.fn(() => Promise.resolve());
       const result = mockCheckForUpdates();
       
       expect(mockCheckForUpdates).toHaveBeenCalled();
@@ -74,7 +74,7 @@ describe('Updater Module - Logic Tests', () => {
     });
 
     test('должен поддерживать метод downloadUpdate', () => {
-      const mockDownloadUpdate = jest.fn(() => Promise.resolve());
+      const mockDownloadUpdate = vi.fn(() => Promise.resolve());
       const result = mockDownloadUpdate();
       
       expect(mockDownloadUpdate).toHaveBeenCalled();
@@ -82,7 +82,7 @@ describe('Updater Module - Logic Tests', () => {
     });
 
     test('должен поддерживать метод quitAndInstall', () => {
-      const mockQuitAndInstall = jest.fn();
+      const mockQuitAndInstall = vi.fn();
       mockQuitAndInstall(false, true);
       
       expect(mockQuitAndInstall).toHaveBeenCalledWith(false, true);

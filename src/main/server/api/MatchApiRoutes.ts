@@ -4,8 +4,8 @@
  */
 
 import type { Express, Request, Response } from 'express';
-import { MatchApiController } from './MatchApiController.js';
-import type { Match } from '../../../shared/types/Match.js';
+import { MatchApiController } from './MatchApiController.ts';
+import type { Match } from '../../../shared/types/Match.ts';
 
 /**
  * Интерфейс для сервера с методами валидации сессии и управления матчем

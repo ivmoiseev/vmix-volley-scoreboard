@@ -1,4 +1,4 @@
-import * as settingsManager from './settingsManager.js';
+import * as settingsManager from './settingsManager.ts';
 
 /**
  * Получает настройки vMix

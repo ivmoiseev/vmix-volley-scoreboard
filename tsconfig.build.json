@@ -20,11 +20,8 @@
     "allowJs": false
   },
   "include": [
-    "src/shared/services/*.ts",
-    "src/shared/domain/*.ts",
-    "src/shared/validators/*.ts",
-    "src/shared/types/*.ts",
-    "src/main/server/api/*.ts",
+    // src/shared/*.ts - больше не компилируем, собирается через Vite для main процесса
+    // src/main/server/api/*.ts - больше не компилируем, собирается через Vite
     "src/renderer/hooks/useMatch.ts"
   ],
   "exclude": [

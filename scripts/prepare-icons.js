@@ -14,31 +14,21 @@ const __dirname = dirname(__filename);
 const rootDir = path.join(__dirname, '..');
 const faviconSource = path.join(rootDir, 'src/renderer/favicon.ico');
 const assetsDir = path.join(rootDir, 'assets');
-const buildDir = path.join(rootDir, 'build');
 const iconIcoDest = path.join(assetsDir, 'icon.ico');
 const iconPngDest = path.join(assetsDir, 'icon.png');
-const buildIconIcoDest = path.join(buildDir, 'icon.ico');
 
 console.log('[prepare-icons] Подготовка иконок для сборки...');
 
-// Создаем папки assets и build, если их нет
+// Создаем папку assets, если её нет
 if (!fs.existsSync(assetsDir)) {
   fs.mkdirSync(assetsDir, { recursive: true });
   console.log('[prepare-icons] ✓ Создана папка assets');
 }
-if (!fs.existsSync(buildDir)) {
-  fs.mkdirSync(buildDir, { recursive: true });
-  console.log('[prepare-icons] ✓ Создана папка build');
-}
 
-// Копируем favicon.ico в assets/icon.ico и build/icon.ico
+// Копируем favicon.ico в assets/icon.ico
 if (fs.existsSync(faviconSource)) {
   fs.copyFileSync(faviconSource, iconIcoDest);
   console.log('[prepare-icons] ✓ Скопирован favicon.ico → assets/icon.ico');
-  
-  // Также копируем в build/ для electron-builder (buildResources)
-  fs.copyFileSync(faviconSource, buildIconIcoDest);
-  console.log('[prepare-icons] ✓ Скопирован favicon.ico → build/icon.ico');
   
   // Также копируем как icon.png (для macOS и Linux, если нужен PNG)
   // Если favicon.ico содержит несколько размеров, это будет работать

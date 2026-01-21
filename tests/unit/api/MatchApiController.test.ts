@@ -2,7 +2,7 @@
  * Тесты для MatchApiController
  */
 
-import { MatchApiController } from '../../../src/main/server/api/MatchApiController.js';
+import { MatchApiController } from '../../../src/main/server/api/MatchApiController.ts';
 import { SET_STATUS } from '../../../src/shared/types/Match.ts';
 import type { Match } from '../../../src/shared/types/Match.ts';
 import { HistoryService } from '../../../src/shared/services/HistoryService.ts';

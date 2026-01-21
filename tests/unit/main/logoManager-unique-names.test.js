@@ -9,19 +9,19 @@
  * 4. Удаление старых файлов
  */
 
-import { jest, describe, test, beforeEach, afterEach, expect } from '@jest/globals';
+import { describe, test, beforeEach, afterEach, expect, vi } from 'vitest';
 import path from 'path';
 import { promises as fs } from 'fs';
 
-// Используем mockPath для доступа внутри jest.mock() (Jest требует префикс mock для переменных в моках)
+// Используем mockPath для доступа внутри vi.mock() (Vitest требует префикс mock для переменных в моках)
 const mockPath = path;
 
 // Моки для Electron
-jest.mock('electron', () => {
+vi.mock('electron', () => {
   return {
     app: {
       isPackaged: false,
-      getPath: jest.fn((name) => {
+      getPath: vi.fn((name) => {
         // Используем process.cwd() для получения корневой директории проекта
         return mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
       }),
@@ -29,96 +29,103 @@ jest.mock('electron', () => {
   };
 });
 
-// Моки для server.js чтобы избежать проблем с uuid
-jest.mock('../../../src/main/server.js', () => ({}));
+// Моки для server.ts чтобы избежать проблем с uuid
+vi.mock('../../../src/main/server.ts', () => ({}));
 
-// Мокируем logoManager, чтобы избежать проблем с import.meta
-jest.mock('../../../src/main/logoManager.js', () => {
-  // Используем встроенные модули Node.js напрямую
-  const { app } = require('electron');
-  const fs = require('fs').promises;
-  
-  // Мокируем функции logoManager
+// Мокируем pathUtils для тестов
+vi.mock('../../../src/main/utils/pathUtils.ts', async (importOriginal) => {
+  const actual = await importOriginal();
   return {
-    default: {
-      getLogosDir: jest.fn(() => {
-        return mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
-      }),
-      saveLogoToFile: jest.fn(async (base64Logo, teamKey) => {
-        const logosDir = mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
-        await fs.mkdir(logosDir, { recursive: true });
-        
+    ...actual,
+    getLogosDir: vi.fn(() => {
+      return mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
+    }),
+  };
+});
+
+// Мокируем logoManager, используя importOriginal для частичного мока
+vi.mock('../../../src/main/logoManager.ts', async (importOriginal) => {
+  const actual = await importOriginal();
+  const fs = await import('fs/promises');
+  
+  return {
+    ...actual,
+    saveLogoToFile: vi.fn(async (base64Logo, teamKey) => {
+      const logosDir = mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
+      await fs.mkdir(logosDir, { recursive: true });
+      
+      const timestamp = Date.now();
+      const fileName = `logo_${teamKey.toLowerCase()}_${timestamp}.png`;
+      const filePath = mockPath.join(logosDir, fileName);
+      
+      // Извлекаем base64 данные из data URL
+      const base64Data = base64Logo.split(',')[1] || base64Logo;
+      const buffer = Buffer.from(base64Data, 'base64');
+      await fs.writeFile(filePath, buffer);
+      
+      return `logos/${fileName}`;
+    }),
+    cleanupLogosDirectory: vi.fn(async () => {
+      const logosDir = mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
+      try {
+        const files = await fs.readdir(logosDir);
+        for (const file of files) {
+          if (file.startsWith('logo_') && file.endsWith('.png')) {
+            await fs.unlink(mockPath.join(logosDir, file));
+          }
+        }
+      } catch (error) {
+        // Игнорируем ошибки
+      }
+    }),
+    processTeamLogoForSave: vi.fn(async (team, teamKey) => {
+      const logosDir = mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
+      await fs.mkdir(logosDir, { recursive: true });
+      
+      // Очищаем только файлы для текущей команды перед сохранением
+      try {
+        const files = await fs.readdir(logosDir);
+        for (const file of files) {
+          if (file.startsWith(`logo_${teamKey.toLowerCase()}_`) && file.endsWith('.png')) {
+            await fs.unlink(mockPath.join(logosDir, file));
+          }
+        }
+      } catch (error) {
+        // Игнорируем ошибки
+      }
+      
+      if (team.logoBase64) {
         const timestamp = Date.now();
         const fileName = `logo_${teamKey.toLowerCase()}_${timestamp}.png`;
         const filePath = mockPath.join(logosDir, fileName);
         
-        // Извлекаем base64 данные из data URL
-        const base64Data = base64Logo.split(',')[1] || base64Logo;
+        const base64Data = team.logoBase64.split(',')[1] || team.logoBase64;
         const buffer = Buffer.from(base64Data, 'base64');
         await fs.writeFile(filePath, buffer);
         
-        return `logos/${fileName}`;
-      }),
-      cleanupLogosDirectory: jest.fn(async () => {
-        const logosDir = mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
-        try {
-          const files = await fs.readdir(logosDir);
-          for (const file of files) {
-            if (file.startsWith('logo_') && file.endsWith('.png')) {
-              await fs.unlink(mockPath.join(logosDir, file));
-            }
-          }
-        } catch (error) {
-          // Игнорируем ошибки
-        }
-      }),
-      processTeamLogoForSave: jest.fn(async (team, teamKey) => {
-        const logosDir = mockPath.join(process.cwd(), 'tests', 'temp-test-logos');
-        await fs.mkdir(logosDir, { recursive: true });
-        
-        // Очищаем только файлы для текущей команды перед сохранением
-        try {
-          const files = await fs.readdir(logosDir);
-          for (const file of files) {
-            if (file.startsWith(`logo_${teamKey.toLowerCase()}_`) && file.endsWith('.png')) {
-              await fs.unlink(mockPath.join(logosDir, file));
-            }
-          }
-        } catch (error) {
-          // Игнорируем ошибки
-        }
-        
-        if (team.logoBase64) {
-          const timestamp = Date.now();
-          const fileName = `logo_${teamKey.toLowerCase()}_${timestamp}.png`;
-          const filePath = mockPath.join(logosDir, fileName);
-          
-          const base64Data = team.logoBase64.split(',')[1] || team.logoBase64;
-          const buffer = Buffer.from(base64Data, 'base64');
-          await fs.writeFile(filePath, buffer);
-          
-          return {
-            logoPath: `logos/${fileName}`,
-          };
-        }
-        return { logoPath: null };
-      }),
-    },
+        return {
+          ...team,
+          logoPath: `logos/${fileName}`,
+          logoBase64: team.logoBase64,
+        };
+      }
+      return { ...team, logoPath: null };
+    }),
   };
 });
 
-// Импортируем logoManager после мока
-import logoManagerModule from '../../../src/main/logoManager.js';
-const logoManager = logoManagerModule.default;
+// Импортируем logoManager и pathUtils
+import * as logoManager from '../../../src/main/logoManager.ts';
+import { getLogosDir } from '../../../src/main/utils/pathUtils.ts';
 
 describe('logoManager - уникальные имена логотипов', () => {
   let logosDir;
   
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
-    // Получаем путь к папке logos через logoManager (правильный путь)
-    logosDir = logoManager.getLogosDir();
+    // Получаем путь к папке logos через pathUtils
+    logosDir = getLogosDir();
     
     // Создаем папку, если не существует
     try {

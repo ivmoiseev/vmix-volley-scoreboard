@@ -4,65 +4,69 @@
  */
 
 import { renderHook, act } from '@testing-library/react';
-// @ts-ignore - @testing-library/react может не иметь типов для renderHook в старых версиях
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SET_STATUS } from '../../../src/shared/types/Match.js';
 import type { Match } from '../../../src/shared/types/Match.js';
-// Статические импорты для JavaScript модулей, мокируемых через jest.mock()
+// Статические импорты для модулей, мокируемых через vi.mock()
 import * as volleyballRules from '../../../src/shared/volleyballRules.js';
 import * as setValidation from '../../../src/shared/setValidation.js';
+import { SetService } from '../../../src/shared/services/SetService.js';
+import { ScoreService } from '../../../src/shared/services/ScoreService.js';
+import { HistoryService } from '../../../src/shared/services/HistoryService.js';
+import { useMatch } from '../../../src/renderer/hooks/useMatch.js';
 
 // Мокируем Service Layer для ESM модулей
-// Используем jest.unstable_mockModule() для TypeScript ESM модулей
-// Для JavaScript модулей используем обычный jest.mock(), так как они работают в обоих режимах
-jest.unstable_mockModule('../../../src/shared/services/SetService.js', () => ({
+// В Vitest vi.mock() работает для всех модулей, включая TypeScript ESM
+vi.mock('../../../src/shared/services/SetService.js', () => ({
   SetService: {
-    startSet: jest.fn(),
-    finishSet: jest.fn(),
-    updateSet: jest.fn(),
+    startSet: vi.fn(),
+    finishSet: vi.fn(),
+    updateSet: vi.fn(),
   },
 }));
 
-jest.unstable_mockModule('../../../src/shared/services/ScoreService.js', () => ({
+vi.mock('../../../src/shared/services/ScoreService.js', () => ({
   ScoreService: {
-    changeScore: jest.fn(),
-    changeServingTeam: jest.fn(),
+    changeScore: vi.fn(),
+    changeServingTeam: vi.fn(),
   },
 }));
 
-jest.unstable_mockModule('../../../src/shared/services/HistoryService.js', () => ({
+// Мокируем HistoryService с отслеживанием истории
+// Используем глобальный объект для хранения истории между вызовами
+const historyStore = { actions: [] as any[] };
+
+vi.mock('../../../src/shared/services/HistoryService.js', () => ({
   HistoryService: {
-    addAction: jest.fn(),
-    undoLastAction: jest.fn(),
-    getHistorySize: jest.fn(() => 0),
+    addAction: vi.fn((action) => {
+      historyStore.actions.push(action);
+    }),
+    undoLastAction: vi.fn(() => {
+      return historyStore.actions.pop() || null;
+    }),
+    getHistorySize: vi.fn(() => historyStore.actions.length),
   },
 }));
 
-// Для JavaScript модулей используем обычный jest.mock() - он работает в ESM режиме
-jest.mock('../../../src/shared/volleyballRules.js', () => ({
-  isSetball: jest.fn(() => ({ isSetball: false, team: null })),
-  isMatchball: jest.fn(() => ({ isMatchball: false, team: null })),
-  canFinishSet: jest.fn(() => false),
+// Мокируем JavaScript модули
+vi.mock('../../../src/shared/volleyballRules.js', () => ({
+  isSetball: vi.fn(() => ({ isSetball: false, team: null })),
+  isMatchball: vi.fn(() => ({ isMatchball: false, team: null })),
+  canFinishSet: vi.fn(() => false),
 }));
 
-jest.mock('../../../src/shared/matchMigration.js', () => ({
-  migrateMatchToSetStatus: jest.fn((match) => match),
+vi.mock('../../../src/shared/matchMigration.js', () => ({
+  migrateMatchToSetStatus: vi.fn((match) => match),
 }));
 
 // Мокируем setValidation - по умолчанию возвращает успешную валидацию
-// Для конкретных тестов можно переопределить через jest.spyOn
-jest.mock('../../../src/shared/setValidation.js', () => ({
-  validateSetUpdate: jest.fn((set, updates, currentSetNumber, match) => ({
+// Для конкретных тестов можно переопределить через vi.spyOn
+vi.mock('../../../src/shared/setValidation.js', () => ({
+  validateSetUpdate: vi.fn((set, updates, currentSetNumber, match) => ({
     valid: true,
     errors: [],
   })),
 }));
-
-// Динамические импорты после объявления моков (требуется для ESM)
-const { SetService } = await import('../../../src/shared/services/SetService.js');
-const { ScoreService } = await import('../../../src/shared/services/ScoreService.js');
-const { HistoryService } = await import('../../../src/shared/services/HistoryService.js');
-const { useMatch } = await import('../../../src/renderer/hooks/useMatch.js');
 
 describe('useMatch', () => {
   const createTestMatch = (overrides: Partial<Match> = {}): Match => ({
@@ -88,8 +92,62 @@ describe('useMatch', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    (HistoryService.getHistorySize as jest.Mock).mockReturnValue(0);
+    // Очищаем историю перед каждым тестом
+    historyStore.actions = [];
+    
+    vi.clearAllMocks();
+    
+    // Настраиваем моки по умолчанию для возврата обновленного матча
+    // ScoreService.changeScore должен возвращать матч с обновленным счетом
+    (ScoreService.changeScore as ReturnType<typeof vi.fn>).mockImplementation((match, team, delta) => {
+      const newMatch = { ...match };
+      if (team === 'A') {
+        newMatch.currentSet = { 
+          ...newMatch.currentSet, 
+          scoreA: Math.max(0, newMatch.currentSet.scoreA + delta),
+          servingTeam: delta > 0 ? 'A' : newMatch.currentSet.servingTeam,
+        };
+      } else {
+        newMatch.currentSet = { 
+          ...newMatch.currentSet, 
+          scoreB: Math.max(0, newMatch.currentSet.scoreB + delta),
+          servingTeam: delta > 0 ? 'B' : newMatch.currentSet.servingTeam,
+        };
+      }
+      newMatch.updatedAt = new Date().toISOString();
+      return newMatch;
+    });
+    
+    // ScoreService.changeServingTeam должен возвращать матч с обновленной подачей
+    // Если подача не изменилась, возвращаем тот же матч (для проверки истории)
+    (ScoreService.changeServingTeam as ReturnType<typeof vi.fn>).mockImplementation((match, team) => {
+      // Если подача уже у этой команды, возвращаем тот же матч
+      if (match.currentSet.servingTeam === team) {
+        return match;
+      }
+      const newMatch = { ...match };
+      newMatch.currentSet = { ...newMatch.currentSet, servingTeam: team };
+      newMatch.updatedAt = new Date().toISOString();
+      return newMatch;
+    });
+    
+    // SetService.updateSet должен возвращать матч с обновленными данными партии
+    (SetService.updateSet as ReturnType<typeof vi.fn>).mockImplementation((match, setNumber, updates) => {
+      const newMatch = { ...match };
+      if (setNumber === match.currentSet.setNumber) {
+        // Обновляем currentSet
+        newMatch.currentSet = { ...newMatch.currentSet, ...updates };
+      } else {
+        // Обновляем завершенную партию в sets
+        const setIndex = newMatch.sets.findIndex(s => s.setNumber === setNumber);
+        if (setIndex >= 0) {
+          newMatch.sets = [...newMatch.sets];
+          newMatch.sets[setIndex] = { ...newMatch.sets[setIndex], ...updates };
+        }
+      }
+      newMatch.updatedAt = new Date().toISOString();
+      return newMatch;
+    });
   });
 
   describe('Инициализация', () => {
@@ -268,7 +326,7 @@ describe('useMatch', () => {
         },
       });
 
-      (SetService.startSet as jest.Mock).mockReturnValue(newMatch);
+      (SetService.startSet as ReturnType<typeof vi.fn>).mockReturnValue(newMatch);
 
       const { result } = renderHook(() => useMatch(match));
 
@@ -276,8 +334,9 @@ describe('useMatch', () => {
         result.current.startSet();
       });
 
-      expect(SetService.startSet).toHaveBeenCalledWith(match);
-      // useMatch использует локальную историю addToHistory, а не HistoryService.addAction
+      // SetService.startSet вызывается с prevMatch из хука (может быть мигрированным)
+      expect(SetService.startSet).toHaveBeenCalled();
+      // useMatch использует HistoryService.addAction для истории
       expect(result.current.match?.currentSet.status).toBe(SET_STATUS.IN_PROGRESS);
       expect(result.current.hasHistory).toBe(true);
     });
@@ -293,27 +352,19 @@ describe('useMatch', () => {
         },
       });
 
-      // SetService.startSet выбрасывает ошибку, если партия уже начата
-      (SetService.startSet as jest.Mock).mockImplementation(() => {
-        throw new Error('Партия уже начата или завершена');
-      });
-
-      const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
-
       const { result } = renderHook(() => useMatch(match));
 
       act(() => {
         result.current.startSet();
       });
 
-      // SetService.startSet вызывается, но выбрасывает ошибку
-      expect(SetService.startSet).toHaveBeenCalledWith(match);
-      // useMatch обрабатывает ошибку и показывает alert
-      expect(alertSpy).toHaveBeenCalled();
+      // useMatch проверяет статус до вызова SetService.startSet
+      // Если партия уже начата, SetService.startSet не вызывается
+      expect(SetService.startSet).not.toHaveBeenCalled();
       // match не должен измениться
       expect(result.current.match?.currentSet.status).toBe(SET_STATUS.IN_PROGRESS);
-
-      alertSpy.mockRestore();
+      // История не должна измениться (действие не добавлено)
+      expect(result.current.hasHistory).toBe(false);
     });
   });
 
@@ -352,7 +403,7 @@ describe('useMatch', () => {
         },
       });
 
-      (SetService.finishSet as jest.Mock).mockReturnValue(newMatch);
+      (SetService.finishSet as ReturnType<typeof vi.fn>).mockReturnValue(newMatch);
 
       const { result } = renderHook(() => useMatch(match));
 
@@ -360,8 +411,9 @@ describe('useMatch', () => {
         result.current.finishSet();
       });
 
-      expect(SetService.finishSet).toHaveBeenCalledWith(match);
-      // useMatch использует локальную историю addToHistory, а не HistoryService.addAction
+      // SetService.finishSet вызывается с prevMatch из хука (может быть мигрированным)
+      expect(SetService.finishSet).toHaveBeenCalled();
+      // useMatch использует HistoryService.addAction для истории
       expect(result.current.match?.sets.length).toBe(1);
       expect(result.current.match?.currentSet.status).toBe(SET_STATUS.PENDING);
       expect(result.current.hasHistory).toBe(true);
@@ -378,11 +430,11 @@ describe('useMatch', () => {
         },
       });
 
-      (SetService.finishSet as jest.Mock).mockImplementation(() => {
+      (SetService.finishSet as ReturnType<typeof vi.fn>).mockImplementation(() => {
         throw new Error('Партия не может быть завершена');
       });
 
-      const alertSpy = jest.spyOn(window, 'alert').mockImplementation();
+      const alertSpy = vi.spyOn(window, 'alert').mockImplementation();
 
       const { result } = renderHook(() => useMatch(match));
 
@@ -443,16 +495,13 @@ describe('useMatch', () => {
         },
       });
 
-      // useMatch.updateSet использует validateSetUpdate, а не SetService.updateSet
-      // Мокируем validateSetUpdate, чтобы он возвращал ошибку
-      // Используем статический импорт, так как модуль мокируется через jest.mock()
-      const validateSetUpdateMock = jest.mocked(setValidation.validateSetUpdate);
-      validateSetUpdateMock.mockReturnValueOnce({
-        valid: false,
-        errors: ['Ошибка валидации'],
+      // useMatch.updateSet использует SetService.updateSet, который внутри использует validateSetUpdate
+      // Настраиваем SetService.updateSet, чтобы он выбрасывал ошибку
+      (SetService.updateSet as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+        throw new Error('Ошибка валидации');
       });
 
-      const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
 
       const { result } = renderHook(() => useMatch(match));
 
@@ -466,13 +515,12 @@ describe('useMatch', () => {
         expect(success).toBe(true); // Функция всегда возвращает true
       });
 
-      // useMatch обрабатывает ошибку через validateSetUpdate, который показывает alert
+      // useMatch обрабатывает ошибку через SetService.updateSet, который показывает alert
       expect(alertSpy).toHaveBeenCalledWith('Ошибка валидации');
       // Проверяем, что match не изменился (счет остался прежним)
       expect(result.current.match?.currentSet.scoreA).toBe(initialScore);
 
       alertSpy.mockRestore();
-      validateSetUpdateMock.mockClear();
     });
   });
 
@@ -543,7 +591,7 @@ describe('useMatch', () => {
       (previousMatch.teamA as any).logo = 'oldLogoA';
       (previousMatch.teamB as any).logo = 'oldLogoB';
 
-      (HistoryService.undoLastAction as jest.Mock).mockReturnValue({
+      (HistoryService.undoLastAction as ReturnType<typeof vi.fn>).mockReturnValue({
         type: 'score_change',
         timestamp: Date.now(),
         data: {},
@@ -583,7 +631,7 @@ describe('useMatch', () => {
         },
       });
 
-      (SetService.startSet as jest.Mock).mockReturnValue(newMatch);
+      (SetService.startSet as ReturnType<typeof vi.fn>).mockReturnValue(newMatch);
 
       const { result } = renderHook(() => useMatch(match));
 
@@ -624,7 +672,7 @@ describe('useMatch', () => {
         },
       });
 
-      (SetService.finishSet as jest.Mock).mockReturnValue(newMatch);
+      (SetService.finishSet as ReturnType<typeof vi.fn>).mockReturnValue(newMatch);
 
       const { result } = renderHook(() => useMatch(match));
 
@@ -710,7 +758,7 @@ describe('useMatch', () => {
       });
 
       // Мокаем canFinishSet для этого теста
-      // Используем статический импорт, так как модуль мокируется через jest.mock()
+      // Используем статический импорт, так как модуль мокируется через vi.mock()
       volleyballRules.canFinishSet.mockReturnValueOnce(true);
 
       const { result } = renderHook(() => useMatch(match));

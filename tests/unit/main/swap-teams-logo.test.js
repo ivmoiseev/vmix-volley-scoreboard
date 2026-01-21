@@ -9,27 +9,29 @@
  * 4. После swapTeams не должно быть конфликта при последующем сохранении
  */
 
-import { jest, describe, test, beforeEach, expect } from '@jest/globals';
+import { describe, test, beforeEach, expect, vi } from 'vitest';
 import path from 'path';
 
-// Используем mockPath для доступа внутри jest.mock() (Jest требует префикс mock для переменных в моках)
+// Используем mockPath для доступа внутри vi.mock() (Vitest требует префикс mock для переменных в моках)
 const mockPath = path;
-jest.mock('electron', () => {
+vi.mock('electron', () => {
   return {
     app: {
       isPackaged: false,
-      getPath: jest.fn(() => mockPath.join(__dirname, '../../temp-test-logos')),
+      getPath: vi.fn(() => mockPath.join(__dirname, '../../temp-test-logos')),
     },
   };
 });
 
 // Моки для server.js чтобы избежать проблем с uuid
-jest.mock('../../../src/main/server.js', () => ({}));
+vi.mock('../../../src/main/server.ts', () => ({}));
 
 // Моки для logoManager
-jest.mock('../../../src/main/logoManager.js', () => {
+vi.mock('../../../src/main/logoManager.ts', async (importOriginal) => {
+  const actual = await importOriginal();
   return {
-    processTeamLogoForSave: jest.fn(async (team, teamLetter) => {
+    ...actual,
+    processTeamLogoForSave: vi.fn(async (team, teamLetter) => {
       // Симулируем сохранение логотипа с уникальным именем (timestamp)
       const logoBase64 = team.logo || team.logoBase64;
       if (!logoBase64) {
@@ -50,17 +52,16 @@ jest.mock('../../../src/main/logoManager.js', () => {
         logo: undefined,
       };
     }),
-    cleanupLogosDirectory: jest.fn(async () => {}),
+    cleanupLogosDirectory: vi.fn(async () => {}),
   };
 });
 
 // Импортируем logoManager после мока
-import logoManagerModule from '../../../src/main/logoManager.js';
-const logoManager = logoManagerModule.default || logoManagerModule;
+import * as logoManager from '../../../src/main/logoManager.ts';
 
 describe('swapTeams - обработка логотипов', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Проблема 1: Правильность сохранения логотипов в файлы', () => {

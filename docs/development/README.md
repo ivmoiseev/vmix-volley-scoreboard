@@ -8,6 +8,8 @@
 - **[QA Аудит](QA_AUDIT_REPORT.md)** - отчет о качестве кода, найденных проблемах и рекомендациях по улучшению
 - **[Руководство по рефакторингу](REFACTORING_GUIDE.md)** - подробный план рефакторинга и улучшения кода
 - **[Анализ Jest vs альтернативы](jest-vs-alternatives-analysis.md)** - анализ пригодности Jest для проекта и сравнение с Vitest, Mocha, Ava
+- **[Руководство по миграции на Vitest](vitest-migration-guide.md)** - ⚠️ **ПРАКТИЧЕСКОЕ РУКОВОДСТВО**: пошаговая инструкция по миграции с Jest на Vitest с примерами кода, чек-листами и решением проблем
+- **[Очистка структуры проекта](project-structure-cleanup.md)** - ✅ **ЗАВЕРШЕНО**: описание удаления Jest, дублирующихся папок и упрощения структуры сборки
 
 ### Улучшения
 - **[Улучшения составов](roster-inputs-split-and-improvements.md)** - описание улучшений системы управления составами команд
@@ -35,6 +37,7 @@ development/
 ├── QA_AUDIT_REPORT.md                     # QA аудит кода
 ├── REFACTORING_GUIDE.md                   # Руководство по рефакторингу
 ├── dependencies-version-requirements.md   # Требования к версиям зависимостей
+├── project-structure-cleanup.md           # Очистка структуры проекта
 ├── roster-inputs-split-and-improvements.md # Улучшения составов
 ├── set-status-and-timing-plan.md          # План реализации состояний партий
 ├── set-status-and-timing-implementation-guide.md # Руководство по реализации состояний партий

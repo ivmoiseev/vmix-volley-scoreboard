@@ -7,6 +7,52 @@
 
 ## [Unreleased]
 
+### Удалено
+
+- **Jest и связанные зависимости**
+  - Удален `jest` и все связанные пакеты (`jest-environment-jsdom`, `jest-junit`, `babel-jest`, `ts-jest`, `@types/jest`)
+  - Удален файл `jest.config.js`
+  - Проект полностью использует Vitest для тестирования
+
+- **Дублирующиеся корневые папки**
+  - Удалена папка `services/` (дубликат `src/shared/services/`)
+  - Удалена папка `domain/` (дубликат `src/shared/domain/`)
+  - Удалена папка `main/` (дубликат `src/main/`)
+  - Удалена папка `shared/` (дубликат `src/shared/`)
+  - Удалена папка `types/` (дубликат `src/shared/types/`)
+  - Удалена папка `validators/` (дубликат `src/shared/validators/`)
+
+- **Папка build для ресурсов сборки**
+  - Удалена папка `build/` (заменена на использование `assets/`)
+  - Упрощена конфигурация electron-builder
+
+### Изменено
+
+- **Структура сборки**
+  - `buildResources` теперь указывает на `assets/` вместо `build/`
+  - Пути к иконкам обновлены для использования `assets/` как `buildResources`
+  - Упрощен скрипт `prepare-icons.js` (убрано копирование в `build/`)
+
+- **Конфигурация тестирования**
+  - Обновлены комментарии в `vite.config.js` (убран упоминание Jest)
+  - Обновлен комментарий в `tests/setup.js` (добавлено уточнение о Vitest)
+
+### Технические детали
+
+- **Удаленные файлы:**
+  - `jest.config.js` - конфигурация Jest
+  - `build/icon.ico` - дубликат `assets/icon.ico`
+  - Все файлы из корневых папок `services/`, `domain/`, `main/`, `shared/`, `types/`, `validators/`
+
+- **Обновленные файлы:**
+  - `package.json` - удалены зависимости Jest, обновлена конфигурация сборки
+  - `scripts/prepare-icons.js` - упрощена логика, убрано копирование в `build/`
+  - `vite.config.js` - обновлены комментарии
+  - `tests/setup.js` - обновлен комментарий
+
+- **Новая документация:**
+  - `docs/development/project-structure-cleanup.md` - описание всех изменений по очистке структуры проекта
+
 ## [1.0.6] - 2026-01-20
 
 ### Добавлено

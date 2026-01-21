@@ -7,9 +7,11 @@ import { render, screen } from '@testing-library/react';
 import SetsDisplay from '../../../src/renderer/components/SetsDisplay.jsx';
 import { SET_STATUS } from '../../../src/shared/types/Match.ts';
 
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 // Мокируем formatDuration
-jest.mock('../../../src/shared/timeUtils.js', () => ({
-  formatDuration: jest.fn((minutes) => minutes !== null && minutes !== undefined ? `${minutes}'` : ''),
+vi.mock('../../../src/shared/timeUtils.js', () => ({
+  formatDuration: vi.fn((minutes) => minutes !== null && minutes !== undefined ? `${minutes}'` : ''),
 }));
 
 describe('SetsDisplay', () => {
@@ -22,11 +24,11 @@ describe('SetsDisplay', () => {
       servingTeam: 'A',
       status: SET_STATUS.PENDING,
     },
-    onSetClick: jest.fn(),
+    onSetClick: vi.fn(),
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('должен отображать все 5 партий', () => {
@@ -117,7 +119,7 @@ describe('SetsDisplay', () => {
   });
 
   it('должен вызывать onSetClick при клике на партию', () => {
-    const onSetClick = jest.fn();
+    const onSetClick = vi.fn();
     // Используем партию в игре, чтобы она была редактируемой
     const currentSet = {
       setNumber: 1,
@@ -137,7 +139,7 @@ describe('SetsDisplay', () => {
   });
 
   it('не должен вызывать onSetClick при клике на не начатую партию (pending)', () => {
-    const onSetClick = jest.fn();
+    const onSetClick = vi.fn();
     const currentSet = {
       setNumber: 1,
       scoreA: 0,
@@ -157,7 +159,7 @@ describe('SetsDisplay', () => {
   });
 
   it('должен вызывать onSetClick для завершенной партии', () => {
-    const onSetClick = jest.fn();
+    const onSetClick = vi.fn();
     const sets = [
       {
         setNumber: 1,
@@ -179,7 +181,7 @@ describe('SetsDisplay', () => {
   });
 
   it('должен вызывать onSetClick для партии в игре', () => {
-    const onSetClick = jest.fn();
+    const onSetClick = vi.fn();
     const currentSet = {
       setNumber: 1,
       scoreA: 15,

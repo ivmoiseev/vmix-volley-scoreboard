@@ -1,41 +1,16 @@
 import fs from 'fs/promises';
-import path from 'path';
 import { app } from 'electron';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import { getDefaultFieldsForInput, migrateInputToNewFormat } from './vmix-input-configs.js';
-import { migrateVMixConfig } from './vmix-field-migration.js';
+import { getDefaultFieldsForInput, migrateInputToNewFormat } from './vmix-input-configs.ts';
+import { migrateVMixConfig } from './vmix-field-migration.ts';
+import { getSettingsPath, getDefaultSettingsPath } from './utils/pathUtils.ts';
 
-// Получаем __dirname для ES-модулей
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Определяем путь к файлу настроек с учетом production режима
+// Используем единую утилиту для определения путей
 function getSettingsFilePath() {
-  const isPackaged = app && app.isPackaged;
-  
-  if (isPackaged) {
-    // В production используем userData директорию для хранения настроек пользователя
-    // Это позволяет пользователю изменять настройки без проблем с правами доступа
-    const userDataPath = app.getPath('userData');
-    return path.join(userDataPath, 'settings.json');
-  }
-  
-  // В dev режиме - обычный путь в корне проекта
-  return path.join(__dirname, '../../settings.json');
+  return getSettingsPath();
 }
 
-// Получаем путь к файлу настроек по умолчанию из extraResources (для первого запуска)
 function getDefaultSettingsFilePath() {
-  const isPackaged = app && app.isPackaged;
-  
-  if (isPackaged && process.resourcesPath) {
-    // В production settings.json находится в extraResources
-    return path.join(process.resourcesPath, 'settings.json');
-  }
-  
-  // В dev режиме - обычный путь в корне проекта
-  return path.join(__dirname, '../../settings.json');
+  return getDefaultSettingsPath();
 }
 
 // Убираем константу, используем функцию напрямую

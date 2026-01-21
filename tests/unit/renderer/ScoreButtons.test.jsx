@@ -2,7 +2,7 @@
  * Тесты для компонента ScoreButtons
  */
 
-import { jest, describe, it, beforeEach, expect } from '@jest/globals';
+import { describe, it, beforeEach, expect, vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ScoreButtons from '../../../src/renderer/components/ScoreButtons.jsx';
@@ -11,11 +11,11 @@ describe('ScoreButtons', () => {
   const defaultProps = {
     teamAName: 'Команда A',
     teamBName: 'Команда B',
-    onScoreChange: jest.fn(),
+    onScoreChange: vi.fn(),
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('должен отображать названия команд', () => {
@@ -34,7 +34,7 @@ describe('ScoreButtons', () => {
   });
 
   it('должен вызывать onScoreChange при клике на кнопку +1 для команды A', () => {
-    const onScoreChange = jest.fn();
+    const onScoreChange = vi.fn();
     render(<ScoreButtons {...defaultProps} onScoreChange={onScoreChange} />);
 
     const buttons = screen.getAllByRole('button');
@@ -47,7 +47,7 @@ describe('ScoreButtons', () => {
   });
 
   it('должен вызывать onScoreChange при клике на кнопку -1 для команды A', () => {
-    const onScoreChange = jest.fn();
+    const onScoreChange = vi.fn();
     render(<ScoreButtons {...defaultProps} onScoreChange={onScoreChange} />);
 
     const buttons = screen.getAllByRole('button');
@@ -59,7 +59,7 @@ describe('ScoreButtons', () => {
   });
 
   it('должен вызывать onScoreChange при клике на кнопку +1 для команды B', () => {
-    const onScoreChange = jest.fn();
+    const onScoreChange = vi.fn();
     render(<ScoreButtons {...defaultProps} onScoreChange={onScoreChange} />);
 
     const buttons = screen.getAllByRole('button');
@@ -72,7 +72,7 @@ describe('ScoreButtons', () => {
   });
 
   it('должен вызывать onScoreChange при клике на кнопку -1 для команды B', () => {
-    const onScoreChange = jest.fn();
+    const onScoreChange = vi.fn();
     render(<ScoreButtons {...defaultProps} onScoreChange={onScoreChange} />);
 
     const buttons = screen.getAllByRole('button');
@@ -84,7 +84,7 @@ describe('ScoreButtons', () => {
   });
 
   it('не должен вызывать onScoreChange, если disabled=true', () => {
-    const onScoreChange = jest.fn();
+    const onScoreChange = vi.fn();
     render(<ScoreButtons {...defaultProps} onScoreChange={onScoreChange} disabled={true} />);
 
     const buttons = screen.getAllByRole('button');
@@ -136,7 +136,7 @@ describe('ScoreButtons', () => {
   });
 
   it('должен использовать disabled=false по умолчанию', () => {
-    render(<ScoreButtons teamAName="A" teamBName="B" onScoreChange={jest.fn()} />);
+    render(<ScoreButtons teamAName="A" teamBName="B" onScoreChange={vi.fn()} />);
 
     const buttons = screen.getAllByRole('button');
     

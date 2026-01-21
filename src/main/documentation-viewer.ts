@@ -4,6 +4,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { marked } from "marked";
+import { getDocumentationPath } from "./utils/pathUtils.ts";
 
 // Получаем __dirname для ES-модулей
 const __filename = fileURLToPath(import.meta.url);
@@ -459,14 +460,8 @@ export function openDocumentationWindow(fileName, title, mainWindow, isDev) {
       docWindow.close();
     }
 
-    let docPath;
-    if (isDev) {
-      // В dev режиме __dirname = src/main, нужно подняться на 2 уровня вверх
-      docPath = path.resolve(__dirname, "..", "..", fileName);
-    } else {
-      // В production файлы находятся в process.resourcesPath
-      docPath = path.resolve(process.resourcesPath, fileName);
-    }
+    // Используем единую утилиту для определения путей
+    const docPath = getDocumentationPath(fileName);
 
     console.log(`[Help] Открытие документации: ${docPath}`);
 

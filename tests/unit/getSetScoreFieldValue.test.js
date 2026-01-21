@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 /**
  * Тесты для функции getSetScoreFieldValue из useVMix.js

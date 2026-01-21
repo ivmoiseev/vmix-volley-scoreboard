@@ -4,10 +4,10 @@
  * Использует Service Layer для выполнения операций
  */
 
-import { Match, SET_STATUS } from '../../../shared/types/Match.js';
-import { SetService } from '../../../shared/services/SetService.js';
-import { ScoreService } from '../../../shared/services/ScoreService.js';
-import { HistoryService } from '../../../shared/services/HistoryService.js';
+import { Match, SET_STATUS } from '../../../shared/types/Match.ts';
+import { SetService } from '../../../shared/services/SetService.ts';
+import { ScoreService } from '../../../shared/services/ScoreService.ts';
+import { HistoryService } from '../../../shared/services/HistoryService.ts';
 
 /**
  * Ответ API

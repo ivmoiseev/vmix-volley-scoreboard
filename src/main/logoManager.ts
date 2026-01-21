@@ -1,43 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { app } from 'electron';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-// Получаем __dirname для ES-модулей
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Определяем путь к папке logos с учетом production режима
-// Используем lazy evaluation, так как app может быть не готов при импорте модуля
-function getLogosDir() {
-  // В production сохраняем логотипы в userData, так как extraResources доступна только для чтения
-  // В dev режиме используем обычный путь в корне проекта
-  try {
-    const isPackaged = app && app.isPackaged;
-    
-    if (isPackaged) {
-      // В production используем userData для хранения логотипов (доступно для записи)
-      // Это позволяет сохранять и обновлять логотипы между сессиями
-      const userDataPath = app.getPath('userData');
-      return path.join(userDataPath, 'logos');
-    }
-  } catch (error) {
-    // Если app не доступен, используем dev путь
-    console.warn('[logoManager] app не доступен, используем dev путь:', error.message);
-  }
-  
-  // В dev режиме - обычный путь в корне проекта
-  return path.join(__dirname, '../../logos');
-}
-
-// Получаем путь к папке logos в extraResources (только для чтения, для миграции)
-function getExtraResourcesLogosDir() {
-  if (process.resourcesPath) {
-    return path.join(process.resourcesPath, 'logos');
-  }
-  return null;
-}
+import { getLogosDir, getExtraResourcesLogosDir } from './utils/pathUtils.ts';
 
 // Убираем константу, будем использовать функцию напрямую
 
@@ -209,8 +172,6 @@ async function processTeamLogoForSave(team, teamLetter) {
   if (!logoBase64) {
     // Удаляем файл логотипа, если он существует
     try {
-      const fs = require('fs').promises;
-      const path = require('path');
       const logosDir = getLogosDir();
       const fileName = teamLetter === 'A' ? 'logo_a.png' : 'logo_b.png';
       const logoPath = path.join(logosDir, fileName);

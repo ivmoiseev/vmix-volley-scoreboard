@@ -3,6 +3,7 @@
  * Средний приоритет тестирования
  */
 
+import { describe, test, beforeEach, afterEach, expect, vi } from 'vitest';
 import errorHandler from '../../../src/shared/errorHandler.js';
 
 describe('errorHandler', () => {
@@ -14,7 +15,7 @@ describe('errorHandler', () => {
     
     // Подавляем вывод console.error в тестах, чтобы не засорять вывод
     // но сохраняем возможность проверить, что он вызывается
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {

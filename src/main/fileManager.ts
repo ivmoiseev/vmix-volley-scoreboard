@@ -1,28 +1,9 @@
 import fs from 'fs/promises';
-import path from 'path';
 import { dialog } from 'electron';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import { validateMatch, createNewMatch } from '../shared/matchUtils.js';
 import errorHandler from '../shared/errorHandler.js';
-import * as logoManager from './logoManager.js';
-
-// Получаем __dirname для ES-модулей
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Определяем путь к папке matches с учетом production режима
-// Используем lazy evaluation, так как app может быть не готов при импорте модуля
-function getMatchesDir() {
-  // В production matches находится в extraResources (вне ASAR)
-  // process.resourcesPath доступен только в production режиме
-  if (process.resourcesPath) {
-    // process.resourcesPath указывает на папку resources/ (где находятся extraResources)
-    return path.join(process.resourcesPath, 'matches');
-  }
-  // В dev режиме - обычный путь
-  return path.join(__dirname, '../../matches');
-}
+import * as logoManager from './logoManager.ts';
+import { getMatchesDir } from './utils/pathUtils.ts';
 
 /**
  * Убеждается, что папка matches существует

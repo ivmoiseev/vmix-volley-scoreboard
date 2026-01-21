@@ -9,22 +9,17 @@ import {
 } from "electron";
 import path from "path";
 import fs from "fs";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
 import http from "http";
-import * as documentationViewer from "./documentation-viewer.js";
-import * as fileManager from "./fileManager.js";
-import { getVMixClient } from "./vmix-client.js";
-import * as vmixConfig from "./vmix-config.js";
-import { getMobileServer } from "./server.js";
-import * as settingsManager from "./settingsManager.js";
-import * as logoManager from "./logoManager.js";
+import * as documentationViewer from "./documentation-viewer.ts";
+import * as fileManager from "./fileManager.ts";
+import { getVMixClient } from "./vmix-client.ts";
+import * as vmixConfig from "./vmix-config.ts";
+import { getMobileServer } from "./server.ts";
+import * as settingsManager from "./settingsManager.ts";
+import * as logoManager from "./logoManager.ts";
 import errorHandler from "../shared/errorHandler.js";
-import * as updater from "./updater.js";
-
-// Получаем __dirname и __filename для ES-модулей
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import * as updater from "./updater.ts";
+import { getIconPath, getPreloadPath, getVitePortFilePath } from "./utils/pathUtils.ts";
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 
@@ -96,64 +91,25 @@ async function scheduleAutoSave(match) {
 }
 
 function createWindow() {
-  // В production используем правильные пути для ASAR
-  let iconPath;
-  if (isDev) {
-    // В dev режиме иконка в корне проекта в папке assets
-    iconPath = path.join(__dirname, "../../assets/icon.ico");
-    // Если .ico нет, пробуем .png
-    if (!fs.existsSync(iconPath)) {
-      iconPath = path.join(__dirname, "../../assets/icon.png");
-    }
-  } else {
-    // В production иконка находится в extraResources (вне ASAR)
-    // Путь: process.resourcesPath/assets/icon.ico
-    const resourcesPath = process.resourcesPath || app.getAppPath();
-    iconPath = path.join(resourcesPath, "assets/icon.ico");
-    
-    // Если не найдена, пробуем альтернативные пути
-    if (!fs.existsSync(iconPath)) {
-      iconPath = path.join(resourcesPath, "assets/icon.png");
-    }
-    // Также пробуем путь относительно appPath (для совместимости)
-    if (!fs.existsSync(iconPath)) {
-      const appPath = app.getAppPath();
-      iconPath = path.join(appPath, "../assets/icon.ico");
-    }
-    if (!fs.existsSync(iconPath)) {
-      iconPath = path.join(appPath, "../assets/icon.png");
-    }
-  }
-  const iconExists = fs.existsSync(iconPath);
+  // Используем единую утилиту для определения путей
+  const iconPath = getIconPath();
+  const preloadPath = getPreloadPath();
   
-  // Логируем информацию об иконке для отладки
+  // Проверяем существование файлов
+  const iconExists = fs.existsSync(iconPath);
+  const preloadExists = fs.existsSync(preloadPath);
+  
+  // Логируем информацию для отладки
   if (iconExists) {
     console.log(`[Window] Иконка найдена: ${iconPath}`);
   } else {
     console.warn(`[Window] Иконка не найдена по пути: ${iconPath}`);
-    // Пробуем найти иконку в других местах для отладки
-    const alternativePaths = [
-      path.join(process.resourcesPath || '', 'assets/icon.ico'),
-      path.join(app.getAppPath(), '../assets/icon.ico'),
-      path.join(__dirname, '../../assets/icon.ico'),
-    ];
-    for (const altPath of alternativePaths) {
-      if (fs.existsSync(altPath)) {
-        console.log(`[Window] Альтернативный путь найден: ${altPath}`);
-        iconPath = altPath;
-        break;
-      }
-    }
   }
-
-  // Путь к preload.cjs - в production он в ASAR
-  let preloadPath;
-  if (isDev) {
-    preloadPath = path.join(__dirname, "preload.cjs");
+  
+  if (preloadExists) {
+    console.log(`[Window] Preload скрипт найден: ${preloadPath}`);
   } else {
-    // В production preload.cjs находится в ASAR по тому же пути относительно appPath
-    const appPath = app.getAppPath();
-    preloadPath = path.join(appPath, "src/main/preload.cjs");
+    console.error(`[Window] Preload скрипт не найден по пути: ${preloadPath}`);
   }
 
   // Получаем версию приложения для заголовка окна
@@ -229,7 +185,7 @@ function createWindow() {
     // Сначала проверяем файл с портом (созданный скриптом wait-for-vite.js)
     let savedPort = null;
     try {
-      const portFile = path.join(__dirname, "..", ".vite-port");
+      const portFile = getVitePortFilePath();
       if (fs.existsSync(portFile)) {
         savedPort = parseInt(fs.readFileSync(portFile, "utf8").trim());
       }

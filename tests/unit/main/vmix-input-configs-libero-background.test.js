@@ -2,8 +2,8 @@
  * Тесты для конфигурации полей подложек либеро
  */
 
-import { jest, describe, test, expect } from '@jest/globals';
-import { getDefaultFieldsForInput } from '../../../src/main/vmix-input-configs.js';
+import { describe, test, expect, vi } from 'vitest';
+import { getDefaultFieldsForInput } from '../../../src/main/vmix-input-configs.ts';
 
 describe('vmix-input-configs - Libero Background Fields', () => {
   describe('startingLineupTeamA', () => {

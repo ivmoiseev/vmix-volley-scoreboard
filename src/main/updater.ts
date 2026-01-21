@@ -1,10 +1,9 @@
 import { dialog } from "electron";
-import { createRequire } from "module";
-import * as settingsManager from "./settingsManager.js";
+import electronUpdater from "electron-updater";
+import * as settingsManager from "./settingsManager.ts";
 
-// electron-updater - CommonJS модуль, используем createRequire для импорта
-const require = createRequire(import.meta.url);
-const { autoUpdater } = require("electron-updater");
+// electron-updater - используем default import и деструктуризацию для совместимости
+const { autoUpdater } = electronUpdater;
 
 /**
  * Модуль для управления автоматическими обновлениями приложения

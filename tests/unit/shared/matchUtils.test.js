@@ -3,7 +3,7 @@
  * Высокий приоритет тестирования
  */
 
-import { jest, describe, test, beforeEach, afterEach, expect } from '@jest/globals';
+import { describe, test, beforeEach, afterEach, expect, vi } from 'vitest';
 import { createNewMatch, validateMatch, generateUUID } from '../../../src/shared/matchUtils.js';
 
 describe('matchUtils', () => {
@@ -11,7 +11,7 @@ describe('matchUtils', () => {
 
   beforeEach(() => {
     // Подавляем вывод console.error в тестах валидации, чтобы не засорять вывод
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {

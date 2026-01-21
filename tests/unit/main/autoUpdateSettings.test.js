@@ -6,7 +6,7 @@
  * но не выполняют реальные операции с файловой системой
  */
 
-import { jest, describe, test, beforeEach, afterEach, expect } from '@jest/globals';
+import { describe, test, beforeEach, afterEach, expect, vi } from 'vitest';
 
 describe('AutoUpdate Settings - Data Structure', () => {
   describe('Структура настроек autoUpdate', () => {

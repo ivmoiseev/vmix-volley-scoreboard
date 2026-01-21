@@ -68,7 +68,7 @@ export default defineConfig({
     // Включаем обработку CommonJS модулей в зависимостях
     include: ['src/shared/vmix-field-utils.js', 'react', 'react-dom', 'react-router-dom'],
     esbuildOptions: {
-      // Поддержка React 18
+      // Поддержка React 18 и JSX в тестах
       jsx: 'automatic',
     },
   },
@@ -78,10 +78,91 @@ export default defineConfig({
     },
     // Принудительно используем ESM версию React
     dedupe: ['react', 'react-dom'],
+    // Разрешаем импорты TypeScript файлов без расширений (для Vitest и Vite)
+    extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
   },
   server: {
     port: 5173,
     // strictPort: false - позволяет переключиться на другой порт, если 5173 занят
+  },
+  
+  // Конфигурация для Vitest
+  test: {
+    // Корневая директория для тестов (переопределяет root из build)
+    root: __dirname,
+    
+    // Глобальные переменные (describe, it, expect доступны без импорта)
+    globals: true,
+    
+    // Окружение для тестов (jsdom для React компонентов, node для main процесса)
+    environment: 'jsdom',
+    
+    // Файл настройки, который выполняется перед каждым тестом
+    setupFiles: ['./tests/setup.js'],
+    
+    // Паттерны для поиска тестовых файлов
+    include: ['tests/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    exclude: ['node_modules', 'dist', 'release'],
+    
+    // Настройки для работы с TypeScript
+    typecheck: {
+      enabled: false, // Отключаем typecheck, так как TypeScript обрабатывается через Vite
+    },
+    
+    // Настройки esbuild для тестов (обработка JSX)
+    esbuild: {
+      jsx: 'automatic', // Автоматическая обработка JSX для тестов
+    },
+    
+    // Настройки coverage
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html', 'lcov'],
+      exclude: [
+        'node_modules/',
+        'tests/',
+        '**/*.test.{js,jsx,ts,tsx}',
+        '**/__tests__/**',
+        'src/renderer/index.jsx',
+        'src/main/main.ts', // Точка входа, собирается через Vite отдельно
+        'dist/**', // Игнорируем собранные файлы
+      ],
+      // Пороги покрытия кода
+      thresholds: {
+        global: {
+          branches: 50,
+          functions: 50,
+          lines: 50,
+          statements: 50,
+        },
+        'src/shared/volleyballRules.js': {
+          branches: 80,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
+        'src/shared/matchUtils.js': {
+          branches: 80,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
+        // Пороги для TypeScript файлов main процесса
+        'src/main/**/*.ts': {
+          branches: 50,
+          functions: 50,
+          lines: 50,
+          statements: 50,
+        },
+      },
+    },
+    
+    // Таймаут для тестов (в миллисекундах)
+    testTimeout: 10000,
+    
+    // Настройки для моков
+    mockReset: true,
+    restoreMocks: true,
   },
 });
 

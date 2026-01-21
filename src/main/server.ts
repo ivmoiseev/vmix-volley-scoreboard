@@ -7,9 +7,10 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createRequire } from 'module';
 import errorHandler from '../shared/errorHandler.js';
-import * as settingsManager from './settingsManager.js';
-import * as domUtils from './utils/domUtils.js';
-import { setupApiRoutes } from './server/api/MatchApiRoutes.js';
+import * as settingsManager from './settingsManager.ts';
+import * as domUtils from './utils/domUtils.ts';
+import { setupApiRoutes } from './server/api/MatchApiRoutes.ts';
+import { getLogosDir } from './utils/pathUtils.ts';
 
 // Получаем __dirname для ES-модулей
 const __filename = fileURLToPath(import.meta.url);
@@ -41,23 +42,8 @@ class MobileServer {
    * В dev режиме - корень проекта
    */
   getLogosPath() {
-    try {
-      // Используем createRequire для доступа к electron
-      const { app } = require('electron');
-      const isPackaged = app && app.isPackaged;
-      
-      if (isPackaged) {
-        // Production режим - logos в userData (доступно для записи)
-        const userDataPath = app.getPath('userData');
-        return path.join(userDataPath, 'logos');
-      }
-    } catch (error) {
-      // Если app не доступен, используем dev путь
-      console.warn('[MobileServer] app не доступен, используем dev путь:', error.message);
-    }
-    
-    // Dev режим - обычный путь в корне проекта
-    return path.join(__dirname, '../../logos');
+    // Используем единую утилиту для определения путей
+    return getLogosDir();
   }
 
   /**

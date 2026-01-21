@@ -2,11 +2,12 @@
  * Тесты для обработки типов полей в useVMix
  */
 
-const { getFullFieldName } = require('../../../src/shared/vmix-field-utils');
+import { describe, test, expect, vi } from 'vitest';
+import { getFullFieldName } from '../../../src/shared/vmix-field-utils.js';
 
 // Мокируем утилиту для работы с полями
-jest.mock('../../../src/shared/vmix-field-utils', () => ({
-  getFullFieldName: jest.fn((name, type) => {
+vi.mock('../../../src/shared/vmix-field-utils.js', () => ({
+  getFullFieldName: vi.fn((name, type) => {
     if (type === 'text') return `${name}.Text`;
     if (type === 'image') return `${name}.Source`;
     if (type === 'fill') return `${name}.Fill.Color`;

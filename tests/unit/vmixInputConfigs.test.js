@@ -1,5 +1,5 @@
-import { jest, describe, it, expect } from '@jest/globals';
-import { getDefaultFieldsForInput } from '../../src/main/vmix-input-configs.js';
+import { describe, it, expect, vi } from 'vitest';
+import { getDefaultFieldsForInput } from '../../src/main/vmix-input-configs.ts';
 
 describe('getDefaultFieldsForInput - setScore inputs', () => {
   it('должен возвращать правильные поля для set1Score', () => {
