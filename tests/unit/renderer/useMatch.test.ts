@@ -6,12 +6,16 @@
 import { renderHook, act } from '@testing-library/react';
 // @ts-ignore - @testing-library/react может не иметь типов для renderHook в старых версиях
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { useMatch } from '../../../src/renderer/hooks/useMatch.js';
-import { SET_STATUS } from '../../../src/shared/types/Match.ts';
-import type { Match } from '../../../src/shared/types/Match.ts';
+import { SET_STATUS } from '../../../src/shared/types/Match.js';
+import type { Match } from '../../../src/shared/types/Match.js';
+// Статические импорты для JavaScript модулей, мокируемых через jest.mock()
+import * as volleyballRules from '../../../src/shared/volleyballRules.js';
+import * as setValidation from '../../../src/shared/setValidation.js';
 
-// Мокируем Service Layer
-jest.mock('../../../src/shared/services/SetService.ts', () => ({
+// Мокируем Service Layer для ESM модулей
+// Используем jest.unstable_mockModule() для TypeScript ESM модулей
+// Для JavaScript модулей используем обычный jest.mock(), так как они работают в обоих режимах
+jest.unstable_mockModule('../../../src/shared/services/SetService.js', () => ({
   SetService: {
     startSet: jest.fn(),
     finishSet: jest.fn(),
@@ -19,14 +23,14 @@ jest.mock('../../../src/shared/services/SetService.ts', () => ({
   },
 }));
 
-jest.mock('../../../src/shared/services/ScoreService.ts', () => ({
+jest.unstable_mockModule('../../../src/shared/services/ScoreService.js', () => ({
   ScoreService: {
     changeScore: jest.fn(),
     changeServingTeam: jest.fn(),
   },
 }));
 
-jest.mock('../../../src/shared/services/HistoryService.ts', () => ({
+jest.unstable_mockModule('../../../src/shared/services/HistoryService.js', () => ({
   HistoryService: {
     addAction: jest.fn(),
     undoLastAction: jest.fn(),
@@ -34,14 +38,13 @@ jest.mock('../../../src/shared/services/HistoryService.ts', () => ({
   },
 }));
 
-// @ts-ignore - временно, пока не будет TypeScript версии
+// Для JavaScript модулей используем обычный jest.mock() - он работает в ESM режиме
 jest.mock('../../../src/shared/volleyballRules.js', () => ({
   isSetball: jest.fn(() => ({ isSetball: false, team: null })),
   isMatchball: jest.fn(() => ({ isMatchball: false, team: null })),
   canFinishSet: jest.fn(() => false),
 }));
 
-// @ts-ignore - временно, пока не будет TypeScript версии
 jest.mock('../../../src/shared/matchMigration.js', () => ({
   migrateMatchToSetStatus: jest.fn((match) => match),
 }));
@@ -55,9 +58,11 @@ jest.mock('../../../src/shared/setValidation.js', () => ({
   })),
 }));
 
-import { SetService } from '../../../src/shared/services/SetService';
-import { ScoreService } from '../../../src/shared/services/ScoreService';
-import { HistoryService } from '../../../src/shared/services/HistoryService';
+// Динамические импорты после объявления моков (требуется для ESM)
+const { SetService } = await import('../../../src/shared/services/SetService.js');
+const { ScoreService } = await import('../../../src/shared/services/ScoreService.js');
+const { HistoryService } = await import('../../../src/shared/services/HistoryService.js');
+const { useMatch } = await import('../../../src/renderer/hooks/useMatch.js');
 
 describe('useMatch', () => {
   const createTestMatch = (overrides: Partial<Match> = {}): Match => ({
@@ -440,8 +445,7 @@ describe('useMatch', () => {
 
       // useMatch.updateSet использует validateSetUpdate, а не SetService.updateSet
       // Мокируем validateSetUpdate, чтобы он возвращал ошибку
-      // Используем jest.mocked для работы с уже замоканным модулем
-      const setValidation = require('../../../src/shared/setValidation.js');
+      // Используем статический импорт, так как модуль мокируется через jest.mock()
       const validateSetUpdateMock = jest.mocked(setValidation.validateSetUpdate);
       validateSetUpdateMock.mockReturnValueOnce({
         valid: false,
@@ -706,8 +710,7 @@ describe('useMatch', () => {
       });
 
       // Мокаем canFinishSet для этого теста
-      // @ts-ignore
-      const volleyballRules = require('../../../src/shared/volleyballRules.js');
+      // Используем статический импорт, так как модуль мокируется через jest.mock()
       volleyballRules.canFinishSet.mockReturnValueOnce(true);
 
       const { result } = renderHook(() => useMatch(match));

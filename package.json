@@ -139,6 +139,13 @@
       "icon": "assets/icon.png",
       "category": "Utility"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ivmoiseev",
+        "repo": "vmix-volley-scoreboard"
+      }
+    ],
     "beforePack": null
   },
   "devDependencies": {
@@ -163,6 +170,7 @@
     "cross-env": "^10.1.0",
     "electron": "^39.2.7",
     "electron-builder": "^26.0.12",
+    "electron-updater": "^6.7.3",
     "eslint": "^9.39.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",

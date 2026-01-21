@@ -3,6 +3,9 @@
  */
 
 export default {
+  // Используем ESM preset для ts-jest
+  preset: 'ts-jest/presets/default-esm',
+  
   // Тестовое окружение
   // Используем jsdom для тестов React компонентов, node для остальных
   testEnvironment: 'jsdom',
@@ -32,8 +35,8 @@ export default {
     'node_modules/(?!(uuid)/)',
   ],
   
-  // Настройки для модулей
-  moduleFileExtensions: ['js', 'jsx', 'json', 'ts', 'tsx'],
+  // Настройки для модулей - важно: .ts должен быть первым
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   
   // Трансформация файлов
   transform: {
@@ -93,8 +96,10 @@ export default {
   // Настройки для модулей
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    // Убрали мокирование Match.ts, так как TypeScript файлы обрабатываются напрямую через ts-jest
-    // Мок вызывал проблемы с ESM синтаксисом
+    // Ключевое правило: убираем .js расширение из всех относительных импортов
+    // Это позволяет Jest находить .ts файлы когда в коде указано .js расширение
+    // Важно: это правило должно быть после других правил, если они есть
+    '^(\\.{1,2}/.*)\\.js$': '<rootDir>/$1',
   },
   
   // Настройки для setup файлов

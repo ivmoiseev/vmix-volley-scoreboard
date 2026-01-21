@@ -20,6 +20,7 @@ import { getMobileServer } from "./server.js";
 import * as settingsManager from "./settingsManager.js";
 import * as logoManager from "./logoManager.js";
 import errorHandler from "../shared/errorHandler.js";
+import * as updater from "./updater.js";
 
 // Получаем __dirname и __filename для ES-модулей
 const __filename = fileURLToPath(import.meta.url);
@@ -445,6 +446,11 @@ function createWindow() {
 app.whenReady().then(async () => {
   createWindow();
   await createMenu();
+
+  // Инициализируем систему автоматических обновлений
+  if (mainWindow) {
+    await updater.initializeUpdater(mainWindow, isDev);
+  }
 
   // Регистрируем горячие клавиши для DevTools (работают в production)
   globalShortcut.register("F12", () => {
@@ -1466,6 +1472,62 @@ ipcMain.handle("autosave:set-settings", async (event, enabled) => {
     return { success: true };
   } catch (error) {
     console.error("Error setting auto-save settings:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Update handlers
+ipcMain.handle("update:check", async () => {
+  try {
+    updater.checkForUpdates();
+    return { success: true };
+  } catch (error) {
+    console.error("Error checking for updates:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("update:download", async () => {
+  try {
+    updater.downloadUpdate();
+    return { success: true };
+  } catch (error) {
+    console.error("Error downloading update:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("update:install", async () => {
+  try {
+    updater.installUpdate();
+    return { success: true };
+  } catch (error) {
+    console.error("Error installing update:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+// AutoUpdate settings handlers
+ipcMain.handle("autoupdate:get-settings", async () => {
+  try {
+    const settings = await settingsManager.getAutoUpdateSettings();
+    return { success: true, enabled: settings.enabled };
+  } catch (error) {
+    console.error("Error getting auto-update settings:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("autoupdate:set-settings", async (event, enabled) => {
+  try {
+    await settingsManager.setAutoUpdateSettings({ enabled });
+    // Отправляем событие в renderer для обновления UI
+    if (mainWindow) {
+      mainWindow.webContents.send("autoupdate-settings-changed", enabled);
+    }
+    return { success: true };
+  } catch (error) {
+    console.error("Error setting auto-update settings:", error);
     return { success: false, error: error.message };
   }
 });

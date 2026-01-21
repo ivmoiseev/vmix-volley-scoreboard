@@ -46,6 +46,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveLogoToFile: (teamLetter, logoBase64) => ipcRenderer.invoke('logo:save-to-file', teamLetter, logoBase64),
   deleteLogo: (teamLetter) => ipcRenderer.invoke('logo:delete', teamLetter),
   
+  // Update management
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  
+  // AutoUpdate settings management
+  getAutoUpdateSettings: () => ipcRenderer.invoke('autoupdate:get-settings'),
+  setAutoUpdateSettings: (enabled) => ipcRenderer.invoke('autoupdate:set-settings', enabled),
+  
   // Listeners (возвращают функцию для удаления слушателя)
   onNavigate: (callback) => {
     const handler = (event, path) => callback(path);
@@ -72,5 +81,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (event, enabled) => callback(enabled);
     ipcRenderer.on('autosave-settings-changed', handler);
     return () => ipcRenderer.removeListener('autosave-settings-changed', handler);
+  },
+  onUpdateStatus: (callback) => {
+    const handler = (event, status) => callback(status);
+    ipcRenderer.on('update-status', handler);
+    return () => ipcRenderer.removeListener('update-status', handler);
+  },
+  onAutoUpdateSettingsChanged: (callback) => {
+    const handler = (event, enabled) => callback(enabled);
+    ipcRenderer.on('autoupdate-settings-changed', handler);
+    return () => ipcRenderer.removeListener('autoupdate-settings-changed', handler);
   },
 });

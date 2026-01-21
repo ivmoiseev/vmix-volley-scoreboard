@@ -41,6 +41,13 @@ global.electronAPI = global.electronAPI || {
   swapTeams: jest.fn(),
   getAutoSaveSettings: jest.fn(),
   setAutoSaveSettings: jest.fn(),
+  checkForUpdates: jest.fn(),
+  downloadUpdate: jest.fn(),
+  installUpdate: jest.fn(),
+  getAutoUpdateSettings: jest.fn(),
+  setAutoUpdateSettings: jest.fn(),
+  onUpdateStatus: jest.fn(() => () => {}), // Возвращает функцию cleanup
+  onAutoUpdateSettingsChanged: jest.fn(() => () => {}), // Возвращает функцию cleanup
 };
 
 // Моки для window объекта

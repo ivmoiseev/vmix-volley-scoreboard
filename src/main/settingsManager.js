@@ -133,6 +133,9 @@ function getDefaultSettings() {
     autoSave: {
       enabled: true, // По умолчанию автосохранение включено
     },
+    autoUpdate: {
+      enabled: true, // По умолчанию автоматические обновления включены
+    },
   };
 }
 
@@ -525,6 +528,34 @@ async function setAutoSaveSettings(autoSaveConfig) {
   await saveSettings(settings);
 }
 
+/**
+ * Получает настройки автоматических обновлений
+ */
+async function getAutoUpdateSettings() {
+  const settings = await loadSettings();
+  if (!settings.autoUpdate) {
+    // Если секции autoUpdate нет, создаем её с дефолтными значениями и сохраняем
+    const defaultAutoUpdate = getDefaultSettings().autoUpdate;
+    settings.autoUpdate = defaultAutoUpdate;
+    await saveSettings(settings);
+  }
+  return settings.autoUpdate;
+}
+
+/**
+ * Сохраняет настройки автоматических обновлений
+ */
+async function setAutoUpdateSettings(autoUpdateConfig) {
+  const settings = await loadSettings();
+  // Объединяем с дефолтными настройками, чтобы не потерять структуру
+  const defaultAutoUpdate = getDefaultSettings().autoUpdate;
+  settings.autoUpdate = {
+    ...defaultAutoUpdate,
+    ...autoUpdateConfig,
+  };
+  await saveSettings(settings);
+}
+
 export {
   loadSettings,
   saveSettings,
@@ -534,6 +565,8 @@ export {
   setMobileSettings,
   getAutoSaveSettings,
   setAutoSaveSettings,
+  getAutoUpdateSettings,
+  setAutoUpdateSettings,
   getSetting,
   setSetting,
   getSettingsFilePath,
