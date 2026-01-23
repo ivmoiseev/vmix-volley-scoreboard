@@ -50,8 +50,20 @@ function App() {
         // Если нет - переходим на страницу
         if (location.pathname === '/match') {
           // Уже на странице матча, состояние обновится через проп
+          // Переходим с forceUpdateVMix для принудительного обновления vMix
+          navigate('/match', { 
+            state: { 
+              match,
+              forceUpdateVMix: true // Флаг для принудительного обновления всех данных в vMix
+            } 
+          });
         } else {
-          navigate('/match', { state: { match } });
+          navigate('/match', { 
+            state: { 
+              match,
+              forceUpdateVMix: true // Флаг для принудительного обновления всех данных в vMix
+            } 
+          });
         }
       }
     };

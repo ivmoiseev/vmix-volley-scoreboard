@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { app } from 'electron';
 import { getLogosDir, getExtraResourcesLogosDir } from './utils/pathUtils.ts';
 
 // Убираем константу, будем использовать функцию напрямую
