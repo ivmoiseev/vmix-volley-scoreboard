@@ -53,6 +53,7 @@ export default defineConfig({
         /node_modules\/react-router/,
         /node_modules\/react-router-dom/,
         /node_modules\/scheduler/,
+        /node_modules\/qrcode/,
       ],
       transformMixedEsModules: true,
       // Принудительно преобразуем все CommonJS в ESM
@@ -66,7 +67,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     // Включаем обработку CommonJS модулей в зависимостях
-    include: ['src/shared/vmix-field-utils.js', 'react', 'react-dom', 'react-router-dom'],
+    include: ['src/shared/vmix-field-utils.js', 'react', 'react-dom', 'react-router-dom', 'qrcode'],
     esbuildOptions: {
       // Поддержка React 18 и JSX в тестах
       jsx: 'automatic',

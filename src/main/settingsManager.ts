@@ -531,6 +531,27 @@ async function setAutoUpdateSettings(autoUpdateConfig) {
   await saveSettings(settings);
 }
 
+/**
+ * Экспортирует настройки в указанный файл
+ * @param filePath - путь к файлу для экспорта
+ * @throws {Error} если настройки невалидны или произошла ошибка записи
+ */
+async function exportSettingsToFile(filePath: string): Promise<void> {
+  const { exportSettings } = await import('./settingsImportExport.ts');
+  return exportSettings(filePath);
+}
+
+/**
+ * Импортирует настройки из указанного файла
+ * @param filePath - путь к файлу для импорта
+ * @returns {Promise<ImportResult>} результат импорта
+ * @throws {Error} если файл не найден, JSON некорректен или настройки невалидны
+ */
+async function importSettingsFromFile(filePath: string): Promise<any> {
+  const { importSettings } = await import('./settingsImportExport.ts');
+  return importSettings(filePath);
+}
+
 export {
   loadSettings,
   saveSettings,
@@ -545,5 +566,7 @@ export {
   getSetting,
   setSetting,
   getSettingsFilePath,
+  exportSettingsToFile,
+  importSettingsFromFile,
 };
 

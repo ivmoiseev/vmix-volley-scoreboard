@@ -33,8 +33,11 @@ vmix-volley-scoreboard/
 │   │   ├── vmix-config.js       # Конфигурация vMix (обертка над settingsManager)
 │   │   ├── vmix-input-configs.js # Конфигурации полей по умолчанию
 │   │   ├── settingsManager.js   # Менеджер глобальных настроек
+│   │   ├── settingsImportExport.ts # Импорт и экспорт настроек
 │   │   ├── fileManager.js       # Управление файлами матчей
 │   │   ├── logoManager.js       # Управление логотипами команд
+│   │   ├── utils/
+│   │   │   └── settingsValidator.ts # Валидатор настроек
 │   │   └── preload.js           # Preload скрипт для безопасного IPC
 │   │
 │   ├── renderer/                 # Renderer Process (React)
@@ -209,6 +212,59 @@ vmix-volley-scoreboard/
     - Настройки включают: `enabled`, `port`, `sessionId`, `selectedIP`
     - `selectedIP` - выбранный IP адрес сетевого интерфейса для мобильного сервера (null для автоматического определения)
   - `getAutoSaveSettings()` / `setAutoSaveSettings()` - работа с настройками автосохранения
+  - `exportSettingsToFile(filePath)` - экспорт настроек в файл
+  - `importSettingsFromFile(filePath)` - импорт настроек из файла
+
+#### `settingsImportExport.ts`
+- **Назначение:** Импорт и экспорт настроек приложения
+- **Основные функции:**
+  - `exportSettings(filePath)` - экспорт всех настроек в JSON файл
+    - Валидация настроек перед экспортом
+    - Сохранение в читаемом формате (с отступами)
+    - Создание директории, если она не существует
+  - `importSettings(filePath)` - импорт настроек из JSON файла
+    - Валидация импортируемых данных
+    - **Merge стратегия:** объединение с существующими настройками (не перезапись)
+    - Частичный импорт: можно импортировать только отдельные секции
+    - Глубокое объединение полей (fields) в инпутах vMix
+    - Обработка невалидных секций с предупреждениями
+    - Игнорирование неизвестных секций
+  - `mergeSettings(existing, imported)` - объединение настроек
+    - Сохраняет существующие настройки, которых нет в импорте
+    - Объединяет секции: vmix, mobile, autoSave, autoUpdate
+    - Глубокое объединение инпутов и их полей
+  - `mergeInputs(existing, imported)` - объединение инпутов с полями
+    - Сохраняет существующие поля, которых нет в импорте
+    - Обновляет/добавляет импортированные поля
+- **Интеграция:**
+  - Используется через меню "Файл" → "Экспорт настроек..." / "Импорт настроек..."
+  - Доступен через `settingsManager.exportSettingsToFile()` и `settingsManager.importSettingsFromFile()`
+
+#### `utils/settingsValidator.ts`
+- **Назначение:** Валидация структуры и типов данных настроек
+- **Основные функции:**
+  - `validateSettings(settings)` - валидация полной структуры настроек
+  - `validateVMixSettings(vmix)` - валидация секции vMix
+    - Проверка `host` (непустая строка)
+    - Проверка `port` (1-65535)
+    - Валидация всех инпутов и их полей
+  - `validateVMixInput(inputKey, input)` - валидация отдельного инпута
+    - Проверка `enabled` (boolean)
+    - Проверка `inputIdentifier` (непустая строка)
+    - Проверка `overlay` (число >= 1)
+    - Валидация всех полей (fields)
+  - `validateInputField(fieldKey, field)` - валидация отдельного поля
+    - Проверка `type` (text, image, color, fill, visibility)
+    - Проверка `fieldIdentifier` (непустая строка)
+    - Проверка `enabled` (boolean)
+  - `validateMobileSettings(mobile)` - валидация секции mobile
+  - `validateAutoSaveSettings(autoSave)` - валидация секции autoSave
+  - `validateAutoUpdateSettings(autoUpdate)` - валидация секции autoUpdate
+- **Типы:**
+  - `ValidationResult` - результат валидации с флагом `valid` и списком `errors`
+  - `Settings`, `VMixSettings`, `MobileSettings`, `AutoSaveSettings`, `AutoUpdateSettings` - интерфейсы для типизации
+  - `FIELD_TYPES` - константы типов полей
+  - `VALID_INPUT_KEYS` - список валидных имен инпутов
 
 #### `fileManager.js`
 - **Назначение:** Управление файлами матчей

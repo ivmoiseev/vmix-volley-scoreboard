@@ -699,6 +699,88 @@ async function createMenu() {
         },
         { type: "separator" },
         {
+          label: "Импорт настроек...",
+          click: async () => {
+            if (mainWindow) {
+              try {
+                const result = await dialog.showOpenDialog({
+                  title: 'Импорт настроек',
+                  filters: [
+                    { name: 'JSON файлы', extensions: ['json'] },
+                    { name: 'Все файлы', extensions: ['*'] },
+                  ],
+                  properties: ['openFile'],
+                });
+
+                if (!result.canceled && result.filePaths.length > 0) {
+                  const filePath = result.filePaths[0];
+                  const importResult = await settingsManager.importSettingsFromFile(filePath);
+
+                  if (importResult.success) {
+                    let message = 'Настройки успешно импортированы';
+                    let detail = `Настройки загружены из файла:\n${filePath}`;
+
+                    if (importResult.warnings && importResult.warnings.length > 0) {
+                      detail += `\n\nПредупреждения:\n${importResult.warnings.join('\n')}`;
+                    }
+
+                    dialog.showMessageBox(mainWindow, {
+                      type: importResult.warnings && importResult.warnings.length > 0 ? 'warning' : 'info',
+                      title: 'Успешно',
+                      message,
+                      detail,
+                    });
+
+                    // Перезагружаем приложение для применения новых настроек
+                    // (или можно отправить событие в renderer для обновления)
+                    mainWindow.webContents.send("settings-imported");
+                  } else {
+                    throw new Error(importResult.errors?.join(', ') || 'Неизвестная ошибка');
+                  }
+                }
+              } catch (error: any) {
+                dialog.showErrorBox(
+                  "Ошибка",
+                  "Не удалось импортировать настройки: " + error.message
+                );
+              }
+            }
+          },
+        },
+        {
+          label: "Экспорт настроек...",
+          click: async () => {
+            if (mainWindow) {
+              try {
+                const result = await dialog.showSaveDialog({
+                  title: 'Экспорт настроек',
+                  defaultPath: 'vmix-volley-scoreboard-settings.json',
+                  filters: [
+                    { name: 'JSON файлы', extensions: ['json'] },
+                    { name: 'Все файлы', extensions: ['*'] },
+                  ],
+                });
+
+                if (!result.canceled && result.filePath) {
+                  await settingsManager.exportSettingsToFile(result.filePath);
+                  dialog.showMessageBox(mainWindow, {
+                    type: 'info',
+                    title: 'Успешно',
+                    message: 'Настройки успешно экспортированы',
+                    detail: `Настройки сохранены в файл:\n${result.filePath}`,
+                  });
+                }
+              } catch (error: any) {
+                dialog.showErrorBox(
+                  "Ошибка",
+                  "Не удалось экспортировать настройки: " + error.message
+                );
+              }
+            }
+          },
+        },
+        { type: "separator" },
+        {
           label: "Выход",
           accelerator: process.platform === "darwin" ? "Cmd+Q" : "Ctrl+Q",
           click: () => {

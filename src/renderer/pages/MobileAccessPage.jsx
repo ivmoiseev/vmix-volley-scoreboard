@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHeaderButtons } from '../components/Layout';
+// Импортируем qrcode - библиотека настроена в vite.config.js для корректной обработки CommonJS
+// Библиотека использует CommonJS exports, поэтому используем namespace import
+import * as QRCode from 'qrcode';
 
 function MobileAccessPage() {
   const navigate = useNavigate();
@@ -133,7 +136,8 @@ function MobileAccessPage() {
     // Но можно добавить явное сохранение, если нужно
     if (selectedIP) {
       await handleSelectIP(selectedIP);
-      alert('Настройки сохранены!');
+      // Закрываем страницу после сохранения
+      navigate('/match');
     }
   };
 
@@ -238,23 +242,44 @@ function MobileAccessPage() {
 
   const generateQRCode = async (url) => {
     try {
-      // Используем библиотеку qrcode через IPC
-      // Для простоты используем внешний сервис или создаем через canvas
-      // В реальном приложении лучше использовать библиотеку напрямую
+      // Используем клиентскую библиотеку qrcode для генерации QR-кода
+      // Это решает проблему с CSP и работает быстрее, так как не требует внешних запросов
+      // Библиотека уже настроена в vite.config.js для корректной обработки CommonJS модуля
       
-      // Используем API для генерации QR кода
-      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
+      console.log('[QR Code] Начало генерации QR-кода для URL:', url);
+      console.log('[QR Code] QRCode доступен:', typeof QRCode !== 'undefined', QRCode);
       
-      // Загружаем изображение и конвертируем в data URL
-      const response = await fetch(qrApiUrl);
-      const blob = await response.blob();
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setQrCodeDataUrl(reader.result);
-      };
-      reader.readAsDataURL(blob);
+      // Проверяем, что библиотека загружена
+      if (!QRCode || typeof QRCode.toDataURL !== 'function') {
+        console.error('[QR Code] QRCode библиотека не загружена правильно:', {
+          QRCode: QRCode,
+          type: typeof QRCode,
+          hasToDataURL: QRCode && typeof QRCode.toDataURL
+        });
+        setQrCodeDataUrl(null);
+        return;
+      }
+      
+      console.log('[QR Code] Вызов QRCode.toDataURL...');
+      const dataUrl = await QRCode.toDataURL(url, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      console.log('[QR Code] QR-код успешно сгенерирован, длина data URL:', dataUrl ? dataUrl.length : 0);
+      setQrCodeDataUrl(dataUrl);
     } catch (error) {
-      console.error('Ошибка при генерации QR-кода:', error);
+      console.error('[QR Code] Ошибка при генерации QR-кода:', error);
+      console.error('[QR Code] Детали ошибки:', {
+        message: error.message,
+        stack: error.stack,
+        QRCodeAvailable: typeof QRCode !== 'undefined',
+        QRCodeType: typeof QRCode,
+        QRCodeKeys: QRCode ? Object.keys(QRCode) : null
+      });
       // Fallback: используем простой способ
       setQrCodeDataUrl(null);
     }
@@ -295,7 +320,8 @@ function MobileAccessPage() {
       // Но можно добавить явное сохранение, если нужно
       if (selectedIP) {
         await handleSelectIP(selectedIP);
-        alert('Настройки сохранены!');
+        // Закрываем страницу после сохранения
+        navigate('/match');
       }
     };
 
@@ -637,7 +663,8 @@ function MobileAccessPage() {
           onClick={async () => {
             if (selectedIP) {
               await handleSelectIP(selectedIP);
-              alert('Настройки сохранены!');
+              // Закрываем страницу после сохранения
+              navigate('/match');
             }
           }}
           style={{

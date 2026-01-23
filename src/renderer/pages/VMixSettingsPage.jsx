@@ -57,7 +57,7 @@ function VMixSettingsPage() {
 
       // Сохраняем конфигурацию (новая структура уже используется)
       await window.electronAPI.setVMixConfig(config);
-      alert("Настройки сохранены!");
+      // Закрываем страницу после сохранения
       navigate("/match");
     } catch (error) {
       console.error("Ошибка при сохранении настроек:", error);

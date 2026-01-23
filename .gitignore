@@ -56,6 +56,14 @@ src/shared/**/*.js
 # Игнорируем временные файлы компиляции (если есть)
 src/**/*.ts.js
 
+# Скомпилированные JSX файлы (результат компиляции .jsx в .js)
+# Vite не должен создавать эти файлы, но на всякий случай игнорируем их
+# Игнорируем скомпилированные файлы в pages/ и components/
+src/renderer/pages/*.js
+src/renderer/components/*.js
+src/renderer/App.js
+src/renderer/index.js
+
 # Optional npm cache directory
 .npm
 
