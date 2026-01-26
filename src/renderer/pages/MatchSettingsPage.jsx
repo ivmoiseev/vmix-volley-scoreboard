@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { resizeImage } from '../utils/imageResize';
 import { useVMix } from '../hooks/useVMix';
@@ -15,6 +15,10 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   
   // Получаем updateMatchData, resetImageFieldsCache и updateReferee2Data из useVMix для принудительного обновления при сохранении
   const { updateMatchData, connectionStatus, resetImageFieldsCache, updateReferee2Data } = useVMix(match);
+  
+  // Используем useRef для отслеживания matchId, чтобы не перезаписывать formData при изменении логотипов
+  // formData должен обновляться только при смене матча (когда matchId изменился)
+  const lastMatchIdRef = useRef(null);
   
   const [formData, setFormData] = useState({
     tournament: '',
@@ -106,34 +110,46 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
       return () => clearTimeout(timer);
     }
 
-    // Получаем часовой пояс по умолчанию из системы, если не указан в матче
-    const defaultTimezone = typeof Intl !== 'undefined' && Intl.DateTimeFormat 
-      ? Intl.DateTimeFormat().resolvedOptions().timeZone 
-      : 'UTC';
+    // ВАЖНО: Обновляем formData только при смене матча (когда matchId изменился)
+    // Это предотвращает потерю несохраненных изменений в текстовых полях при изменении логотипов
+    const currentMatchId = match.matchId;
+    const lastMatchId = lastMatchIdRef.current;
     
-    // Заполняем форму данными из матча
-    setFormData({
-      tournament: match.tournament || '',
-      tournamentSubtitle: match.tournamentSubtitle || '',
-      location: match.location || '',
-      venue: match.venue || '',
-      date: match.date || '',
-      time: match.time || '',
-      timezone: match.timezone || defaultTimezone,
-      teamAName: match.teamA.name || '',
-      teamAColor: match.teamA.color || '#3498db',
-      teamALiberoColor: match.teamA.liberoColor || '',
-      teamACity: match.teamA.city || '',
-      teamBName: match.teamB.name || '',
-      teamBColor: match.teamB.color || '#e74c3c',
-      teamBLiberoColor: match.teamB.liberoColor || '',
-      teamBCity: match.teamB.city || '',
-      referee1: match.officials?.referee1 || '',
-      referee2: match.officials?.referee2 || '',
-      lineJudge1: match.officials?.lineJudge1 || '',
-      lineJudge2: match.officials?.lineJudge2 || '',
-      scorer: match.officials?.scorer || '',
-    });
+    // Если matchId изменился (новый матч) или это первая инициализация (lastMatchId === null)
+    if (currentMatchId !== lastMatchId) {
+      // Обновляем ref для отслеживания текущего matchId
+      lastMatchIdRef.current = currentMatchId;
+      
+      // Получаем часовой пояс по умолчанию из системы, если не указан в матче
+      const defaultTimezone = typeof Intl !== 'undefined' && Intl.DateTimeFormat 
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone 
+        : 'UTC';
+      
+      // Заполняем форму данными из матча только при смене матча
+      setFormData({
+        tournament: match.tournament || '',
+        tournamentSubtitle: match.tournamentSubtitle || '',
+        location: match.location || '',
+        venue: match.venue || '',
+        date: match.date || '',
+        time: match.time || '',
+        timezone: match.timezone || defaultTimezone,
+        teamAName: match.teamA.name || '',
+        teamAColor: match.teamA.color || '#3498db',
+        teamALiberoColor: match.teamA.liberoColor || '',
+        teamACity: match.teamA.city || '',
+        teamBName: match.teamB.name || '',
+        teamBColor: match.teamB.color || '#e74c3c',
+        teamBLiberoColor: match.teamB.liberoColor || '',
+        teamBCity: match.teamB.city || '',
+        referee1: match.officials?.referee1 || '',
+        referee2: match.officials?.referee2 || '',
+        lineJudge1: match.officials?.lineJudge1 || '',
+        lineJudge2: match.officials?.lineJudge2 || '',
+        scorer: match.officials?.scorer || '',
+      });
+    }
+    // Если matchId не изменился, НЕ обновляем formData - сохраняем несохраненные изменения пользователя
   }, [match, navigate]);
 
   const handleInputChange = (field, value) => {
@@ -533,7 +549,9 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                       ? Intl.DateTimeFormat().resolvedOptions().timeZone 
                       : 'UTC';
                     
-                    // Обновляем форму с данными из finalSwappedMatch
+                    // ВАЖНО: Явно обновляем форму с данными из finalSwappedMatch после swapTeams
+                    // Это необходимо, так как команды поменялись местами, и нужно обновить все поля формы
+                    // matchId не меняется при swapTeams, поэтому useEffect не обновит formData автоматически
                     setFormData({
                       tournament: finalSwappedMatch.tournament || '',
                       tournamentSubtitle: finalSwappedMatch.tournamentSubtitle || '',

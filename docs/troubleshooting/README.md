@@ -20,6 +20,7 @@
 
 ### Сборка и зависимости
 - **[Ошибка "Cannot find package 'electron-updater'"](electron-updater-missing-module.md)** - решение проблемы с отсутствующим модулем в production сборке
+- **[Замена библиотеки QR-кода](qrcode-library-replacement.md)** - решение проблемы с минификацией библиотеки qrcode в production сборке
 
 ## 🎯 Структура
 
@@ -28,7 +29,9 @@ troubleshooting/
 ├── README.md                              # Этот файл
 ├── logo-issues-summary.md                 # Сводка проблем с логотипами
 ├── XSS_FIX_SUMMARY.md                     # Исправление XSS
-└── vmix-connection-audit-report.md       # Аудит подключения к vMix
+├── vmix-connection-audit-report.md        # Аудит подключения к vMix
+├── electron-updater-missing-module.md     # Ошибка с electron-updater
+└── qrcode-library-replacement.md          # Замена библиотеки QR-кода
 ```
 
 ## 🔍 Категории проблем

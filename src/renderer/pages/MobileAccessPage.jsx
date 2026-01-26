@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHeaderButtons } from '../components/Layout';
-// Импортируем qrcode - библиотека настроена в vite.config.js для корректной обработки CommonJS
-// Библиотека использует CommonJS exports, поэтому используем namespace import
-import * as QRCode from 'qrcode';
+// ИСПРАВЛЕНИЕ: Используем qrcode.react вместо qrcode
+// qrcode.react - это React-компонент, который работает в браузере и совместим с Vite production сборкой
+// Он не имеет проблем с минификацией, в отличие от библиотеки qrcode
+import { QRCodeCanvas } from 'qrcode.react';
 
 function MobileAccessPage() {
   const navigate = useNavigate();
@@ -11,6 +12,7 @@ function MobileAccessPage() {
   const [serverInfo, setServerInfo] = useState(null);
   const [sessionData, setSessionData] = useState(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState(null); // URL для генерации QR-кода
   const [loading, setLoading] = useState(false);
   const [networkInterfaces, setNetworkInterfaces] = useState([]);
   const [selectedIP, setSelectedIP] = useState(null);
@@ -188,6 +190,7 @@ function MobileAccessPage() {
         setServerInfo(null);
         setSessionData(null);
         setQrCodeDataUrl(null);
+        setQrCodeUrl(null);
         sessionLoadedRef.current = false; // Сбрасываем флаг для следующего запуска
       } else {
         alert('Не удалось остановить сервер: ' + result.error);
@@ -240,48 +243,55 @@ function MobileAccessPage() {
     }
   };
 
+  // Ref для контейнера QR-кода
+  const qrCodeContainerRef = useRef(null);
+  
+  // Генерируем data URL из canvas после рендеринга QR-кода
+  useEffect(() => {
+    if (qrCodeUrl && qrCodeContainerRef.current) {
+      // Ждем следующий тик, чтобы canvas был отрендерен
+      const timer = setTimeout(() => {
+        // Ищем canvas элемент внутри контейнера
+        const canvas = qrCodeContainerRef.current?.querySelector('canvas');
+        if (canvas) {
+          try {
+            const dataUrl = canvas.toDataURL('image/png');
+            console.log('[QR Code] QR-код успешно сгенерирован, длина data URL:', dataUrl ? dataUrl.length : 0);
+            setQrCodeDataUrl(dataUrl);
+          } catch (error) {
+            console.error('[QR Code] Ошибка при получении data URL из canvas:', error);
+            setQrCodeDataUrl(null);
+          }
+        } else {
+          console.error('[QR Code] Canvas элемент не найден');
+          setQrCodeDataUrl(null);
+        }
+      }, 150); // Увеличиваем задержку для гарантии рендеринга
+      
+      return () => clearTimeout(timer);
+    }
+  }, [qrCodeUrl]);
+  
   const generateQRCode = async (url) => {
     try {
-      // Используем клиентскую библиотеку qrcode для генерации QR-кода
-      // Это решает проблему с CSP и работает быстрее, так как не требует внешних запросов
-      // Библиотека уже настроена в vite.config.js для корректной обработки CommonJS модуля
+      // ИСПРАВЛЕНИЕ: Используем qrcode.react для генерации QR-кода
+      // Это React-компонент, который работает в браузере и совместим с Vite production сборкой
+      // Он не имеет проблем с минификацией, в отличие от библиотеки qrcode
       
       console.log('[QR Code] Начало генерации QR-кода для URL:', url);
-      console.log('[QR Code] QRCode доступен:', typeof QRCode !== 'undefined', QRCode);
       
-      // Проверяем, что библиотека загружена
-      if (!QRCode || typeof QRCode.toDataURL !== 'function') {
-        console.error('[QR Code] QRCode библиотека не загружена правильно:', {
-          QRCode: QRCode,
-          type: typeof QRCode,
-          hasToDataURL: QRCode && typeof QRCode.toDataURL
-        });
-        setQrCodeDataUrl(null);
-        return;
-      }
-      
-      console.log('[QR Code] Вызов QRCode.toDataURL...');
-      const dataUrl = await QRCode.toDataURL(url, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
-      });
-      console.log('[QR Code] QR-код успешно сгенерирован, длина data URL:', dataUrl ? dataUrl.length : 0);
-      setQrCodeDataUrl(dataUrl);
+      // Устанавливаем URL для генерации QR-кода
+      // Компонент QRCodeCanvas отрендерит canvas, из которого мы получим data URL
+      setQrCodeUrl(url);
+      setQrCodeDataUrl(null); // Сбрасываем предыдущий data URL
     } catch (error) {
       console.error('[QR Code] Ошибка при генерации QR-кода:', error);
       console.error('[QR Code] Детали ошибки:', {
         message: error.message,
         stack: error.stack,
-        QRCodeAvailable: typeof QRCode !== 'undefined',
-        QRCodeType: typeof QRCode,
-        QRCodeKeys: QRCode ? Object.keys(QRCode) : null
       });
-      // Fallback: используем простой способ
       setQrCodeDataUrl(null);
+      setQrCodeUrl(null);
     }
   };
 
@@ -549,6 +559,19 @@ function MobileAccessPage() {
                 <h4 style={{ marginTop: 0, marginBottom: '1rem' }}>
                   QR-код для быстрого подключения:
                 </h4>
+                {/* Скрытый QRCodeCanvas для генерации data URL */}
+                {qrCodeUrl && (
+                  <div ref={qrCodeContainerRef} style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+                    <QRCodeCanvas
+                      value={qrCodeUrl}
+                      size={300}
+                      level="M"
+                      marginSize={2}
+                      bgColor="#FFFFFF"
+                      fgColor="#000000"
+                    />
+                  </div>
+                )}
                 {qrCodeDataUrl ? (
                   <div style={{
                     display: 'inline-block',
@@ -567,7 +590,7 @@ function MobileAccessPage() {
                       }}
                     />
                   </div>
-                ) : (
+                ) : qrCodeUrl ? (
                   <div style={{
                     width: '300px',
                     height: '300px',
@@ -581,7 +604,7 @@ function MobileAccessPage() {
                   }}>
                     Загрузка QR-кода...
                   </div>
-                )}
+                ) : null}
                 <p style={{
                   marginTop: '1rem',
                   fontSize: '0.9rem',

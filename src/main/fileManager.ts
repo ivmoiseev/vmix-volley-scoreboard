@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import path from 'path';
 import { dialog } from 'electron';
 import { validateMatch, createNewMatch } from '../shared/matchUtils.js';
 import errorHandler from '../shared/errorHandler.js';
