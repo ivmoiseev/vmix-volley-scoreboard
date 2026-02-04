@@ -20,6 +20,10 @@ import * as logoManager from "./logoManager.ts";
 import errorHandler from "../shared/errorHandler.js";
 import * as updater from "./updater.ts";
 import { getIconPath, getPreloadPath, getVitePortFilePath } from "./utils/pathUtils.ts";
+import {
+  resolveLogoUrlsInImageFields,
+  findInputConfig,
+} from "./vmix-overlay-utils.ts";
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 
@@ -472,6 +476,24 @@ app.whenReady().then(async () => {
       "[App] Не удалось очистить папку logos при старте:",
       error.message
     );
+  }
+
+  // Восстанавливаем подключение к vMix при запуске, если было сохранено состояние «подключено»
+  try {
+    const vmixSettings = await settingsManager.getVMixSettings();
+    if (vmixSettings?.connectionState === "connected" && vmixSettings?.host && vmixSettings?.port) {
+      const client = getVMixClient(vmixSettings.host, vmixSettings.port);
+      const result = await client.testConnection();
+      if (!result.success) {
+        await settingsManager.setVMixSettings({
+          ...vmixSettings,
+          connectionState: "disconnected",
+        });
+        console.log("[App] vMix: автоматическое подключение не удалось, состояние сброшено");
+      }
+    }
+  } catch (error) {
+    console.warn("[App] Ошибка при восстановлении подключения к vMix:", error?.message);
   }
 
   // Восстанавливаем состояние мобильного сервера при запуске
@@ -1222,10 +1244,10 @@ ipcMain.handle("vmix:set-config", async (event, config) => {
 
 ipcMain.handle("vmix:test-connection", async (event, host, port) => {
   try {
-    const client = getVMixClient(
-      host || vmixConfig.getVMixSetting("host"),
-      port || vmixConfig.getVMixSetting("port")
-    );
+    const config = await vmixConfig.getVMixConfig();
+    const h = host ?? config?.host;
+    const p = port ?? config?.port;
+    const client = getVMixClient(h, p);
     const result = await client.testConnection();
     return result;
   } catch (error) {
@@ -1233,6 +1255,38 @@ ipcMain.handle("vmix:test-connection", async (event, host, port) => {
       error,
       "vmix:test-connection"
     );
+    return { success: false, error: friendlyError };
+  }
+});
+
+/** Подключение к vMix: тест соединения и сохранение connectionState в файл при успехе */
+ipcMain.handle("vmix:connect", async (event, host, port) => {
+  try {
+    const config = await vmixConfig.getVMixConfig();
+    const h = host ?? config?.host ?? "localhost";
+    const p = port ?? config?.port ?? 8088;
+    const client = getVMixClient(h, p);
+    const result = await client.testConnection();
+    if (result.success) {
+      const newConfig = { ...config, host: h, port: p, connectionState: "connected" };
+      await settingsManager.setVMixSettings(newConfig);
+    }
+    return result;
+  } catch (error) {
+    const friendlyError = errorHandler.handleError(error, "vmix:connect");
+    return { success: false, error: friendlyError };
+  }
+});
+
+/** Отключение от vMix: сохранение connectionState в файл */
+ipcMain.handle("vmix:disconnect", async () => {
+  try {
+    const config = await vmixConfig.getVMixConfig();
+    const newConfig = { ...config, connectionState: "disconnected" };
+    await settingsManager.setVMixSettings(newConfig);
+    return { success: true };
+  } catch (error) {
+    const friendlyError = errorHandler.handleError(error, "vmix:disconnect");
     return { success: false, error: friendlyError };
   }
 });
@@ -1263,12 +1317,32 @@ ipcMain.handle(
     try {
       const config = await vmixConfig.getVMixConfig();
       const client = getVMixClient(config.host, config.port);
+
+      // Базовый URL для логотипов (мобильный сервер): vMix должен загружать изображения по HTTP
+      let logosBaseUrl: string | null = null;
+      try {
+        const mobileSettings = await settingsManager.getMobileSettings();
+        const port = mobileSettings?.port || 3000;
+        const selectedIP = mobileSettings?.selectedIP ?? null;
+        const ip = getMobileServer().getLocalIP?.(selectedIP);
+        if (ip && port) {
+          logosBaseUrl = `http://${ip}:${port}`;
+        }
+      } catch (_) {
+        // Игнорируем: без URL логотипы уйдут как есть (могут не работать в vMix)
+      }
+
+      const resolvedImageFields = resolveLogoUrlsInImageFields(
+        imageFields || {},
+        logosBaseUrl
+      );
+
       const results = await client.updateInputFields(
         inputName,
         fields || {},
         colorFields || {},
         visibilityFields || {},
-        imageFields || {},
+        resolvedImageFields,
         textColorFields || {}
       );
       // Проверяем, есть ли ошибки
@@ -1291,27 +1365,29 @@ ipcMain.handle(
 ipcMain.handle("vmix:show-overlay", async (event, inputKey) => {
   try {
     const config = await vmixConfig.getVMixConfig();
-    const inputConfig = config.inputs[inputKey];
+    const { inputConfig } = findInputConfig(config, inputKey);
     if (!inputConfig) {
-      return { success: false, error: "Инпут не настроен" };
+      return { success: false, error: `Инпут не найден в конфигурации (ключ: ${inputKey}). Проверьте настройки vMix.` };
     }
 
-    // Поддержка старого и нового формата
+    // Поддержка нового формата (vmixTitle) и старого (inputIdentifier/name)
     const inputIdentifier =
       typeof inputConfig === "string"
         ? inputConfig
-        : inputConfig.inputIdentifier || inputConfig.name;
+        : (inputConfig as Record<string, unknown>).vmixTitle ||
+          (inputConfig as Record<string, unknown>).inputIdentifier ||
+          (inputConfig as Record<string, unknown>).name;
     const overlay =
-      typeof inputConfig === "object" && inputConfig.overlay
-        ? inputConfig.overlay
+      typeof inputConfig === "object" && inputConfig !== null && (inputConfig as Record<string, unknown>).overlay != null
+        ? (inputConfig as Record<string, unknown>).overlay
         : config.overlay || 1;
 
     if (!inputIdentifier) {
-      return { success: false, error: "Инпут не настроен" };
+      return { success: false, error: "У инпута не задан vmixTitle / имя в vMix." };
     }
 
     const client = getVMixClient(config.host, config.port);
-    const result = await client.showOverlay(overlay, inputIdentifier);
+    const result = await client.showOverlay(Number(overlay), String(inputIdentifier));
     return result;
   } catch (error) {
     return { success: false, error: error.message };
@@ -1321,19 +1397,18 @@ ipcMain.handle("vmix:show-overlay", async (event, inputKey) => {
 ipcMain.handle("vmix:hide-overlay", async (event, inputKey) => {
   try {
     const config = await vmixConfig.getVMixConfig();
-    const inputConfig = config.inputs[inputKey];
+    const { inputConfig } = findInputConfig(config, inputKey);
     if (!inputConfig) {
-      return { success: false, error: "Инпут не настроен" };
+      return { success: false, error: `Инпут не найден в конфигурации (ключ: ${inputKey}). Проверьте настройки vMix.` };
     }
 
-    // Поддержка старого и нового формата
     const overlay =
-      typeof inputConfig === "object" && inputConfig.overlay
-        ? inputConfig.overlay
+      typeof inputConfig === "object" && inputConfig !== null && (inputConfig as Record<string, unknown>).overlay != null
+        ? (inputConfig as Record<string, unknown>).overlay
         : config.overlay || 1;
 
     const client = getVMixClient(config.host, config.port);
-    const result = await client.hideOverlay(overlay);
+    const result = await client.hideOverlay(Number(overlay));
     return result;
   } catch (error) {
     return { success: false, error: error.message };
@@ -1348,6 +1423,26 @@ ipcMain.handle("vmix:get-overlay-state", async () => {
     return result;
   } catch (error) {
     return { success: false, error: error.message, overlays: null };
+  }
+});
+
+ipcMain.handle("vmix:getGTInputs", async () => {
+  try {
+    const config = await vmixConfig.getVMixConfig();
+    const client = getVMixClient(config.host, config.port);
+    return await client.getGTInputs();
+  } catch (error) {
+    return { success: false, error: error.message, inputs: [] };
+  }
+});
+
+ipcMain.handle("vmix:getInputFields", async (event, inputNumberOrKey, forceRefresh) => {
+  try {
+    const config = await vmixConfig.getVMixConfig();
+    const client = getVMixClient(config.host, config.port);
+    return await client.getInputFields(inputNumberOrKey, forceRefresh);
+  } catch (error) {
+    return { success: false, error: error.message, fields: [] };
   }
 });
 

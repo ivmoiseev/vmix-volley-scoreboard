@@ -37,26 +37,9 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-// Моки для qrcode.react
+// Моки для qrcode.react (без getContext — в jsdom он не реализован)
 vi.mock('qrcode.react', () => ({
-  QRCodeCanvas: ({ value, size, level, marginSize, bgColor, fgColor }) => {
-    // Создаем мок canvas элемента
-    const canvas = document.createElement('canvas');
-    canvas.width = size || 300;
-    canvas.height = size || 300;
-    
-    // Симулируем отрисовку QR-кода
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = bgColor || '#FFFFFF';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = fgColor || '#000000';
-      ctx.fillRect(10, 10, canvas.width - 20, canvas.height - 20);
-    }
-    
-    // Устанавливаем data URL для тестирования
-    canvas.toDataURL = vi.fn(() => 'data:image/png;base64,test-qr-code-data');
-    
+  QRCodeCanvas: ({ value, size }) => {
     return React.createElement('canvas', {
       'data-testid': 'qrcode-canvas',
       width: size || 300,
@@ -72,9 +55,9 @@ describe('MobileAccessPage', () => {
     vi.clearAllMocks();
     mockNavigate.mockClear();
 
-    // Моки для Electron API
+    // Моки для Electron API (running: false — чтобы отображалась кнопка «Запустить сервер»)
     mockElectronAPI = {
-      getMobileServerInfo: vi.fn(() => Promise.resolve({ success: false })),
+      getMobileServerInfo: vi.fn(() => Promise.resolve({ success: false, running: false })),
       isMobileServerRunning: vi.fn(() => Promise.resolve(false)),
       startMobileServer: vi.fn(() => Promise.resolve({ success: true, port: 3000 })),
       stopMobileServer: vi.fn(() => Promise.resolve({ success: true })),
@@ -143,10 +126,10 @@ describe('MobileAccessPage', () => {
     renderWithRouter(<MobileAccessPage />);
     
     await waitFor(() => {
-      expect(screen.getByText(/запустить сервер/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /запустить сервер/i })).toBeInTheDocument();
     });
 
-    const startButton = screen.getByText(/запустить сервер/i);
+    const startButton = screen.getByRole('button', { name: /запустить сервер/i });
     fireEvent.click(startButton);
 
     await waitFor(() => {
@@ -159,12 +142,12 @@ describe('MobileAccessPage', () => {
     
     renderWithRouter(<MobileAccessPage />);
     
-    // Запускаем сервер
+    // Запускаем сервер (кнопка — на странице несколько элементов с текстом «запустить сервер»)
     await waitFor(() => {
-      expect(screen.getByText(/запустить сервер/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /запустить сервер/i })).toBeInTheDocument();
     });
 
-    const startButton = screen.getByText(/запустить сервер/i);
+    const startButton = screen.getByRole('button', { name: /запустить сервер/i });
     fireEvent.click(startButton);
 
     // Ждем генерации сессии
@@ -189,44 +172,49 @@ describe('MobileAccessPage', () => {
       sessionId: 'saved-session-id',
       url: 'http://192.168.1.100:3000/mobile/saved-session-id',
     };
-    
-    mockElectronAPI.getSavedMobileSession = vi.fn(() => Promise.resolve(savedSession));
-    mockElectronAPI.isMobileServerRunning = vi.fn(() => Promise.resolve(true));
-    mockElectronAPI.getMobileServerInfo = vi.fn(() => Promise.resolve({
-      success: true,
-      port: 3000,
-      isRunning: true,
-    }));
+    const getSavedMobileSessionMock = vi.fn(() => Promise.resolve(savedSession));
+    const getMobileServerInfoMock = vi.fn(() =>
+      Promise.resolve({ success: true, port: 3000, running: true })
+    );
+    mockElectronAPI.getSavedMobileSession = getSavedMobileSessionMock;
+    mockElectronAPI.getMobileServerInfo = getMobileServerInfoMock;
+    global.window.electronAPI.getSavedMobileSession = getSavedMobileSessionMock;
+    global.window.electronAPI.getMobileServerInfo = getMobileServerInfoMock;
 
     renderWithRouter(<MobileAccessPage />);
 
-    // Ждем загрузки сохраненной сессии
-    await waitFor(() => {
-      expect(mockElectronAPI.getSavedMobileSession).toHaveBeenCalled();
-    }, { timeout: 3000 });
+    // Ждем загрузки сохраненной сессии (loadSavedSession вызывается при serverInfo.running === true)
+    await waitFor(
+      () => {
+        expect(getSavedMobileSessionMock).toHaveBeenCalled();
+      },
+      { timeout: 3000 }
+    );
 
     // Проверяем, что QR-код отображается
-    await waitFor(() => {
-      const canvas = document.querySelector('canvas[data-testid="qrcode-canvas"]');
-      expect(canvas).toBeInTheDocument();
-    }, { timeout: 2000 });
+    await waitFor(
+      () => {
+        const canvas = document.querySelector('canvas[data-testid="qrcode-canvas"]');
+        expect(canvas).toBeInTheDocument();
+      },
+      { timeout: 2000 }
+    );
   });
 
   test('должен останавливать сервер при нажатии на кнопку "Остановить сервер"', async () => {
-    mockElectronAPI.isMobileServerRunning = vi.fn(() => Promise.resolve(true));
-    mockElectronAPI.getMobileServerInfo = vi.fn(() => Promise.resolve({
-      success: true,
-      port: 3000,
-      isRunning: true,
-    }));
+    const getMobileServerInfoMock = vi.fn(() =>
+      Promise.resolve({ success: true, port: 3000, running: true })
+    );
+    mockElectronAPI.getMobileServerInfo = getMobileServerInfoMock;
+    global.window.electronAPI.getMobileServerInfo = getMobileServerInfoMock;
 
     renderWithRouter(<MobileAccessPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/остановить сервер/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /остановить сервер/i })).toBeInTheDocument();
     });
 
-    const stopButton = screen.getByText(/остановить сервер/i);
+    const stopButton = screen.getByRole('button', { name: /остановить сервер/i });
     fireEvent.click(stopButton);
 
     await waitFor(() => {
@@ -235,31 +223,37 @@ describe('MobileAccessPage', () => {
   });
 
   test('должен очищать QR-код при остановке сервера', async () => {
-    mockElectronAPI.isMobileServerRunning = vi.fn(() => Promise.resolve(true));
-    mockElectronAPI.getMobileServerInfo = vi.fn(() => Promise.resolve({
-      success: true,
-      port: 3000,
-      isRunning: true,
-    }));
-    mockElectronAPI.getSavedMobileSession = vi.fn(() => Promise.resolve({
-      sessionId: 'test-session',
-      url: 'http://192.168.1.100:3000/mobile/test-session',
-    }));
+    const getMobileServerInfoMock = vi.fn(() =>
+      Promise.resolve({ success: true, port: 3000, running: true })
+    );
+    const getSavedMobileSessionMock = vi.fn(() =>
+      Promise.resolve({
+        sessionId: 'test-session',
+        url: 'http://192.168.1.100:3000/mobile/test-session',
+      })
+    );
+    mockElectronAPI.getMobileServerInfo = getMobileServerInfoMock;
+    mockElectronAPI.getSavedMobileSession = getSavedMobileSessionMock;
+    global.window.electronAPI.getMobileServerInfo = getMobileServerInfoMock;
+    global.window.electronAPI.getSavedMobileSession = getSavedMobileSessionMock;
 
     renderWithRouter(<MobileAccessPage />);
 
-    // Ждем загрузки QR-кода
-    await waitFor(() => {
-      const canvas = document.querySelector('canvas[data-testid="qrcode-canvas"]');
-      return canvas !== null;
-    }, { timeout: 2000 });
+    // Ждем загрузки QR-кода (сессия подгружается при running: true)
+    await waitFor(
+      () => {
+        const canvas = document.querySelector('canvas[data-testid="qrcode-canvas"]');
+        return canvas !== null;
+      },
+      { timeout: 2000 }
+    );
 
-    // Останавливаем сервер
+    // Останавливаем сервер (кнопка по роли — на странице может быть текст «остановить» в инструкции)
     await waitFor(() => {
-      expect(screen.getByText(/остановить сервер/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /остановить сервер/i })).toBeInTheDocument();
     });
 
-    const stopButton = screen.getByText(/остановить сервер/i);
+    const stopButton = screen.getByRole('button', { name: /остановить сервер/i });
     fireEvent.click(stopButton);
 
     await waitFor(() => {
@@ -287,24 +281,30 @@ describe('MobileAccessPage', () => {
 
   test('должен обрабатывать ошибки при генерации QR-кода', async () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    
-    mockElectronAPI.generateMobileSession = vi.fn(() => Promise.reject(new Error('Ошибка генерации сессии')));
+    const generateMobileSessionReject = vi.fn(() =>
+      Promise.reject(new Error('Ошибка генерации сессии'))
+    );
+    mockElectronAPI.generateMobileSession = generateMobileSessionReject;
     mockElectronAPI.getSavedMobileSession = vi.fn(() => Promise.resolve(null));
+    global.window.electronAPI.generateMobileSession = generateMobileSessionReject;
 
     renderWithRouter(<MobileAccessPage />);
 
-    // Запускаем сервер
+    // Запускаем сервер (ищем кнопку по роли — на странице несколько элементов с текстом «запустить сервер»)
     await waitFor(() => {
-      expect(screen.getByText(/запустить сервер/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /запустить сервер/i })).toBeInTheDocument();
     });
 
-    const startButton = screen.getByText(/запустить сервер/i);
+    const startButton = screen.getByRole('button', { name: /запустить сервер/i });
     fireEvent.click(startButton);
 
-    // Ждем обработки ошибки
-    await waitFor(() => {
-      expect(mockElectronAPI.generateMobileSession).toHaveBeenCalled();
-    }, { timeout: 3000 });
+    // Ждем вызова generateMobileSession (после успешного startMobileServer компонент вызывает его)
+    await waitFor(
+      () => {
+        expect(generateMobileSessionReject).toHaveBeenCalled();
+      },
+      { timeout: 3000 }
+    );
 
     consoleErrorSpy.mockRestore();
   });

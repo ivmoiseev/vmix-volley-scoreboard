@@ -1,3 +1,19 @@
+test: Покрытие тестами рефакторинга инпутов vMix и исправление тестов MobileAccessPage
+
+Тесты и рефакторинг:
+- Добавлены юнит-тесты для getValueByDataMapKey (tests/unit/shared/getValueByDataMapKey.test.js)
+- Вынесены resolveLogoUrlsInImageFields и findInputConfig в src/main/vmix-overlay-utils.ts для тестирования
+- Добавлены тесты vmix-overlay-utils (tests/unit/main/vmix-overlay-utils.test.ts)
+- Добавлены тесты VMixOverlayButtons, VMixInputFieldsPanel, useVMix-dynamic-inputs, VMixSettingsPage
+- Исправлены падающие тесты MobileAccessPage: getByRole для кнопок, running в моках getMobileServerInfo, синхронизация моков с window.electronAPI, мок QRCodeCanvas без getContext
+
+Документация:
+- Обновлены docs/development/README.md, docs/testing/README.md, docs/architecture/ARCHITECTURE.md
+- Добавлен раздел 12.4 в vmix-inputs-refactoring-implementation-guide.md (список добавленных тестов)
+- Обновлены COMMIT_MESSAGE.md и CHANGELOG.md
+
+---
+
 fix: Замена библиотеки QR-кода для исправления ошибки в production (v1.0.9)
 
 Критическое исправление:

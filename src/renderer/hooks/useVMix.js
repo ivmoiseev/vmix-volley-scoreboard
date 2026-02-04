@@ -3,6 +3,7 @@ import { debounce } from "../utils/debounce";
 import { getFullFieldName } from "../utils/vmix-field-utils";
 import { getContrastTextColor } from "../utils/colorContrast";
 import { calculateDuration, formatDuration } from "../../shared/timeUtils.js";
+import { getValueByDataMapKey } from "../../shared/getValueByDataMapKey.js";
 
 // Константы для типов полей и ключей
 const FIELD_TYPES = {
@@ -39,84 +40,9 @@ export function useVMix(_match) {
   const updateMatchDataDebouncedRef = useRef(null);
   const connectionStatusRef = useRef(connectionStatus);
 
-  // Кэш последних отправленных значений для каждого инпута
-  // Структура: { inputKey: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {} } }
-  const lastSentValuesRef = useRef({
-    currentScore: {
-      fields: {},
-      colorFields: {},
-      visibilityFields: {},
-      imageFields: {},
-    },
-    lineup: {
-      fields: {},
-      colorFields: {},
-      visibilityFields: {},
-      imageFields: {},
-    },
-    rosterTeamA: {
-      fields: {},
-      colorFields: {},
-      visibilityFields: {},
-      imageFields: {},
-    },
-    rosterTeamB: {
-      fields: {},
-      colorFields: {},
-      visibilityFields: {},
-      imageFields: {},
-    },
-    startingLineupTeamA: {
-      fields: {},
-      colorFields: {},
-      visibilityFields: {},
-      imageFields: {},
-      textColorFields: {},
-    },
-    startingLineupTeamB: {
-      fields: {},
-      colorFields: {},
-      visibilityFields: {},
-      imageFields: {},
-      textColorFields: {},
-    },
-    referee2: {
-      fields: {},
-      colorFields: {},
-      visibilityFields: {},
-      imageFields: {},
-    },
-    set1Score: {
-      fields: {},
-      colorFields: {},
-      visibilityFields: {},
-      imageFields: {},
-    },
-    set2Score: {
-      fields: {},
-      colorFields: {},
-      visibilityFields: {},
-      imageFields: {},
-    },
-    set3Score: {
-      fields: {},
-      colorFields: {},
-      visibilityFields: {},
-      imageFields: {},
-    },
-    set4Score: {
-      fields: {},
-      colorFields: {},
-      visibilityFields: {},
-      imageFields: {},
-    },
-    set5Score: {
-      fields: {},
-      colorFields: {},
-      visibilityFields: {},
-      imageFields: {},
-    },
-  });
+  // Кэш последних отправленных значений для динамических инпутов (ключ = inputId)
+  // Структура: { inputId: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {}, textColorFields: {} } }
+  const lastSentValuesRef = useRef({});
 
   // ID текущего матча для отслеживания смены матча
   const currentMatchIdRef = useRef(null);
@@ -148,7 +74,14 @@ export function useVMix(_match) {
     if (typeof inputConfig === "string") {
       return inputConfig;
     }
-    return inputConfig?.inputIdentifier || inputConfig?.name || null;
+    // Динамические инпуты: vmixTitle / vmixNumber; старый формат: inputIdentifier / name
+    return (
+      inputConfig?.vmixTitle ??
+      inputConfig?.vmixNumber ??
+      inputConfig?.inputIdentifier ??
+      inputConfig?.name ??
+      null
+    );
   }, []);
 
   const validateInputConfig = useCallback(
@@ -176,10 +109,12 @@ export function useVMix(_match) {
   }, []);
 
   /**
-   * Сравнивает два значения, нормализуя их для корректного сравнения
+   * Сравнивает два значения, нормализуя их для корректного сравнения.
+   * Если последнее отправленное значение не было (undefined/null), считаем поля разными,
+   * чтобы отправлять и пустые строки — иначе после снятия сопоставления в vMix остаётся старый текст.
    */
   const compareValues = useCallback((value1, value2) => {
-    // Приводим к строкам для сравнения
+    if (value2 === undefined || value2 === null) return false;
     const str1 = String(value1 || "").trim();
     const str2 = String(value2 || "").trim();
     return str1 === str2;
@@ -273,104 +208,19 @@ export function useVMix(_match) {
         colorFields: {},
         visibilityFields: {},
         imageFields: {},
+        textColorFields: {},
       };
     } else {
-      lastSentValuesRef.current = {
-        currentScore: {
-          fields: {},
-          colorFields: {},
-          visibilityFields: {},
-          imageFields: {},
-        },
-        lineup: {
-          fields: {},
-          colorFields: {},
-          visibilityFields: {},
-          imageFields: {},
-        },
-        rosterTeamA: {
-          fields: {},
-          colorFields: {},
-          visibilityFields: {},
-          imageFields: {},
-        },
-        rosterTeamB: {
-          fields: {},
-          colorFields: {},
-          visibilityFields: {},
-          imageFields: {},
-        },
-        startingLineupTeamA: {
-          fields: {},
-          colorFields: {},
-          visibilityFields: {},
-          imageFields: {},
-        },
-        startingLineupTeamB: {
-          fields: {},
-          colorFields: {},
-          visibilityFields: {},
-          imageFields: {},
-        },
-        referee2: {
-          fields: {},
-          colorFields: {},
-          visibilityFields: {},
-          imageFields: {},
-        },
-        set1Score: {
-          fields: {},
-          colorFields: {},
-          visibilityFields: {},
-          imageFields: {},
-        },
-        set2Score: {
-          fields: {},
-          colorFields: {},
-          visibilityFields: {},
-          imageFields: {},
-        },
-        set3Score: {
-          fields: {},
-          colorFields: {},
-          visibilityFields: {},
-          imageFields: {},
-        },
-        set4Score: {
-          fields: {},
-          colorFields: {},
-          visibilityFields: {},
-          imageFields: {},
-        },
-        set5Score: {
-          fields: {},
-          colorFields: {},
-          visibilityFields: {},
-          imageFields: {},
-        },
-      };
+      lastSentValuesRef.current = {};
     }
   }, []);
 
   /**
-   * Сбрасывает кэш только для imageFields (используется при смене команд для принудительного обновления логотипов)
+   * Сбрасывает кэш imageFields для всех динамических инпутов (при смене команд — принудительное обновление логотипов)
    */
   const resetImageFieldsCache = useCallback(() => {
-    // Сбрасываем imageFields для всех инпутов, которые могут содержать логотипы
-    if (lastSentValuesRef.current.lineup) {
-      lastSentValuesRef.current.lineup.imageFields = {};
-    }
-    if (lastSentValuesRef.current.rosterTeamA) {
-      lastSentValuesRef.current.rosterTeamA.imageFields = {};
-    }
-    if (lastSentValuesRef.current.rosterTeamB) {
-      lastSentValuesRef.current.rosterTeamB.imageFields = {};
-    }
-    if (lastSentValuesRef.current.startingLineupTeamA) {
-      lastSentValuesRef.current.startingLineupTeamA.imageFields = {};
-    }
-    if (lastSentValuesRef.current.startingLineupTeamB) {
-      lastSentValuesRef.current.startingLineupTeamB.imageFields = {};
+    for (const entry of Object.values(lastSentValuesRef.current)) {
+      if (entry && typeof entry === "object") entry.imageFields = {};
     }
   }, []);
 
@@ -748,2030 +598,161 @@ export function useVMix(_match) {
   );
 
   /**
-   * Рассчитывает счет по сетам для команды
-   * Учитывает только завершенные партии (completed === true или status === COMPLETED)
+   * Обновляет динамические инпуты vMix (из config.inputOrder) по сопоставлениям
+   * dataMapKey/customValue и getValueByDataMapKey.
    */
-  const calculateSetsScore = useCallback((match, team) => {
-    if (!match?.sets) {
-      return 0;
-    }
-    
-    const score = match.sets.filter((set) => {
-      // Партия считается завершенной, если completed === true или status === 'completed'
-      const isCompleted = set.completed === true || set.status === 'completed';
-      if (!isCompleted) return false;
-      return team === "A" ? set.scoreA > set.scoreB : set.scoreB > set.scoreA;
-    }).length;
-    
-    return score;
-  }, []);
+  const updateDynamicInputs = useCallback(
+    async (matchData, forceUpdate = false) => {
+      if (!isVMixReady()) return;
+      const config = vmixConfigRef.current;
+      const inputOrder = Array.isArray(config?.inputOrder) ? config.inputOrder : [];
+      if (inputOrder.length === 0) return;
 
-  // Маппинг значений для полей текущего счета
-  const getCurrentScoreFieldValue = useCallback(
-    (fieldKey, match, setsScoreA, setsScoreB) => {
-      switch (fieldKey) {
-        case "teamA":
-          return match.teamA?.name || "";
-        case "teamB":
-          return match.teamB?.name || "";
-        case "scoreASet":
-          return String(match.currentSet?.scoreA || 0);
-        case "scoreBSet":
-          return String(match.currentSet?.scoreB || 0);
-        case "scoreASets":
-          return String(setsScoreA);
-        case "scoreBSets":
-          return String(setsScoreB);
-        default:
-          return "";
-      }
-    },
-    []
-  );
+      for (const inputId of inputOrder) {
+        const inputConfig = config.inputs?.[inputId];
+        if (!inputConfig) continue;
+        const vmixTitle = inputConfig.vmixTitle ?? inputConfig.vmixNumber;
+        if (!vmixTitle) continue;
 
-  /**
-   * Форматирует данные текущего счета для vMix в виде объекта полей
-   * Возвращает объект с полями для текстовых значений и отдельный объект для полей видимости
-   */
-  const formatCurrentScoreData = useCallback(
-    (match) => {
-      if (!match) return { fields: {}, colorFields: {}, visibilityFields: {} };
+        const fieldsConfig = inputConfig.fields || {};
+        const fields = {};
+        const colorFields = {};
+        const visibilityFields = {};
+        const imageFields = {};
+        const textColorFields = {};
 
-      const inputConfig = vmixConfigRef.current?.inputs?.currentScore;
-      if (!inputConfig?.fields) {
-        return { fields: {}, colorFields: {}, visibilityFields: {} };
-      }
-
-      const fields = {};
-      const colorFields = {};
-      const visibilityFields = {};
-      const setsScoreA = calculateSetsScore(match, "A");
-      const setsScoreB = calculateSetsScore(match, "B");
-      const servingTeam = match.currentSet?.servingTeam || null;
-
-      Object.entries(inputConfig.fields).forEach(([fieldKey, fieldConfig]) => {
-        if (fieldConfig.enabled === false || !fieldConfig.fieldIdentifier) {
-          return;
-        }
-
-        const fieldIdentifier = fieldConfig.fieldIdentifier;
-        const fullFieldName = fieldIdentifier
-          ? getFullFieldName(fieldIdentifier, fieldConfig.type)
-          : null;
-
-        // Обработка полей видимости (теперь это атрибут, а не тип)
-        if (
-          fieldConfig.visible === true &&
-          (fieldKey === FIELD_KEYS.POINT_A || fieldKey === FIELD_KEYS.POINT_B)
-        ) {
-          const visible =
-            (fieldKey === FIELD_KEYS.POINT_A && servingTeam === "A") ||
-            (fieldKey === FIELD_KEYS.POINT_B && servingTeam === "B");
-
-          if (fullFieldName) {
-            visibilityFields[fullFieldName] = {
-              visible,
-              fieldConfig,
-            };
-          }
-          return;
-        }
-
-        // Обработка полей fill (было color)
-        if (fieldConfig.type === FIELD_TYPES.FILL) {
-          if (fieldKey === FIELD_KEYS.COLOR_A) {
-            if (fullFieldName) {
-              colorFields[fullFieldName] = normalizeColor(
-                match.teamA?.color,
-                "#3498db"
-              );
-            }
-          } else if (fieldKey === FIELD_KEYS.COLOR_B) {
-            if (fullFieldName) {
-              colorFields[fullFieldName] = normalizeColor(
-                match.teamB?.color,
-                "#e74c3c"
-              );
-            }
-          }
-          return;
-        }
-
-        // Обработка текстовых полей
-        const value = getCurrentScoreFieldValue(
-          fieldKey,
-          match,
-          setsScoreA,
-          setsScoreB
-        );
-        // При forceUpdate отправляем все поля, даже пустые, чтобы очистить данные в vMix
-        if (fullFieldName) {
-          fields[fullFieldName] = value;
-        }
-      });
-
-      return { fields, colorFields, visibilityFields };
-    },
-    [calculateSetsScore, getCurrentScoreFieldValue, normalizeColor]
-  );
-
-  /**
-   * Получает значение поля для инпута "Счет после X партии"
-   * @param {string} fieldKey - ключ поля из конфигурации (teamA, teamB, set1Duration, и т.д.)
-   * @param {Object} match - данные матча
-   * @param {number} setNumber - номер инпута (1-5)
-   * @returns {string} значение поля
-   */
-  const getSetScoreFieldValue = useCallback((fieldKey, match, setNumber) => {
-    // Общие поля
-    if (fieldKey === 'teamA') {
-      return match.teamA?.name || '';
-    }
-    if (fieldKey === 'teamB') {
-      return match.teamB?.name || '';
-    }
-    if (fieldKey === 'scoreASets' || fieldKey === 'scoreBSets') {
-      // Получаем завершенные партии до указанного номера
-      const completedSets = (match.sets || []).filter(
-        (set) =>
-          set.setNumber <= setNumber &&
-          (set.status === 'completed' || set.completed === true)
-      );
-      
-      if (fieldKey === 'scoreASets') {
-        const score = completedSets.filter(set => set.scoreA > set.scoreB).length;
-        return String(score);
-      } else {
-        const score = completedSets.filter(set => set.scoreB > set.scoreA).length;
-        return String(score);
-      }
-    }
-
-    // Поля для партий (set1Duration, set1ScoreA, set1ScoreB, и т.д.)
-    const setMatch = fieldKey.match(/^set(\d+)(Duration|ScoreA|ScoreB)$/);
-    if (setMatch) {
-      const setNum = parseInt(setMatch[1], 10);
-      const fieldType = setMatch[2];
-      
-      // Проверяем, что номер партии не превышает setNumber
-      if (setNum > setNumber) {
-        return '';
-      }
-
-      // Находим партию
-      const set = (match.sets || []).find(s => s.setNumber === setNum);
-      
-      // Если партия не завершена, возвращаем пустую строку
-      if (!set || (set.status !== 'completed' && set.completed !== true)) {
-        return '';
-      }
-
-      if (fieldType === 'Duration') {
-        if (set.startTime && set.endTime) {
-          // Используем ту же функцию, что и в основном компоненте
-          const durationMinutes = calculateDuration(set.startTime, set.endTime);
-          // Форматируем с символом "'" (например, "23'")
-          return formatDuration(durationMinutes);
-        }
-        return '';
-      } else if (fieldType === 'ScoreA') {
-        return String(set.scoreA || 0);
-      } else if (fieldType === 'ScoreB') {
-        return String(set.scoreB || 0);
-      }
-    }
-
-    return '';
-  }, []);
-
-  /**
-   * Форматирует данные для инпута "Счет после X партии" для отправки в vMix
-   * @param {Object} match - данные матча
-   * @param {string} inputKey - ключ инпута ('set1Score', 'set2Score', и т.д.)
-   * @returns {Object} - объект с полями для отправки в vMix
-   */
-  const formatSetScoreInputDataForVMix = useCallback((match, inputKey) => {
-    if (!match) return { fields: {} };
-
-    const inputConfig = vmixConfigRef.current?.inputs?.[inputKey];
-    if (!inputConfig?.fields) {
-      return { fields: {} };
-    }
-
-    // Извлекаем номер инпута из ключа (set1Score -> 1, set2Score -> 2, и т.д.)
-    const setNumber = parseInt(inputKey.replace('set', '').replace('Score', ''), 10);
-    if (isNaN(setNumber) || setNumber < 1 || setNumber > 5) {
-      console.error(`[useVMix] Неверный номер инпута: ${inputKey}`);
-      return { fields: {} };
-    }
-
-    const fields = {};
-
-    // Проходим по всем полям конфигурации и получаем значения по fieldKey
-    Object.entries(inputConfig.fields).forEach(([fieldKey, fieldConfig]) => {
-      if (fieldConfig.enabled === false || !fieldConfig.fieldIdentifier) {
-        return;
-      }
-
-      const fieldIdentifier = fieldConfig.fieldIdentifier;
-      const fullFieldName = getFullFieldName(fieldIdentifier, fieldConfig.type);
-      
-      // Получаем значение по fieldKey (как в других инпутах)
-      const value = getSetScoreFieldValue(fieldKey, match, setNumber);
-      
-      if (fullFieldName) {
-        fields[fullFieldName] = value;
-      }
-    });
-
-    return { fields };
-  }, [getSetScoreFieldValue]);
-
-  /**
-   * Обновляет инпут "Счет после X партии" в vMix
-   * @param {Object} match - данные матча
-   * @param {string} inputKey - ключ инпута ('set1Score', 'set2Score', и т.д.)
-   * @param {boolean} forceUpdate - принудительное обновление всех полей
-   */
-  const updateSetScoreInput = useCallback(
-    async (match, inputKey, forceUpdate = false) => {
-      if (!isVMixReady()) {
-        return { success: false, error: 'vMix не подключен' };
-      }
-
-      try {
-        const inputConfig = vmixConfigRef.current.inputs?.[inputKey];
-        
-        if (!inputConfig) {
-          return { success: false, error: 'Инпут не найден в конфигурации' };
-        }
-        
-        if (!inputConfig.fields) {
-          return { success: false, error: 'Инпут не имеет полей в конфигурации' };
-        }
-        
-        const validation = validateInputConfig(inputConfig);
-        if (!validation.valid) {
-          return { success: false, error: validation.error };
-        }
-
-        const formatted = formatSetScoreInputDataForVMix(match, inputKey);
-        const fields = formatted.fields || {};
-
-        // Фильтруем только измененные поля, если не forceUpdate
-        let fieldsToSend = fields;
-        if (!forceUpdate) {
-          const lastSent = lastSentValuesRef.current[inputKey] || {
-            fields: {},
-            colorFields: {},
-            visibilityFields: {},
-            imageFields: {},
-          };
-          fieldsToSend = filterChangedFields(fields, lastSent.fields);
-        }
-
-        const hasFields = Object.keys(fieldsToSend).length > 0;
-        
-        // При forceUpdate всегда отправляем, даже если полей нет (для очистки данных в vMix)
-        // При обычном обновлении пропускаем, если нет измененных полей
-        if (!hasFields && !forceUpdate) {
-          return {
-            success: true,
-            skipped: true,
-            message: 'Нет измененных полей для обновления',
-          };
-        }
-
-        // Логирование перед отправкой
-        if (hasFields || forceUpdate) {
-          console.log(`[useVMix] Отправка данных в ${inputKey} (${validation.inputIdentifier}):`, {
-            fieldsCount: Object.keys(fieldsToSend).length,
-            fields: Object.keys(fieldsToSend),
-            sampleValues: Object.fromEntries(Object.entries(fieldsToSend).slice(0, 3)),
-            forceUpdate,
-          });
-        }
-
-        const result = await window.electronAPI.updateVMixInputFields(
-          validation.inputIdentifier,
-          fieldsToSend,
-          {}, // colorFields
-          {}  // visibilityFields
-        );
-
-        // Логирование результата
-        if (result.success) {
-          console.log(`[useVMix] Данные успешно отправлены в ${inputKey}`);
-        } else {
-          console.error(`[useVMix] Ошибка при отправке данных в ${inputKey}:`, result.error);
-        }
-
-        // Обновляем кэш только при успешной отправке
-        if (result.success) {
-          updateLastSentValues(
-            inputKey,
-            fieldsToSend,
-            {},
-            {},
-            {}
-          );
-        }
-
-        return result;
-      } catch (error) {
-        console.error(`[useVMix] Ошибка при обновлении ${inputKey}:`, error);
-        return { success: false, error: error.message };
-      }
-    },
-    [
-      isVMixReady,
-      validateInputConfig,
-      formatSetScoreInputDataForVMix,
-      filterChangedFields,
-      updateLastSentValues,
-    ]
-  );
-
-  /**
-   * Обновляет инпут текущего счета в vMix
-   * @param {Object} match - данные матча
-   * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
-   */
-  const updateCurrentScoreInput = useCallback(
-    async (match, forceUpdate = false) => {
-      if (!isVMixReady()) {
-        return { success: false, error: "vMix не подключен" };
-      }
-
-      try {
-        const inputConfig = vmixConfigRef.current.inputs?.currentScore;
-        const validation = validateInputConfig(inputConfig);
-        if (!validation.valid) {
-          return { success: false, error: validation.error };
-        }
-
-        const { fields, colorFields, visibilityFields } =
-          formatCurrentScoreData(match);
-
-        // Фильтруем только измененные поля, если не forceUpdate
-        let fieldsToSend = fields;
-        let colorFieldsToSend = colorFields;
-        let visibilityFieldsToSend = visibilityFields;
-
-        if (!forceUpdate) {
-          const lastSent = lastSentValuesRef.current.currentScore;
-          fieldsToSend = filterChangedFields(fields, lastSent.fields);
-          colorFieldsToSend = filterChangedColorFields(
-            colorFields,
-            lastSent.colorFields
-          );
-          visibilityFieldsToSend = filterChangedVisibilityFields(
-            visibilityFields,
-            lastSent.visibilityFields
-          );
-        }
-
-        const hasFields =
-          Object.keys(fieldsToSend).length > 0 ||
-          Object.keys(colorFieldsToSend).length > 0 ||
-          Object.keys(visibilityFieldsToSend).length > 0;
-
-        // При forceUpdate всегда отправляем команды, даже если поля пустые,
-        // чтобы очистить данные в vMix при открытии пустого проекта
-        if (!hasFields && !forceUpdate) {
-          return {
-            success: true,
-            skipped: true,
-            message: "Нет измененных полей для обновления",
-          };
-        }
-
-        const result = await window.electronAPI.updateVMixInputFields(
-          validation.inputIdentifier,
-          fieldsToSend,
-          colorFieldsToSend,
-          visibilityFieldsToSend
-        );
-
-        // Обновляем кэш только при успешной отправке
-        if (result.success) {
-          updateLastSentValues(
-            "currentScore",
-            fieldsToSend,
-            colorFieldsToSend,
-            visibilityFieldsToSend,
-            {}
-          );
-        }
-
-        return result;
-      } catch (error) {
-        console.error("Ошибка при обновлении текущего счета:", error);
-        return { success: false, error: error.message };
-      }
-    },
-    [
-      isVMixReady,
-      validateInputConfig,
-      formatCurrentScoreData,
-      filterChangedFields,
-      filterChangedColorFields,
-      filterChangedVisibilityFields,
-      updateLastSentValues,
-    ]
-  );
-
-  // Форматирует дату и время в формат ДД.ММ.ГГГГ ЧЧ:ММ
-  const formatDateTime = useCallback((dateStr, timeStr) => {
-    if (!dateStr) return "";
-
-    try {
-      // Парсим дату в формате YYYY-MM-DD
-      const [year, month, day] = dateStr.split("-");
-      if (!year || !month || !day) return dateStr; // Если формат неправильный, возвращаем как есть
-
-      // Форматируем дату в ДД.ММ.ГГГГ
-      const formattedDate = `${day}.${month}.${year}`;
-
-      // Добавляем время, если оно есть
-      if (timeStr) {
-        return `${formattedDate} ${timeStr}`;
-      }
-
-      return formattedDate;
-    } catch (error) {
-      console.error("Ошибка при форматировании даты:", error);
-      return dateStr || "";
-    }
-  }, []);
-
-  // Маппинг значений для полей заявки
-  const getLineupFieldValue = useCallback(
-    (fieldKey, match, logoBaseUrl) => {
-      switch (fieldKey) {
-        case "title":
-          return match.tournament || "";
-        case "subtitle":
-          return match.tournamentSubtitle || "";
-        case FIELD_KEYS.TEAM_A_LOGO:
-          // Используем logoPath из матча (с уникальным именем) или fallback на фиксированное имя
-          if (logoBaseUrl && match.teamA?.logoPath) {
-            // logoPath содержит относительный путь типа "logos/logo_a_1234567890.png"
-            const fileName = match.teamA.logoPath.replace(/^logos\//, '');
-            return `${logoBaseUrl}/${fileName}`;
-          }
-          // Fallback для обратной совместимости
-          {
-            const hasLogoA = logoBaseUrl && (
-              match.teamA?.logo || 
-              match.teamA?.logoBase64
-            );
-            return hasLogoA ? `${logoBaseUrl}/logo_a.png` : "";
-          }
-        case "teamAName":
-          return match.teamA?.name || "";
-        case "teamACity":
-          return match.teamA?.city || "";
-        case FIELD_KEYS.TEAM_B_LOGO:
-          // Используем logoPath из матча (с уникальным именем) или fallback на фиксированное имя
-          if (logoBaseUrl && match.teamB?.logoPath) {
-            // logoPath содержит относительный путь типа "logos/logo_b_1234567890.png"
-            const fileName = match.teamB.logoPath.replace(/^logos\//, '');
-            return `${logoBaseUrl}/${fileName}`;
-          }
-          // Fallback для обратной совместимости
-          {
-            const hasLogoB = logoBaseUrl && (
-              match.teamB?.logo || 
-              match.teamB?.logoBase64
-            );
-            return hasLogoB ? `${logoBaseUrl}/logo_b.png` : "";
-          }
-        case "teamBName":
-          return match.teamB?.name || "";
-        case "teamBCity":
-          return match.teamB?.city || "";
-        case "matchDate":
-          // Дата и время проведения турнира в формате ДД.ММ.ГГГГ ЧЧ:ММ
-          return formatDateTime(match.date, match.time);
-        case "venueLine1":
-          // Место проведения (адрес)
-          return match.venue || "";
-        case "venueLine2":
-          // Город, страна
-          return match.location || "";
-        default:
-          return "";
-      }
-    },
-    [formatDateTime]
-  );
-
-  // Маппинг значений для полей состава команды
-  const getRosterFieldValue = useCallback(
-    (fieldKey, match, teamKey, roster, logoBaseUrl) => {
-      const team = teamKey === "A" ? match.teamA : match.teamB;
-      const logoFileName = teamKey === "A" ? "logo_a.png" : "logo_b.png";
-
-      // Общие поля (из матча)
-      if (fieldKey === "title") {
-        return match.tournament || "";
-      }
-      if (fieldKey === "subtitle") {
-        return match.tournamentSubtitle || "";
-      }
-
-      // Поля команды
-      if (fieldKey === "teamName") {
-        return team?.name || "";
-      }
-      if (fieldKey === "teamCity") {
-        return team?.city || "";
-      }
-      if (fieldKey === "teamLogo") {
-        // Используем logoPath из команды (с уникальным именем) или fallback на фиксированное имя
-        if (logoBaseUrl && team?.logoPath) {
-          // logoPath содержит относительный путь типа "logos/logo_a_1234567890.png"
-          const fileName = team.logoPath.replace(/^logos\//, '');
-          return `${logoBaseUrl}/${fileName}`;
-        }
-        // Fallback для обратной совместимости: используем фиксированное имя на основе teamKey
-        const hasLogo = logoBaseUrl && (
-          team?.logo || 
-          team?.logoBase64
-        );
-        const logoUrl = hasLogo ? `${logoBaseUrl}/${logoFileName}` : "";
-        
-        return logoUrl;
-      }
-
-      // Поля игроков (player1Number, player1Name, ... player14Number, player14Name)
-      const playerMatch = fieldKey.match(/^player(\d+)(Number|Name)$/);
-      if (playerMatch) {
-        const playerIndex = parseInt(playerMatch[1]) - 1; // Индекс в массиве (0-based)
-        const fieldType = playerMatch[2]; // "Number" или "Name"
-
-        if (!roster || !Array.isArray(roster) || playerIndex >= roster.length) {
-          // Если игрока нет, возвращаем пустую строку
-          return "";
-        }
-
-        const player = roster[playerIndex];
-        if (!player) {
-          return "";
-        }
-
-        if (fieldType === "Number") {
-          return player.number ? String(player.number) : "";
-        }
-        if (fieldType === "Name") {
-          return player.name || "";
-        }
-      }
-
-      return "";
-    },
-    []
-  );
-
-  /**
-   * Форматирует данные заявки для vMix в виде объекта полей
-   * Возвращает объект с полями для текстовых значений и отдельный объект для полей изображений
-   * @param {Object} match - данные матча
-   * @param {boolean} forceUpdate - принудительное обновление (добавляет timestamp к URL логотипов)
-   */
-  const formatLineupData = useCallback(
-    async (match, forceUpdate = false) => {
-      if (!match) return { fields: {}, imageFields: {} };
-
-      const inputConfig = vmixConfigRef.current?.inputs?.lineup;
-      if (!inputConfig?.fields) {
-        return { fields: {}, imageFields: {} };
-      }
-
-      const fields = {};
-      const imageFields = {};
-
-      // Получаем информацию о мобильном сервере для формирования URL логотипов
-      let logoBaseUrl = null;
-      if (window.electronAPI) {
+        // Получаем список всех полей инпута из vMix (кэш в main), чтобы для несопоставленных
+        // текстовых полей отправлять пустую строку — иначе vMix показывает дефолтные значения шаблона
+        let vmixFieldsList = [];
         try {
-          const serverInfo = await window.electronAPI.getMobileServerInfo();
-          if (serverInfo?.ip && serverInfo?.port) {
-            logoBaseUrl = `http://${serverInfo.ip}:${serverInfo.port}/logos`;
+          const fieldsResult = await window.electronAPI.getVMixInputFields(vmixTitle, false);
+          if (fieldsResult?.success && Array.isArray(fieldsResult.fields)) {
+            vmixFieldsList = fieldsResult.fields;
           }
-        } catch (error) {
-          console.error(
-            "Не удалось получить информацию о мобильном сервере для логотипов:",
-            error
-          );
-        }
-      }
-
-      // Проходим по всем полям конфигурации и формируем значения
-      Object.entries(inputConfig.fields).forEach(([fieldKey, fieldConfig]) => {
-        if (fieldConfig.enabled === false || !fieldConfig.fieldIdentifier) {
-          return;
+        } catch (_) {
+          // Игнорируем: без списка полей отправим только сопоставленные
         }
 
-        const fieldIdentifier = fieldConfig.fieldIdentifier;
-        const fullFieldName = fieldIdentifier
-          ? getFullFieldName(fieldIdentifier, fieldConfig.type)
-          : null;
-        let value = getLineupFieldValue(fieldKey, match, logoBaseUrl);
-        const isLogoField =
-          fieldKey === FIELD_KEYS.TEAM_A_LOGO ||
-          fieldKey === FIELD_KEYS.TEAM_B_LOGO;
-
-        // Если это поле логотипа и forceUpdate=true, добавляем timestamp к URL
-        // чтобы заставить vMix перезагрузить изображение
-        if (
-          isLogoField &&
-          fieldConfig.type === FIELD_TYPES.IMAGE &&
-          value &&
-          forceUpdate
-        ) {
-          const separator = value.includes("?") ? "&" : "?";
-          value = `${value}${separator}t=${Date.now()}`;
-        }
-
-        // Разделяем поля по типам
-        if (fieldConfig.type === FIELD_TYPES.IMAGE) {
-          // При forceUpdate отправляем все поля изображений, даже пустые, чтобы очистить данные в vMix
-          if ((value !== "" || forceUpdate) && fullFieldName) {
-            imageFields[fullFieldName] = value;
-          }
-        } else if (fieldConfig.type === FIELD_TYPES.TEXT) {
-          // Для текстовых полей отправляем значение, даже если оно пустое
-          // (это позволяет очищать поля в vMix при необходимости)
-          if (fullFieldName) {
-            fields[fullFieldName] = value;
-          }
-
-          if (isLogoField) {
-            console.warn(
-              `[formatLineupData] Поле ${fieldKey} имеет тип "text" вместо "image"!`,
-              { fieldKey, fieldIdentifier, type: fieldConfig.type, value }
-            );
-          }
-        }
-      });
-
-      return { fields, imageFields };
-    },
-    [getLineupFieldValue]
-  );
-
-  /**
-   * Обновляет инпут заявки в vMix
-   * @param {Object} match - данные матча
-   * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
-   */
-  const updateLineupInput = useCallback(
-    async (match, forceUpdate = false) => {
-      if (!isVMixReady()) {
-        return { success: false, error: "vMix не подключен" };
-      }
-
-      try {
-        const inputConfig = vmixConfigRef.current.inputs?.lineup;
-        const validation = validateInputConfig(inputConfig);
-        if (!validation.valid) {
-          return { success: false, error: validation.error };
-        }
-
-        const { fields, imageFields } = await formatLineupData(
-          match,
-          forceUpdate
-        );
-
-        // Фильтруем только измененные поля, если не forceUpdate
-        let fieldsToSend = fields;
-        let imageFieldsToSend = imageFields;
-
-        if (!forceUpdate) {
-          const lastSent = lastSentValuesRef.current.lineup;
-          fieldsToSend = filterChangedFields(fields, lastSent.fields);
-          imageFieldsToSend = filterChangedImageFields(
-            imageFields,
-            lastSent.imageFields
-          );
-        }
-
-        // При forceUpdate для логотипов: сначала очищаем, затем устанавливаем новое значение
-        // Это необходимо для обхода кэширования изображений в vMix
-        if (forceUpdate && Object.keys(imageFieldsToSend).length > 0) {
-          // Создаем объект с пустыми значениями для всех полей логотипов
-          const clearImageFields = {};
-          Object.keys(imageFieldsToSend).forEach((key) => {
-            clearImageFields[key] = "";
-          });
-
-          // Сначала очищаем изображения
-          await window.electronAPI.updateVMixInputFields(
-            validation.inputIdentifier,
-            {},
-            {},
-            {},
-            clearImageFields,
-            {}
-          );
-
-          // Небольшая задержка для гарантии обработки очистки vMix
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-
-        const hasFields =
-          Object.keys(fieldsToSend).length > 0 ||
-          Object.keys(imageFieldsToSend).length > 0;
-
-        // При forceUpdate всегда отправляем команды, даже если поля пустые,
-        // чтобы очистить данные в vMix при открытии пустого проекта
-        if (!hasFields && !forceUpdate) {
-          return {
-            success: true,
-            skipped: true,
-            message: "Нет измененных полей для обновления",
-          };
-        }
-
-        const result = await window.electronAPI.updateVMixInputFields(
-          validation.inputIdentifier,
-          fieldsToSend,
-          {},
-          {},
-          imageFieldsToSend
-        );
-
-        // Обновляем кэш только при успешной отправке
-        if (result.success) {
-          updateLastSentValues(
-            "lineup",
-            fieldsToSend,
-            {},
-            {},
-            imageFieldsToSend
-          );
-        }
-
-        return result;
-      } catch (error) {
-        console.error("Ошибка при обновлении заявки:", error);
-        return { success: false, error: error.message };
-      }
-    },
-    [
-      isVMixReady,
-      validateInputConfig,
-      formatLineupData,
-      filterChangedFields,
-      filterChangedImageFields,
-      updateLastSentValues,
-    ]
-  );
-
-  /**
-   * Обновляет данные тренера в инпуте referee1 (Плашка общая)
-   * @param {Object} match - данные матча
-   * @param {string} team - 'A' или 'B'
-   * @param {string} inputKey - ключ инпута (referee1)
-   * @returns {Promise<Object>} результат обновления
-   */
-  const updateCoachData = useCallback(
-    async (match, team, inputKey = "referee1") => {
-      if (!isVMixReady()) {
-        return { success: false, error: "vMix не подключен" };
-      }
-
-      if (!match) {
-        return { success: false, error: "Матч не загружен" };
-      }
-
-      try {
-        const inputConfig = vmixConfigRef.current.inputs?.[inputKey];
-        const validation = validateInputConfig(inputConfig);
-        if (!validation.valid) {
-          return { success: false, error: validation.error };
-        }
-
-        // Получаем имя тренера
-        const coachName =
-          team === "A" ? match.teamA?.coach || "" : match.teamB?.coach || "";
-
-        if (!coachName) {
-          return { success: false, error: `Тренер команды ${team} не указан` };
-        }
-
-        // Форматируем данные для полей
-        const fields = {};
-        const fieldsConfig = inputConfig.fields || {};
-
-        // Находим поля name и position в конфигурации
-        if (fieldsConfig.name && fieldsConfig.name.enabled) {
-          const fieldIdentifier = fieldsConfig.name.fieldIdentifier || "Name";
-          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.name.type || "text");
-          fields[fullFieldName] = coachName;
-        }
-
-        if (fieldsConfig.position && fieldsConfig.position.enabled) {
-          const fieldIdentifier = fieldsConfig.position.fieldIdentifier || "Position";
-          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.position.type || "text");
-          fields[fullFieldName] = "Тренер";
-        }
-
-        if (Object.keys(fields).length === 0) {
-          return { success: false, error: "Поля для тренера не настроены" };
-        }
-
-        // Отправляем данные в vMix (всегда forceUpdate для тренера, так как это разовое действие)
-        const result = await window.electronAPI.updateVMixInputFields(
-          validation.inputIdentifier,
-          fields,
-          {}, // colorFields
-          {}, // visibilityFields
-          {} // imageFields
-        );
-
-        if (result.success) {
-        }
-
-        return result;
-      } catch (error) {
-        console.error("Ошибка при обновлении данных тренера:", error);
-        return { success: false, error: error.message };
-      }
-    },
-    [isVMixReady, validateInputConfig]
-  );
-
-  /**
-   * Обновляет данные первого судьи в инпуте referee1 (Плашка общая)
-   * @param {Object} match - данные матча
-   * @param {string} inputKey - ключ инпута (referee1)
-   * @returns {Promise<Object>} результат обновления
-   */
-  const updateReferee1Data = useCallback(
-    async (match, inputKey = "referee1") => {
-      if (!isVMixReady()) {
-        return { success: false, error: "vMix не подключен" };
-      }
-
-      if (!match) {
-        return { success: false, error: "Матч не загружен" };
-      }
-
-      try {
-        const inputConfig = vmixConfigRef.current.inputs?.[inputKey];
-        const validation = validateInputConfig(inputConfig);
-        if (!validation.valid) {
-          return { success: false, error: validation.error };
-        }
-
-        // Получаем имя первого судьи
-        const referee1Name = match.officials?.referee1 || "";
-
-        if (!referee1Name) {
-          return { success: false, error: "Первый судья не указан" };
-        }
-
-        // Форматируем данные для полей
-        const fields = {};
-        const fieldsConfig = inputConfig.fields || {};
-
-        // Находим поля name и position в конфигурации
-        if (fieldsConfig.name && fieldsConfig.name.enabled) {
-          const fieldIdentifier = fieldsConfig.name.fieldIdentifier || "Name";
-          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.name.type || "text");
-          fields[fullFieldName] = referee1Name;
-        }
-
-        if (fieldsConfig.position && fieldsConfig.position.enabled) {
-          const fieldIdentifier = fieldsConfig.position.fieldIdentifier || "Position";
-          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.position.type || "text");
-          fields[fullFieldName] = "Первый судья";
-        }
-
-        if (Object.keys(fields).length === 0) {
-          return {
-            success: false,
-            error: "Поля для первого судьи не настроены",
-          };
-        }
-
-        // Отправляем данные в vMix (всегда forceUpdate для первого судьи, так как это разовое действие)
-        const result = await window.electronAPI.updateVMixInputFields(
-          validation.inputIdentifier,
-          fields,
-          {}, // colorFields
-          {}, // visibilityFields
-          {} // imageFields
-        );
-
-        if (result.success) {
-        }
-
-        return result;
-      } catch (error) {
-        console.error("Ошибка при обновлении данных первого судьи:", error);
-        return { success: false, error: error.message };
-      }
-    },
-    [isVMixReady, validateInputConfig]
-  );
-
-  /**
-   * Обновляет данные второго судьи в инпуте referee1 (Плашка общая)
-   * @param {Object} match - данные матча
-   * @param {string} inputKey - ключ инпута (referee1)
-   * @returns {Promise<Object>} результат обновления
-   */
-  const updateReferee2ShowData = useCallback(
-    async (match, inputKey = "referee1") => {
-      if (!isVMixReady()) {
-        return { success: false, error: "vMix не подключен" };
-      }
-
-      if (!match) {
-        return { success: false, error: "Матч не загружен" };
-      }
-
-      try {
-        const inputConfig = vmixConfigRef.current.inputs?.[inputKey];
-        const validation = validateInputConfig(inputConfig);
-        if (!validation.valid) {
-          return { success: false, error: validation.error };
-        }
-
-        // Получаем имя второго судьи
-        const referee2Name = match.officials?.referee2 || "";
-
-        if (!referee2Name) {
-          return { success: false, error: "Второй судья не указан" };
-        }
-
-        // Форматируем данные для полей
-        const fields = {};
-        const fieldsConfig = inputConfig.fields || {};
-
-        // Находим поля name и position в конфигурации
-        if (fieldsConfig.name && fieldsConfig.name.enabled) {
-          const fieldIdentifier = fieldsConfig.name.fieldIdentifier || "Name";
-          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.name.type || "text");
-          fields[fullFieldName] = referee2Name;
-        }
-
-        if (fieldsConfig.position && fieldsConfig.position.enabled) {
-          const fieldIdentifier = fieldsConfig.position.fieldIdentifier || "Position";
-          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.position.type || "text");
-          fields[fullFieldName] = "Второй судья";
-        }
-
-        if (Object.keys(fields).length === 0) {
-          return {
-            success: false,
-            error: "Поля для второго судьи не настроены",
-          };
-        }
-
-        // Отправляем данные в vMix (всегда forceUpdate для второго судьи, так как это разовое действие)
-        const result = await window.electronAPI.updateVMixInputFields(
-          validation.inputIdentifier,
-          fields,
-          {}, // colorFields
-          {}, // visibilityFields
-          {} // imageFields
-        );
-
-        if (result.success) {
-        }
-
-        return result;
-      } catch (error) {
-        console.error("Ошибка при обновлении данных второго судьи:", error);
-        return { success: false, error: error.message };
-      }
-    },
-    [isVMixReady, validateInputConfig]
-  );
-
-  /**
-   * Обновляет данные обоих судей в инпуте referee2 (Плашка 2 судьи)
-   * @param {Object} match - данные матча
-   * @returns {Promise<Object>} результат обновления
-   */
-  const updateReferee2Data = useCallback(
-    async (match, forceUpdate = false) => {
-      if (!isVMixReady()) {
-        return { success: false, error: "vMix не подключен" };
-      }
-
-      if (!match) {
-        return { success: false, error: "Матч не загружен" };
-      }
-
-      try {
-        const inputKey = "referee2";
-        const inputConfig = vmixConfigRef.current.inputs?.[inputKey];
-        const validation = validateInputConfig(inputConfig);
-        if (!validation.valid) {
-          return { success: false, error: validation.error };
-        }
-
-        // Получаем имена судей
-        const referee1Name = match.officials?.referee1 || "";
-        const referee2Name = match.officials?.referee2 || "";
-
-        // Форматируем данные для полей
-        const fields = {};
-        const fieldsConfig = inputConfig.fields || {};
-
-        // Находим поля referee1Name и referee2Name в конфигурации
-        if (fieldsConfig.referee1Name && fieldsConfig.referee1Name.enabled) {
-          const fieldIdentifier = fieldsConfig.referee1Name.fieldIdentifier || "Referee1Name";
-          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.referee1Name.type || "text");
-          fields[fullFieldName] = referee1Name;
-        }
-
-        if (fieldsConfig.referee2Name && fieldsConfig.referee2Name.enabled) {
-          const fieldIdentifier = fieldsConfig.referee2Name.fieldIdentifier || "Referee2Name";
-          const fullFieldName = getFullFieldName(fieldIdentifier, fieldsConfig.referee2Name.type || "text");
-          fields[fullFieldName] = referee2Name;
-        }
-
-        if (Object.keys(fields).length === 0) {
-          return { success: false, error: "Поля для судей не настроены" };
-        }
-
-        // Проверяем кэш для оптимизации (если не forceUpdate)
-        if (!forceUpdate) {
-          const cachedValues = lastSentValuesRef.current[inputKey]?.fields || {};
-          const changedFields = filterChangedFields(fields, cachedValues);
-
-          if (Object.keys(changedFields).length === 0) {
-            // Нет изменений, не отправляем
-            return { success: true, skipped: true };
-          }
-
-          // Отправляем только измененные поля
-          const result = await window.electronAPI.updateVMixInputFields(
-            validation.inputIdentifier,
-            changedFields,
-            {}, // colorFields
-            {}, // visibilityFields
-            {} // imageFields
-          );
-
-          if (result.success) {
-            // Обновляем кэш только для отправленных полей
-            if (!lastSentValuesRef.current[inputKey]) {
-              lastSentValuesRef.current[inputKey] = {
-                fields: {},
-                colorFields: {},
-                visibilityFields: {},
-                imageFields: {},
-              };
-            }
-            Object.keys(changedFields).forEach((key) => {
-              lastSentValuesRef.current[inputKey].fields[key] = fields[key];
-            });
-          }
-
-          return result;
-        }
-
-        // Отправляем все поля (forceUpdate)
-        const result = await window.electronAPI.updateVMixInputFields(
-          validation.inputIdentifier,
-          fields,
-          {}, // colorFields
-          {}, // visibilityFields
-          {} // imageFields
-        );
-
-        if (result.success) {
-          // Обновляем кэш
-          if (!lastSentValuesRef.current[inputKey]) {
-            lastSentValuesRef.current[inputKey] = {
-              fields: {},
-              colorFields: {},
-              visibilityFields: {},
-              imageFields: {},
-            };
-          }
-          lastSentValuesRef.current[inputKey].fields = { ...fields };
-        }
-
-        return result;
-      } catch (error) {
-        console.error("Ошибка при обновлении данных судей:", error);
-        return { success: false, error: error.message };
-      }
-    },
-    [isVMixReady, validateInputConfig, filterChangedFields]
-  );
-
-  /**
-   * Форматирует данные состава команды для vMix в виде объекта полей
-   * @param {Object} match - данные матча
-   * @param {string} teamKey - 'A' или 'B'
-   * @param {boolean} forceUpdate - принудительное обновление (добавляет timestamp к URL логотипов)
-   * @returns {Promise<Object>} объект с полями { fields, imageFields }
-   */
-  const formatRosterData = useCallback(
-    async (match, teamKey, forceUpdate = false) => {
-      if (!match) return { fields: {}, imageFields: {} };
-
-      const inputKey = teamKey === "A" ? "rosterTeamA" : "rosterTeamB";
-      const inputConfig = vmixConfigRef.current?.inputs?.[inputKey];
-      if (!inputConfig?.fields) {
-        return { fields: {}, imageFields: {} };
-      }
-
-      const team = teamKey === "A" ? match.teamA : match.teamB;
-      const roster = team?.roster || [];
-      
-      const fields = {};
-      const imageFields = {};
-
-      // Получаем информацию о мобильном сервере для формирования URL логотипов
-      let logoBaseUrl = null;
-      if (window.electronAPI) {
-        try {
-          const serverInfo = await window.electronAPI.getMobileServerInfo();
-          if (serverInfo?.ip && serverInfo?.port) {
-            logoBaseUrl = `http://${serverInfo.ip}:${serverInfo.port}/logos`;
-          }
-        } catch (error) {
-          console.error(
-            "Не удалось получить информацию о мобильном сервере для логотипов:",
-            error
-          );
-        }
-      }
-
-      // Проходим по всем полям конфигурации и формируем значения
-      Object.entries(inputConfig.fields).forEach(([fieldKey, fieldConfig]) => {
-        if (fieldConfig.enabled === false || !fieldConfig.fieldIdentifier) {
-          return;
-        }
-
-        const fieldIdentifier = fieldConfig.fieldIdentifier;
-        const fullFieldName = fieldIdentifier
-          ? getFullFieldName(fieldIdentifier, fieldConfig.type)
-          : null;
-        let value = getRosterFieldValue(
-          fieldKey,
-          match,
-          teamKey,
-          roster,
-          logoBaseUrl
-        );
-        const isLogoField = fieldKey === "teamLogo";
-
-        // Если это поле логотипа и forceUpdate=true, добавляем timestamp к URL
-        // чтобы заставить vMix перезагрузить изображение
-        if (
-          isLogoField &&
-          fieldConfig.type === FIELD_TYPES.IMAGE &&
-          value &&
-          forceUpdate
-        ) {
-          const separator = value.includes("?") ? "&" : "?";
-          value = `${value}${separator}t=${Date.now()}`;
-        }
-
-        // Разделяем поля по типам
-        if (fieldConfig.type === FIELD_TYPES.IMAGE) {
-          // При forceUpdate отправляем все поля изображений, даже пустые, чтобы очистить данные в vMix
-          if ((value !== "" || forceUpdate) && fullFieldName) {
-            imageFields[fullFieldName] = value;
-          }
-        } else if (fieldConfig.type === FIELD_TYPES.TEXT) {
-          // Для текстовых полей отправляем значение, даже если оно пустое
-          // (это позволяет очищать поля в vMix при необходимости, например, для пустых игроков)
-          if (fullFieldName) {
-            fields[fullFieldName] = value;
-          }
-
-          if (isLogoField) {
-            console.warn(
-              `[formatRosterData] Поле ${fieldKey} имеет тип "text" вместо "image"!`,
-              { fieldKey, fieldIdentifier, type: fieldConfig.type, value }
-            );
-          }
-        }
-      });
-
-      // Логирование итоговых imageFields для отладки
-      if (Object.keys(imageFields).length > 0) {
-      }
-
-      return { fields, imageFields };
-    },
-    [getRosterFieldValue]
-  );
-
-  /**
-   * Получает стартовый состав команды с учетом порядка из startingLineupOrder
-   * @param {Object} team - данные команды
-   * @returns {Array} - массив игроков стартового состава (максимум 8)
-   */
-  const getStartingLineup = useCallback((team) => {
-    const teamRoster = team?.roster || [];
-    const starters = teamRoster.filter((p) => p.isStarter);
-
-    // Если есть сохраненный порядок, используем его
-    if (
-      team.startingLineupOrder &&
-      Array.isArray(team.startingLineupOrder) &&
-      team.startingLineupOrder.length > 0
-    ) {
-      // startingLineupOrder содержит индексы игроков из roster в порядке стартового состава
-      const orderedStarters = team.startingLineupOrder
-        .map((index) => teamRoster[index])
-        .filter((player) => player && player.isStarter); // Фильтруем только стартовых
-
-      // Добавляем стартовых игроков, которых нет в startingLineupOrder (на случай добавления новых)
-      starters.forEach((player) => {
-        const rosterIndex = teamRoster.findIndex(
-          (p) =>
-            p.number === player.number &&
-            p.name === player.name &&
-            p.isStarter === true
-        );
-        if (
-          rosterIndex !== -1 &&
-          !team.startingLineupOrder.includes(rosterIndex)
-        ) {
-          orderedStarters.push(player);
-        }
-      });
-
-      // Возвращаем первые 8 игроков
-      return orderedStarters.slice(0, 8);
-    }
-
-    // Если порядка нет, возвращаем стартовых игроков в порядке их появления в roster
-    // Возвращаем первые 8 игроков
-    return starters.slice(0, 8);
-  }, []);
-
-  /**
-   * Получает значение поля для стартового состава
-   * @param {string} fieldKey - ключ поля
-   * @param {Object} match - данные матча
-   * @param {string} teamKey - 'A' или 'B'
-   * @param {Array} startingLineup - массив игроков стартового состава
-   * @param {string} logoBaseUrl - базовый URL для логотипов
-   * @returns {string} - значение поля
-   */
-  const getStartingLineupFieldValue = useCallback(
-    (fieldKey, match, teamKey, startingLineup, logoBaseUrl) => {
-      const team = teamKey === "A" ? match.teamA : match.teamB;
-      const logoFileName = teamKey === "A" ? "logo_a.png" : "logo_b.png";
-
-      // Общие поля (из матча) - совпадают с полными составами
-      if (fieldKey === "title") {
-        return match.tournament || "";
-      }
-      if (fieldKey === "subtitle") {
-        return match.tournamentSubtitle || "";
-      }
-
-      // Поля команды - совпадают с полными составами
-      if (fieldKey === "teamName") {
-        return team?.name || "";
-      }
-      if (fieldKey === "teamCity") {
-        return team?.city || "";
-      }
-      if (fieldKey === "teamLogo") {
-        // Используем logoPath из команды (с уникальным именем) или fallback на фиксированное имя
-        if (logoBaseUrl && team?.logoPath) {
-          // logoPath содержит относительный путь типа "logos/logo_a_1234567890.png"
-          const fileName = team.logoPath.replace(/^logos\//, '');
-          return `${logoBaseUrl}/${fileName}`;
-        }
-        // Fallback для обратной совместимости: используем фиксированное имя на основе teamKey
-        const hasLogo = logoBaseUrl && (
-          team?.logo || 
-          team?.logoBase64
-        );
-        return hasLogo ? `${logoBaseUrl}/${logoFileName}` : "";
-      }
-
-      // Поля игроков (player1Number, player1Name, player1NumberOnCard, ... player6Number, player6Name, player6NumberOnCard)
-      // Берем из стартового состава (индексы 0-5 - это первые 6 игроков)
-      const playerMatch = fieldKey.match(/^player(\d+)(Number|Name|NumberOnCard)$/);
-      if (playerMatch) {
-        const playerIndex = parseInt(playerMatch[1]) - 1; // Индекс в массиве (0-based: 1 -> 0, 2 -> 1, ..., 6 -> 5)
-        const fieldType = playerMatch[2]; // "Number", "Name" или "NumberOnCard"
-
-        // Проверяем, что номер игрока не больше 6 (т.к. 7 и 8 теперь либеро)
-        if (playerIndex >= 6) {
-          return "";
-        }
-
-        if (
-          !startingLineup ||
-          !Array.isArray(startingLineup) ||
-          playerIndex >= startingLineup.length
-        ) {
-          // Если игрока нет, возвращаем пустую строку
-          return "";
-        }
-
-        const player = startingLineup[playerIndex];
-        if (!player) {
-          return "";
-        }
-
-        if (fieldType === "Number") {
-          return player.number ? String(player.number) : "";
-        }
-        if (fieldType === "Name") {
-          return player.name || "";
-        }
-        if (fieldType === "NumberOnCard") {
-          // Поле "Номер на карте" берем из player.numberOnCard, если оно есть, иначе используем обычный номер
-          return player.numberOnCard ? String(player.numberOnCard) : (player.number ? String(player.number) : "");
-        }
-      }
-
-      // Поля либеро (libero1Number, libero1Name, libero1NumberOnCard, libero2Number, libero2Name, libero2NumberOnCard)
-      // Берем из стартового состава (индексы 6 и 7 - это либеро 1 и либеро 2)
-      const liberoMatch = fieldKey.match(/^libero(\d+)(Number|Name|NumberOnCard)$/);
-      if (liberoMatch) {
-        const liberoIndex = parseInt(liberoMatch[1]) - 1; // Индекс либеро (0-based: 0 = libero1, 1 = libero2)
-        const fieldType = liberoMatch[2]; // "Number", "Name" или "NumberOnCard"
-
-        // Либеро 1 находится на индексе 6, либеро 2 на индексе 7 в стартовом составе
-        const startingLineupIndex = liberoIndex + 6; // 0 -> 6, 1 -> 7
-
-        if (
-          !startingLineup ||
-          !Array.isArray(startingLineup) ||
-          startingLineupIndex >= startingLineup.length
-        ) {
-          // Если либеро нет в стартовом составе, возвращаем пустую строку
-          return "";
-        }
-
-        const libero = startingLineup[startingLineupIndex];
-        if (!libero) {
-          return "";
-        }
-
-        if (fieldType === "Number") {
-          return libero.number ? String(libero.number) : "";
-        }
-        if (fieldType === "Name") {
-          return libero.name || "";
-        }
-        if (fieldType === "NumberOnCard") {
-          // Поле "Номер на карте" берем из libero.numberOnCard, если оно есть, иначе используем обычный номер
-          return libero.numberOnCard ? String(libero.numberOnCard) : (libero.number ? String(libero.number) : "");
-        }
-      }
-
-      return "";
-    },
-    []
-  );
-
-  /**
-   * Форматирует данные стартового состава для vMix в виде объекта полей
-   * @param {Object} match - данные матча
-   * @param {string} teamKey - 'A' или 'B'
-   * @param {boolean} forceUpdate - принудительное обновление (добавляет timestamp к URL логотипов)
-   * @returns {Object} - объект с полями { fields, imageFields }
-   */
-  const formatStartingLineupData = useCallback(
-    async (match, teamKey, forceUpdate = false) => {
-      if (!match) return { fields: {}, imageFields: {}, colorFields: {}, visibilityFields: {}, textColorFields: {} };
-
-      const inputKey =
-        teamKey === "A" ? "startingLineupTeamA" : "startingLineupTeamB";
-      const inputConfig = vmixConfigRef.current?.inputs?.[inputKey];
-      if (!inputConfig?.fields) {
-        return { fields: {}, imageFields: {}, colorFields: {}, visibilityFields: {}, textColorFields: {} };
-      }
-
-      const team = teamKey === "A" ? match.teamA : match.teamB;
-      const startingLineup = getStartingLineup(team);
-
-      const fields = {};
-      const imageFields = {};
-      const colorFields = {};
-      const visibilityFields = {};
-      const textColorFields = {};
-
-      // Получаем информацию о мобильном сервере для формирования URL логотипов
-      let logoBaseUrl = null;
-      if (window.electronAPI) {
-        try {
-          const serverInfo = await window.electronAPI.getMobileServerInfo();
-          if (serverInfo?.ip && serverInfo?.port) {
-            logoBaseUrl = `http://${serverInfo.ip}:${serverInfo.port}/logos`;
-          }
-        } catch (error) {
-          console.error(
-            "Не удалось получить информацию о мобильном сервере для логотипов:",
-            error
-          );
-        }
-      }
-
-      // Проходим по всем полям конфигурации и формируем значения
-      Object.entries(inputConfig.fields).forEach(([fieldKey, fieldConfig]) => {
-        if (fieldConfig.enabled === false || !fieldConfig.fieldIdentifier) {
-          return;
-        }
-
-        const fieldIdentifier = fieldConfig.fieldIdentifier;
-        const fullFieldName = fieldIdentifier
-          ? getFullFieldName(fieldIdentifier, fieldConfig.type)
-          : null;
-        let value = getStartingLineupFieldValue(
-          fieldKey,
-          match,
-          teamKey,
-          startingLineup,
-          logoBaseUrl
-        );
-        const isLogoField = fieldKey === "teamLogo";
-
-        // Если это поле логотипа и forceUpdate=true, добавляем timestamp к URL
-        // чтобы заставить vMix перезагрузить изображение
-        if (
-          isLogoField &&
-          fieldConfig.type === FIELD_TYPES.IMAGE &&
-          value &&
-          forceUpdate
-        ) {
-          const separator = value.includes("?") ? "&" : "?";
-          value = `${value}${separator}t=${Date.now()}`;
-        }
-
-        // Обработка полей fill для подложек либеро
-        if (fieldConfig.type === FIELD_TYPES.FILL) {
-          const liberoBackgroundMatch = fieldKey.match(/^libero(\d+)(Background|BackgroundOnCard)$/);
-          if (liberoBackgroundMatch && fullFieldName) {
-            const liberoIndex = parseInt(liberoBackgroundMatch[1]) - 1; // 0 или 1
-            const startingLineupIndex = liberoIndex + 6; // 6 или 7
-            const libero = startingLineup && startingLineup[startingLineupIndex] ? startingLineup[startingLineupIndex] : null;
-            
-            // Цвет подложки либеро (используем цвет команды или liberoColor)
-            const liberoColor = team.liberoColor || team.color || "#ffffff";
-            
-            if (libero) {
-              // Если либеро указан - устанавливаем нужный цвет
-              colorFields[fullFieldName] = normalizeColor(liberoColor, "#ffffff");
+        // Для каждого текстового поля vMix: либо значение из сопоставления, либо ""
+        for (const f of vmixFieldsList) {
+          if (f?.type === "text") {
+            const fieldName = f.name;
+            const mapping = fieldsConfig[fieldName];
+            if (mapping && (mapping.dataMapKey != null || mapping.customValue != null)) {
+              const rawValue =
+                mapping.customValue != null && mapping.customValue !== ""
+                  ? String(mapping.customValue)
+                  : mapping.dataMapKey
+                    ? getValueByDataMapKey(matchData, mapping.dataMapKey)
+                    : undefined;
+              fields[fieldName] = rawValue != null ? String(rawValue) : "";
             } else {
-              // Если либеро не указан - устанавливаем прозрачный цвет (RGBA)
-              colorFields[fullFieldName] = "#00000000";
+              fields[fieldName] = "";
             }
-            return;
           }
         }
 
-        // Обработка полей либеро (номер, имя, номер на карте) - устанавливаем контрастный цвет текста и отправляем значения
-        if (fieldConfig.type === FIELD_TYPES.TEXT) {
-          const liberoMatch = fieldKey.match(/^libero(\d+)(Number|Name|NumberOnCard)$/);
-          if (liberoMatch && fullFieldName) {
-            const liberoIndex = parseInt(liberoMatch[1]) - 1; // 0 или 1
-            const startingLineupIndex = liberoIndex + 6; // 6 или 7
-            const libero = startingLineup && startingLineup[startingLineupIndex] ? startingLineup[startingLineupIndex] : null;
-            
-            if (libero) {
-              // Если либеро указан - устанавливаем контрастный цвет текста для номеров
-              const fieldType = liberoMatch[2]; // "Number", "Name" или "NumberOnCard"
-              if (fieldType === "Number" || fieldType === "NumberOnCard") {
-                const liberoBackgroundColor = team.liberoColor || team.color || "#ffffff";
-                const contrastTextColor = getContrastTextColor(liberoBackgroundColor);
-                // Для текстовых полей цвет текста устанавливается через SetTextColour
-                if (fieldIdentifier) {
-                  // Для GT Titles нужно использовать имя поля с суффиксом .Text
-                  const textColorFieldName = `${fieldIdentifier}.Text`;
-                  textColorFields[textColorFieldName] = contrastTextColor;
-                }
-              }
-            }
-            // Если либеро не указан, цвет текста не устанавливаем (остается по умолчанию)
-            
-            // ВАЖНО: Отправляем значение текстового поля всегда (даже пустую строку для очистки)
-            // value уже содержит пустую строку, если либеро не указан (из getStartingLineupFieldValue)
-            if (fullFieldName) {
-              fields[fullFieldName] = value || "";
-            }
-            return;
+        // Сопоставленные поля типов color, image, visibility (и текстовые, не попавшие в список vMix)
+        for (const [fieldName, mapping] of Object.entries(fieldsConfig)) {
+          if (!mapping || (mapping.dataMapKey == null && mapping.customValue == null)) continue;
+          const rawValue =
+            mapping.customValue != null && mapping.customValue !== ""
+              ? String(mapping.customValue)
+              : mapping.dataMapKey
+                ? getValueByDataMapKey(matchData, mapping.dataMapKey)
+                : undefined;
+          const dataMapKey = mapping.dataMapKey || "";
+          const isVisibility =
+            dataMapKey === "visibility.pointA" || dataMapKey === "visibility.pointB";
+          const vmixFieldType = mapping.vmixFieldType || "text";
+
+          if (isVisibility) {
+            visibilityFields[fieldName] = {
+              visible: Boolean(rawValue),
+              fieldConfig: {},
+            };
+            continue;
+          }
+          const value = rawValue != null ? String(rawValue) : "";
+          if (vmixFieldType === "color") {
+            colorFields[fieldName] = value;
+          } else if (vmixFieldType === "image") {
+            imageFields[fieldName] = value;
+          } else if (!(fieldName in fields)) {
+            // текстовое поле, которого не было в vmixFieldsList — подставляем значение
+            fields[fieldName] = value;
           }
         }
 
-        // Разделяем поля по типам
-        if (fieldConfig.type === FIELD_TYPES.IMAGE) {
-          // При forceUpdate отправляем все поля изображений, даже пустые, чтобы очистить данные в vMix
-          if ((value !== "" || forceUpdate) && fullFieldName) {
-            imageFields[fullFieldName] = value;
-          }
-        } else if (fieldConfig.type === FIELD_TYPES.TEXT) {
-          // Для текстовых полей отправляем значение, даже если оно пустое
-          if (fullFieldName) {
-            fields[fullFieldName] = value;
-          }
-
-          if (isLogoField) {
-            console.warn(
-              `[formatStartingLineupData] Поле ${fieldKey} имеет тип "text" вместо "image"!`,
-              { fieldKey, fieldIdentifier, type: fieldConfig.type, value }
-            );
+        const lastSent = lastSentValuesRef.current[inputId];
+        // Поля, которые раньше отправляли, но сейчас сняты с сопоставления — отправляем "",
+        // иначе vMix продолжит показывать старый текст
+        if (lastSent?.fields && typeof lastSent.fields === "object") {
+          for (const key of Object.keys(lastSent.fields)) {
+            if (!(key in fields)) fields[key] = "";
           }
         }
-      });
 
-      return { fields, imageFields, colorFields, visibilityFields, textColorFields };
-    },
-    [getStartingLineup, getStartingLineupFieldValue, normalizeColor, getContrastTextColor]
-  );
+        const lastSentSafe = lastSent || {
+          fields: {},
+          colorFields: {},
+          visibilityFields: {},
+          imageFields: {},
+          textColorFields: {},
+        };
 
-  /**
-   * Обновляет инпут стартового состава команды А в vMix
-   * @param {Object} match - данные матча
-   * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
-   */
-  const updateStartingLineupTeamAInput = useCallback(
-    async (match, forceUpdate = false) => {
-      if (!isVMixReady()) {
-        return { success: false, error: "vMix не подключен" };
-      }
-
-      try {
-        const inputConfig = vmixConfigRef.current.inputs?.startingLineupTeamA;
-        const validation = validateInputConfig(inputConfig);
-        if (!validation.valid) {
-          return { success: false, error: validation.error };
-        }
-
-        const { fields, imageFields, colorFields, visibilityFields, textColorFields } = await formatStartingLineupData(
-          match,
-          "A",
-          forceUpdate
-        );
-
-        // Фильтруем только измененные поля, если не forceUpdate
         let fieldsToSend = fields;
-        let imageFieldsToSend = imageFields;
         let colorFieldsToSend = colorFields;
         let visibilityFieldsToSend = visibilityFields;
-        let textColorFieldsToSend = textColorFields;
-
-        if (!forceUpdate) {
-          const lastSent = lastSentValuesRef.current.startingLineupTeamA;
-          fieldsToSend = filterChangedFields(fields, lastSent.fields);
-          imageFieldsToSend = filterChangedImageFields(
-            imageFields,
-            lastSent.imageFields
-          );
-          colorFieldsToSend = filterChangedColorFields(
-            colorFields,
-            lastSent.colorFields
-          );
-          visibilityFieldsToSend = filterChangedVisibilityFields(
-            visibilityFields,
-            lastSent.visibilityFields
-          );
-          // Для textColorFields всегда отправляем (они управляют цветом текста)
-          textColorFieldsToSend = textColorFields;
-        }
-
-        // При forceUpdate для логотипов: сначала очищаем, затем устанавливаем новое значение
-        // Это необходимо для обхода кэширования изображений в vMix
-        if (forceUpdate && Object.keys(imageFieldsToSend).length > 0) {
-          // Создаем объект с пустыми значениями для всех полей логотипов
-          const clearImageFields = {};
-          Object.keys(imageFieldsToSend).forEach((key) => {
-            clearImageFields[key] = "";
-          });
-
-          // Сначала очищаем изображения
-          await window.electronAPI.updateVMixInputFields(
-            validation.inputIdentifier,
-            {},
-            {},
-            {},
-            clearImageFields,
-            {}
-          );
-
-          // Небольшая задержка для гарантии обработки очистки vMix
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-
-        const hasFields =
-          Object.keys(fieldsToSend).length > 0 ||
-          Object.keys(imageFieldsToSend).length > 0 ||
-          Object.keys(colorFieldsToSend).length > 0 ||
-          Object.keys(visibilityFieldsToSend).length > 0;
-
-        // При forceUpdate всегда отправляем команды, даже если поля пустые,
-        // чтобы очистить данные в vMix при открытии пустого проекта
-        if (!hasFields && !forceUpdate) {
-          return {
-            success: true,
-            skipped: true,
-            message: "Нет измененных полей для обновления",
-          };
-        }
-
-        const result = await window.electronAPI.updateVMixInputFields(
-          validation.inputIdentifier,
-          fieldsToSend,
-          colorFieldsToSend,
-          visibilityFieldsToSend,
-          imageFieldsToSend,
-          textColorFieldsToSend
-        );
-
-        // Обновляем кэш только при успешной отправке
-        if (result.success) {
-          updateLastSentValues(
-            "startingLineupTeamA",
-            fieldsToSend,
-            colorFieldsToSend,
-            visibilityFieldsToSend,
-            imageFieldsToSend,
-            textColorFieldsToSend
-          );
-        }
-
-        return result;
-      } catch (error) {
-        console.error(
-          "Ошибка при обновлении стартового состава команды А:",
-          error
-        );
-        return { success: false, error: error.message };
-      }
-    },
-    [
-      isVMixReady,
-      validateInputConfig,
-      formatStartingLineupData,
-      filterChangedFields,
-      filterChangedImageFields,
-      filterChangedColorFields,
-      filterChangedVisibilityFields,
-      updateLastSentValues,
-    ]
-  );
-
-  /**
-   * Обновляет инпут стартового состава команды Б в vMix
-   * @param {Object} match - данные матча
-   * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
-   */
-  const updateStartingLineupTeamBInput = useCallback(
-    async (match, forceUpdate = false) => {
-      if (!isVMixReady()) {
-        return { success: false, error: "vMix не подключен" };
-      }
-
-      try {
-        const inputConfig = vmixConfigRef.current.inputs?.startingLineupTeamB;
-        const validation = validateInputConfig(inputConfig);
-        if (!validation.valid) {
-          return { success: false, error: validation.error };
-        }
-
-        const { fields, imageFields, colorFields, visibilityFields, textColorFields } = await formatStartingLineupData(
-          match,
-          "B",
-          forceUpdate
-        );
-
-        // Фильтруем только измененные поля, если не forceUpdate
-        let fieldsToSend = fields;
         let imageFieldsToSend = imageFields;
-        let colorFieldsToSend = colorFields;
-        let visibilityFieldsToSend = visibilityFields;
-        let textColorFieldsToSend = textColorFields;
-
         if (!forceUpdate) {
-          const lastSent = lastSentValuesRef.current.startingLineupTeamB;
-          fieldsToSend = filterChangedFields(fields, lastSent.fields);
-          imageFieldsToSend = filterChangedImageFields(
-            imageFields,
-            lastSent.imageFields
-          );
-          colorFieldsToSend = filterChangedColorFields(
-            colorFields,
-            lastSent.colorFields
-          );
+          fieldsToSend = filterChangedFields(fields, lastSentSafe.fields);
+          colorFieldsToSend = filterChangedColorFields(colorFields, lastSentSafe.colorFields);
           visibilityFieldsToSend = filterChangedVisibilityFields(
             visibilityFields,
-            lastSent.visibilityFields
+            lastSentSafe.visibilityFields
           );
-          // Для textColorFields всегда отправляем (они управляют цветом текста)
-          textColorFieldsToSend = textColorFields;
+          imageFieldsToSend = filterChangedImageFields(imageFields, lastSentSafe.imageFields);
         }
 
-        // При forceUpdate для логотипов: сначала очищаем, затем устанавливаем новое значение
-        // Это необходимо для обхода кэширования изображений в vMix
-        if (forceUpdate && Object.keys(imageFieldsToSend).length > 0) {
-          // Создаем объект с пустыми значениями для всех полей логотипов
-          const clearImageFields = {};
-          Object.keys(imageFieldsToSend).forEach((key) => {
-            clearImageFields[key] = "";
-          });
-
-          // Сначала очищаем изображения
-          await window.electronAPI.updateVMixInputFields(
-            validation.inputIdentifier,
-            {},
-            {},
-            {},
-            clearImageFields,
-            {}
-          );
-
-          // Небольшая задержка для гарантии обработки очистки vMix
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-
-        const hasFields =
+        const hasAny =
           Object.keys(fieldsToSend).length > 0 ||
-          Object.keys(imageFieldsToSend).length > 0 ||
           Object.keys(colorFieldsToSend).length > 0 ||
           Object.keys(visibilityFieldsToSend).length > 0 ||
-          Object.keys(textColorFieldsToSend).length > 0;
+          Object.keys(imageFieldsToSend).length > 0;
+        if (!hasAny && !forceUpdate) continue;
 
-        // При forceUpdate всегда отправляем команды, даже если поля пустые,
-        // чтобы очистить данные в vMix при открытии пустого проекта
-        if (!hasFields && !forceUpdate) {
-          return {
-            success: true,
-            skipped: true,
-            message: "Нет измененных полей для обновления",
-          };
-        }
-
-        const result = await window.electronAPI.updateVMixInputFields(
-          validation.inputIdentifier,
-          fieldsToSend,
-          colorFieldsToSend,
-          visibilityFieldsToSend,
-          imageFieldsToSend,
-          textColorFieldsToSend
-        );
-
-        // Обновляем кэш только при успешной отправке
-        if (result.success) {
-          updateLastSentValues(
-            "startingLineupTeamB",
+        try {
+          const result = await window.electronAPI.updateVMixInputFields(
+            vmixTitle,
             fieldsToSend,
             colorFieldsToSend,
             visibilityFieldsToSend,
             imageFieldsToSend,
-            textColorFieldsToSend
+            textColorFields
           );
+          if (result?.success) {
+            updateLastSentValues(
+              inputId,
+              fieldsToSend,
+              colorFieldsToSend,
+              visibilityFieldsToSend,
+              imageFieldsToSend,
+              textColorFields
+            );
+          } else if (result && !result.skipped) {
+            console.error(`[useVMix] Динамический инпут ${inputId}:`, result.error);
+          }
+        } catch (err) {
+          console.error(`[useVMix] Ошибка обновления динамического инпута ${inputId}:`, err);
         }
-
-        return result;
-      } catch (error) {
-        console.error(
-          "Ошибка при обновлении стартового состава команды Б:",
-          error
-        );
-        return { success: false, error: error.message };
       }
     },
     [
       isVMixReady,
-      validateInputConfig,
-      formatStartingLineupData,
       filterChangedFields,
-      filterChangedImageFields,
       filterChangedColorFields,
       filterChangedVisibilityFields,
-      updateLastSentValues,
-    ]
-  );
-
-  /**
-   * Обновляет инпут состава команды А в vMix
-   * @param {Object} match - данные матча
-   * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
-   */
-  const updateRosterTeamAInput = useCallback(
-    async (match, forceUpdate = false) => {
-      if (!isVMixReady()) {
-        return { success: false, error: "vMix не подключен" };
-      }
-
-      try {
-        const inputConfig = vmixConfigRef.current.inputs?.rosterTeamA;
-        const validation = validateInputConfig(inputConfig);
-        if (!validation.valid) {
-          return { success: false, error: validation.error };
-        }
-
-        const { fields, imageFields } = await formatRosterData(
-          match,
-          "A",
-          forceUpdate
-        );
-        
-
-        // Фильтруем только измененные поля, если не forceUpdate
-        let fieldsToSend = fields;
-        let imageFieldsToSend = imageFields;
-
-        if (!forceUpdate) {
-          const lastSent = lastSentValuesRef.current.rosterTeamA;
-          fieldsToSend = filterChangedFields(fields, lastSent.fields);
-          imageFieldsToSend = filterChangedImageFields(
-            imageFields,
-            lastSent.imageFields
-          );
-        }
-
-        // При forceUpdate для логотипов: сначала очищаем, затем устанавливаем новое значение
-        // Это необходимо для обхода кэширования изображений в vMix
-        if (forceUpdate && Object.keys(imageFieldsToSend).length > 0) {
-          // Создаем объект с пустыми значениями для всех полей логотипов
-          const clearImageFields = {};
-          Object.keys(imageFieldsToSend).forEach((key) => {
-            clearImageFields[key] = "";
-          });
-
-          // Сначала очищаем изображения
-          await window.electronAPI.updateVMixInputFields(
-            validation.inputIdentifier,
-            {},
-            {},
-            {},
-            clearImageFields,
-            {}
-          );
-
-          // Небольшая задержка для гарантии обработки очистки vMix
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-
-        const hasFields =
-          Object.keys(fieldsToSend).length > 0 ||
-          Object.keys(imageFieldsToSend).length > 0;
-
-        // При forceUpdate всегда отправляем команды, даже если поля пустые,
-        // чтобы очистить данные в vMix при открытии пустого проекта
-        if (!hasFields && !forceUpdate) {
-          return {
-            success: true,
-            skipped: true,
-            message: "Нет измененных полей для обновления",
-          };
-        }
-
-        const result = await window.electronAPI.updateVMixInputFields(
-          validation.inputIdentifier,
-          fieldsToSend,
-          {},
-          {},
-          imageFieldsToSend
-        );
-
-        // Обновляем кэш только при успешной отправке
-        if (result.success) {
-          updateLastSentValues(
-            "rosterTeamA",
-            fieldsToSend,
-            {},
-            {},
-            imageFieldsToSend
-          );
-        }
-
-        return result;
-      } catch (error) {
-        console.error("Ошибка при обновлении состава команды А:", error);
-        return { success: false, error: error.message };
-      }
-    },
-    [
-      isVMixReady,
-      validateInputConfig,
-      formatRosterData,
-      filterChangedFields,
-      filterChangedImageFields,
-      updateLastSentValues,
-    ]
-  );
-
-  /**
-   * Обновляет инпут состава команды Б в vMix
-   * @param {Object} match - данные матча
-   * @param {boolean} forceUpdate - принудительное обновление всех полей (игнорирует кэш)
-   */
-  const updateRosterTeamBInput = useCallback(
-    async (match, forceUpdate = false) => {
-      if (!isVMixReady()) {
-        return { success: false, error: "vMix не подключен" };
-      }
-
-      try {
-        const inputConfig = vmixConfigRef.current.inputs?.rosterTeamB;
-        const validation = validateInputConfig(inputConfig);
-        if (!validation.valid) {
-          return { success: false, error: validation.error };
-        }
-
-        const { fields, imageFields } = await formatRosterData(
-          match,
-          "B",
-          forceUpdate
-        );
-        
-
-        // Фильтруем только измененные поля, если не forceUpdate
-        let fieldsToSend = fields;
-        let imageFieldsToSend = imageFields;
-
-        if (!forceUpdate) {
-          const lastSent = lastSentValuesRef.current.rosterTeamB;
-          fieldsToSend = filterChangedFields(fields, lastSent.fields);
-          imageFieldsToSend = filterChangedImageFields(
-            imageFields,
-            lastSent.imageFields
-          );
-        }
-
-        // При forceUpdate для логотипов: сначала очищаем, затем устанавливаем новое значение
-        // Это необходимо для обхода кэширования изображений в vMix
-        if (forceUpdate && Object.keys(imageFieldsToSend).length > 0) {
-          // Создаем объект с пустыми значениями для всех полей логотипов
-          const clearImageFields = {};
-          Object.keys(imageFieldsToSend).forEach((key) => {
-            clearImageFields[key] = "";
-          });
-
-          // Сначала очищаем изображения
-          await window.electronAPI.updateVMixInputFields(
-            validation.inputIdentifier,
-            {},
-            {},
-            {},
-            clearImageFields,
-            {}
-          );
-
-          // Небольшая задержка для гарантии обработки очистки vMix
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-
-        const hasFields =
-          Object.keys(fieldsToSend).length > 0 ||
-          Object.keys(imageFieldsToSend).length > 0;
-
-        // При forceUpdate всегда отправляем команды, даже если поля пустые,
-        // чтобы очистить данные в vMix при открытии пустого проекта
-        if (!hasFields && !forceUpdate) {
-          return {
-            success: true,
-            skipped: true,
-            message: "Нет измененных полей для обновления",
-          };
-        }
-
-        const result = await window.electronAPI.updateVMixInputFields(
-          validation.inputIdentifier,
-          fieldsToSend,
-          {},
-          {},
-          imageFieldsToSend
-        );
-
-        // Обновляем кэш только при успешной отправке
-        if (result.success) {
-          updateLastSentValues(
-            "rosterTeamB",
-            fieldsToSend,
-            {},
-            {},
-            imageFieldsToSend
-          );
-        }
-
-        return result;
-      } catch (error) {
-        console.error("Ошибка при обновлении состава команды Б:", error);
-        return { success: false, error: error.message };
-      }
-    },
-    [
-      isVMixReady,
-      validateInputConfig,
-      formatRosterData,
-      filterChangedFields,
       filterChangedImageFields,
       updateLastSentValues,
     ]
@@ -2789,49 +770,14 @@ export function useVMix(_match) {
         }
 
         try {
-          await updateCurrentScoreInput(matchData, forceUpdate);
-          await updateLineupInput(matchData, forceUpdate);
-
-          // Обновляем составы команд
-          await updateRosterTeamAInput(matchData, forceUpdate);
-          await updateRosterTeamBInput(matchData, forceUpdate);
-
-          // Обновляем стартовые составы команд
-          await updateStartingLineupTeamAInput(matchData, forceUpdate);
-          await updateStartingLineupTeamBInput(matchData, forceUpdate);
-
-          // Обновляем данные судей в "Плашка 2 судьи"
-          await updateReferee2Data(matchData, forceUpdate);
-
-          // Обновляем инпуты "Счет после X партии"
-          const setScoreInputs = ['set1Score', 'set2Score', 'set3Score', 'set4Score', 'set5Score'];
-          for (const inputKey of setScoreInputs) {
-            const result = await updateSetScoreInput(matchData, inputKey, forceUpdate);
-            if (result && !result.success && !result.skipped) {
-              console.error(`[useVMix] Ошибка при обновлении ${inputKey}:`, result.error);
-            }
-          }
-
-          // Обновляем статистику, если включена
-          if (matchData.statistics?.enabled) {
-            // TODO: Реализовать для statistics позже
-          }
+          await updateDynamicInputs(matchData, forceUpdate);
         } catch (error) {
           console.error("Ошибка при обновлении данных в vMix:", error);
         }
       },
       DEBOUNCE_DELAY
     );
-  }, [
-    updateCurrentScoreInput,
-    updateLineupInput,
-    updateRosterTeamAInput,
-    updateRosterTeamBInput,
-    updateStartingLineupTeamAInput,
-    updateStartingLineupTeamBInput,
-    updateReferee2Data,
-    updateSetScoreInput,
-  ]);
+  }, [updateDynamicInputs]);
 
   // Неиспользуемые функции оставлены для возможного будущего использования
   // eslint-disable-next-line unused-imports/no-unused-vars
@@ -3130,9 +1076,5 @@ export function useVMix(_match) {
     isOverlayActive,
     checkConnection,
     resetImageFieldsCache,
-    updateCoachData,
-    updateReferee1Data,
-    updateReferee2ShowData,
-    updateReferee2Data,
   };
 }

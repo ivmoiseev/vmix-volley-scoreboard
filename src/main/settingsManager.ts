@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import path from 'path';
 import { app } from 'electron';
 import { getDefaultFieldsForInput, migrateInputToNewFormat } from './vmix-input-configs.ts';
 import { migrateVMixConfig } from './vmix-field-migration.ts';
@@ -97,6 +98,8 @@ function getDefaultSettings() {
     vmix: {
       host: 'localhost',
       port: 8088,
+      connectionState: 'disconnected',
+      inputOrder: [],
       inputs,
     },
     mobile: {
@@ -398,7 +401,17 @@ async function saveSettings(settings) {
  */
 async function getVMixSettings() {
   const settings = await loadSettings();
-  return settings.vmix || getDefaultSettings().vmix;
+  const vmix = settings.vmix || getDefaultSettings().vmix;
+  if (vmix.connectionState === undefined) {
+    vmix.connectionState = 'disconnected';
+  }
+  if (vmix.inputOrder === undefined) {
+    vmix.inputOrder = [];
+  }
+  if (vmix.inputs === undefined) {
+    vmix.inputs = {};
+  }
+  return vmix;
 }
 
 /**

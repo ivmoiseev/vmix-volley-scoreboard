@@ -181,6 +181,20 @@ export function validateVMixSettings(vmix: any): ValidationResult {
     errors.push('port должен быть числом от 1 до 65535');
   }
 
+  // Проверяем connectionState (опционально)
+  if (vmix.connectionState !== undefined) {
+    if (vmix.connectionState !== 'connected' && vmix.connectionState !== 'disconnected') {
+      errors.push('connectionState должен быть "connected" или "disconnected"');
+    }
+  }
+
+  // Проверяем inputOrder (опционально): массив строк
+  if (vmix.inputOrder !== undefined) {
+    if (!Array.isArray(vmix.inputOrder) || vmix.inputOrder.some((id) => typeof id !== 'string')) {
+      errors.push('inputOrder должен быть массивом строк');
+    }
+  }
+
   // Проверяем inputs
   if (vmix.inputs !== undefined) {
     if (typeof vmix.inputs !== 'object' || Array.isArray(vmix.inputs)) {

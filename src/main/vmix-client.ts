@@ -7,6 +7,9 @@ import errorHandler from '../shared/errorHandler.js';
  * Документация: https://www.vmix.com/help24/index.htm?ShortcutFunctionReference.html
  */
 
+/** Кэш списка полей по инпуту (ключ: number или title) */
+const fieldsCacheByInput = new Map();
+
 class VMixClient {
   constructor(host = 'localhost', port = 8088) {
     this.host = host;
@@ -376,6 +379,112 @@ class VMixClient {
         error: error.message,
         overlays: null,
       };
+    }
+  }
+
+  /**
+   * Получает полный XML-ответ API (для парсинга инпутов и полей)
+   * @private
+   */
+  async _fetchAndParseAPI() {
+    const response = await axios.get(`${this.baseURL}`, { timeout: 3000 });
+    const parser = new xml2js.Parser({
+      explicitArray: false,
+      trim: true,
+      explicitCharkey: true,
+    });
+    return parser.parseStringPromise(response.data);
+  }
+
+  /**
+   * Получает список инпутов типа GT
+   * @returns {Object} { success: boolean, inputs: { number: string, key: string, title: string, shortTitle: string }[], error?: string }
+   */
+  async getGTInputs() {
+    try {
+      const result = await this._fetchAndParseAPI();
+      const inputs = [];
+      if (result?.vmix?.inputs?.input) {
+        const inputsArray = Array.isArray(result.vmix.inputs.input)
+          ? result.vmix.inputs.input
+          : [result.vmix.inputs.input];
+        inputsArray.forEach((input) => {
+          if (input.$ && input.$.type === 'GT') {
+            inputs.push({
+              number: String(input.$.number),
+              key: input.$.key || '',
+              title: input.$.title || '',
+              shortTitle: input.$.shortTitle || input.$.title || '',
+            });
+          }
+        });
+      }
+      return { success: true, inputs };
+    } catch (error) {
+      const friendlyError = errorHandler.handleError(error, 'vMix getGTInputs');
+      return { success: false, error: friendlyError, inputs: [] };
+    }
+  }
+
+  /**
+   * Извлекает поля инпута из разобранного XML (теги text, color, image)
+   * @private
+   */
+  _extractInputFields(inputNode) {
+    const fields = [];
+    const push = (type, list) => {
+      if (!list) return;
+      const arr = Array.isArray(list) ? list : [list];
+      arr.forEach((item) => {
+        if (item?.$?.name != null) {
+          fields.push({
+            type,
+            name: item.$.name,
+            index: parseInt(item.$.index, 10) || 0,
+          });
+        }
+      });
+    };
+    push('text', inputNode.text);
+    push('color', inputNode.color);
+    push('image', inputNode.image);
+    return fields;
+  }
+
+  /**
+   * Получает список полей выбранного инпута (text, color, image). Использует кэш.
+   * @param {string|number} inputNumberOrKey - номер инпута или key (GUID)
+   * @param {boolean} forceRefresh - запросить с API, игнорируя кэш
+   * @returns {Promise<Object>} { success: boolean, fields: { type: string, name: string, index: number }[], error?: string }
+   */
+  async getInputFields(inputNumberOrKey, forceRefresh = false) {
+    const cacheKey = String(inputNumberOrKey);
+    if (!forceRefresh && fieldsCacheByInput.has(cacheKey)) {
+      return { success: true, fields: fieldsCacheByInput.get(cacheKey) };
+    }
+    try {
+      const result = await this._fetchAndParseAPI();
+      if (!result?.vmix?.inputs?.input) {
+        return { success: true, fields: [] };
+      }
+      const inputsArray = Array.isArray(result.vmix.inputs.input)
+        ? result.vmix.inputs.input
+        : [result.vmix.inputs.input];
+      const input = inputsArray.find((inp) => {
+        if (!inp.$) return false;
+        const num = String(inp.$.number);
+        const key = inp.$.key || '';
+        return num === cacheKey || key === cacheKey || inp.$.title === cacheKey;
+      });
+      if (!input) {
+        return { success: true, fields: [] };
+      }
+      const fields = this._extractInputFields(input);
+      fieldsCacheByInput.set(cacheKey, fields);
+      return { success: true, fields };
+    } catch (error) {
+      const friendlyError = errorHandler.handleError(error, 'vMix getInputFields');
+      return { success: false, error: friendlyError, fields: [] };
     }
   }
 

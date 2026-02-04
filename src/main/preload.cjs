@@ -16,11 +16,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVMixConfig: () => ipcRenderer.invoke('vmix:get-config'),
   setVMixConfig: (config) => ipcRenderer.invoke('vmix:set-config', config),
   testVMixConnection: (host, port) => ipcRenderer.invoke('vmix:test-connection', host, port),
+  vmixConnect: (host, port) => ipcRenderer.invoke('vmix:connect', host, port),
+  vmixDisconnect: () => ipcRenderer.invoke('vmix:disconnect'),
   updateVMixInput: (inputName, data) => ipcRenderer.invoke('vmix:update-input', inputName, data),
   updateVMixInputFields: (inputName, fields, colorFields, visibilityFields, imageFields, textColorFields) => ipcRenderer.invoke('vmix:update-input-fields', inputName, fields, colorFields, visibilityFields, imageFields, textColorFields),
   showVMixOverlay: (inputKey) => ipcRenderer.invoke('vmix:show-overlay', inputKey),
   hideVMixOverlay: (inputKey) => ipcRenderer.invoke('vmix:hide-overlay', inputKey),
   getVMixOverlayState: () => ipcRenderer.invoke('vmix:get-overlay-state'),
+  getVMixGTInputs: () => ipcRenderer.invoke('vmix:getGTInputs'),
+  getVMixInputFields: (inputNumberOrKey, forceRefresh) => ipcRenderer.invoke('vmix:getInputFields', inputNumberOrKey, forceRefresh),
   
   // Mobile server management
   startMobileServer: (port) => ipcRenderer.invoke('mobile:start-server', port),

@@ -32,6 +32,7 @@ vmix-volley-scoreboard/
 │   │   ├── vmix-client.js       # Клиент для работы с vMix API
 │   │   ├── vmix-config.js       # Конфигурация vMix (обертка над settingsManager)
 │   │   ├── vmix-input-configs.js # Конфигурации полей по умолчанию
+│   │   ├── vmix-overlay-utils.ts # Утилиты оверлеев vMix (URL логотипов, поиск конфига инпута)
 │   │   ├── settingsManager.js   # Менеджер глобальных настроек
 │   │   ├── settingsImportExport.ts # Импорт и экспорт настроек
 │   │   ├── fileManager.js       # Управление файлами матчей
@@ -72,6 +73,7 @@ vmix-volley-scoreboard/
 │       ├── types/
 │       │   └── Match.ts          # TypeScript типы для матча
 │       ├── matchUtils.js          # Утилиты для работы с матчами
+│       ├── getValueByDataMapKey.js # Извлечение значений из матча по ключам dataMapCatalog (для vMix)
 │       ├── volleyballRules.js    # Правила волейбола
 │       └── errorHandler.js        # Обработка ошибок
 │

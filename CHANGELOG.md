@@ -7,6 +7,33 @@
 
 ## [Unreleased]
 
+### Добавлено
+
+- **Тесты для рефакторинга инпутов vMix**
+  - `tests/unit/shared/getValueByDataMapKey.test.js` — покрытие getValueByDataMapKey (прямые пути, видимость, вычисляемые, ростер, партии)
+  - `src/main/vmix-overlay-utils.ts` — вынесены из main.ts: resolveLogoUrlsInImageFields, findInputConfig (для тестирования)
+  - `tests/unit/main/vmix-overlay-utils.test.ts` — тесты преобразования URL логотипов и поиска конфига инпута
+  - `tests/unit/renderer/VMixOverlayButtons.test.jsx` — динамические кнопки из inputOrder, показ/скрытие оверлеев
+  - `tests/unit/renderer/VMixInputFieldsPanel.test.jsx` — аккордеон полей, сопоставление, выбор «Не сопоставлено»
+  - `tests/unit/renderer/useVMix-dynamic-inputs.test.js` — showOverlay (vmixTitle/vmixNumber), updateMatchData с forceUpdate, смена matchId
+  - `tests/unit/renderer/VMixSettingsPage.test.jsx` — handleSave и navigate с forceUpdateVMix, список инпутов с draggable
+
+### Исправлено
+
+- **Тесты MobileAccessPage**
+  - Поиск кнопок через getByRole('button', { name: /запустить сервер/i }) и /остановить сервер/i вместо getByText (избежание множественных совпадений)
+  - Мок getMobileServerInfo с полем `running: true`/`running: false` (компонент проверяет serverInfo.running)
+  - Синхронизация моков с global.window.electronAPI в тестах «ошибки при генерации QR-кода», «QR из сохраненной сессии», «остановить сервер», «очищать QR-код»
+  - Мок QRCodeCanvas без вызова getContext('2d') (в jsdom не реализован)
+
+### Документация
+
+- Обновлены docs/development/README.md — раздел «Тесты рефакторинга инпутов vMix»
+- Обновлены docs/development/vmix-inputs-refactoring-implementation-guide.md — раздел 12.4 «Добавленные тесты»
+- Обновлены docs/testing/README.md — таблица новых и обновлённых тестов
+- Обновлены docs/architecture/ARCHITECTURE.md — vmix-overlay-utils.ts в main, getValueByDataMapKey.js в shared
+- Обновлён docs/README.md — дата последнего обновления 2026-02-04
+
 ## [1.0.9] - 2026-01-23
 
 ### Исправлено

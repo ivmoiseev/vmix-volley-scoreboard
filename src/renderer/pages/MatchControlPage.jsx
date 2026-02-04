@@ -72,14 +72,10 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
   const {
     vmixConfig,
     connectionStatus,
-    overlayStates,
     updateMatchData,
     showOverlay,
     hideOverlay,
     isOverlayActive,
-    updateCoachData,
-    updateReferee1Data,
-    updateReferee2ShowData,
   } = useVMix(match);
   
   // Вычисляем данные для модального окна с помощью useMemo, чтобы избежать бесконечных ре-рендеров
@@ -981,14 +977,9 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
           <VMixOverlayButtons
             vmixConfig={vmixConfig}
             connectionStatus={connectionStatus}
-            overlayStates={overlayStates}
             onShowOverlay={showOverlay}
             onHideOverlay={hideOverlay}
             isOverlayActive={isOverlayActive}
-            match={match}
-            onUpdateCoachData={updateCoachData}
-            onUpdateReferee1Data={updateReferee1Data}
-            onUpdateReferee2ShowData={updateReferee2ShowData}
           />
 
           {/* Статус подключения к vMix */}

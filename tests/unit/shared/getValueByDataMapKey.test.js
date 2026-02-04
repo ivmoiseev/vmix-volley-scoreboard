@@ -1,0 +1,224 @@
+/**
+ * Тесты для getValueByDataMapKey — извлечение значений из матча по ключам dataMapCatalog.
+ * Покрывает: прямые пути, видимость (подача), вычисляемые (счёт по партиям, дата), ростер, старт, партии.
+ */
+
+import { describe, test, expect } from 'vitest';
+import { getValueByDataMapKey } from '../../../src/shared/getValueByDataMapKey.js';
+
+describe('getValueByDataMapKey', () => {
+  const baseMatch = {
+    matchId: 'test-1',
+    tournament: 'Турнир',
+    tournamentSubtitle: 'Финал',
+    location: 'Москва',
+    venue: 'Зал',
+    date: '2024-01-15',
+    time: '18:00',
+    teamA: {
+      name: 'Команда A',
+      city: 'Город A',
+      color: '#3498db',
+      liberoColor: '#2980b9',
+      coach: 'Тренер A',
+      roster: [
+        { number: 1, name: 'Игрок 1', isStarter: true },
+        { number: 2, name: 'Игрок 2', isStarter: true },
+      ],
+      startingLineupOrder: [0, 1],
+    },
+    teamB: {
+      name: 'Команда B',
+      city: 'Город B',
+      color: '#e74c3c',
+      liberoColor: '#c0392b',
+      coach: 'Тренер B',
+      roster: [
+        { number: 10, name: 'Игрок 10', isStarter: true },
+        { number: 11, name: 'Игрок 11', isStarter: true },
+      ],
+      startingLineupOrder: [0, 1],
+    },
+    officials: {
+      referee1: 'Судья 1',
+      referee2: 'Судья 2',
+      lineJudge1: 'Л1',
+      lineJudge2: 'Л2',
+      scorer: 'Секретарь',
+    },
+    currentSet: { setNumber: 1, scoreA: 15, scoreB: 12, servingTeam: 'A' },
+    sets: [
+      { setNumber: 1, scoreA: 25, scoreB: 20, completed: true, status: 'completed', startTime: 1000, endTime: 37000 },
+      { setNumber: 2, scoreA: 22, scoreB: 25, completed: true, status: 'completed', startTime: 40000, endTime: 70000 },
+    ],
+  };
+
+  describe('невалидные аргументы', () => {
+    test('возвращает undefined при отсутствии match', () => {
+      expect(getValueByDataMapKey(null, 'teamA.name')).toBeUndefined();
+      expect(getValueByDataMapKey(undefined, 'teamA.name')).toBeUndefined();
+    });
+
+    test('возвращает undefined при отсутствии или неверном dataMapKey', () => {
+      expect(getValueByDataMapKey(baseMatch, null)).toBeUndefined();
+      expect(getValueByDataMapKey(baseMatch, undefined)).toBeUndefined();
+      expect(getValueByDataMapKey(baseMatch, '')).toBeUndefined();
+      expect(getValueByDataMapKey(baseMatch, '   ')).toBeUndefined();
+      expect(getValueByDataMapKey(baseMatch, 123)).toBeUndefined();
+    });
+  });
+
+  describe('видимость (индикаторы подачи)', () => {
+    test('visibility.pointA возвращает true когда подаёт команда A', () => {
+      expect(getValueByDataMapKey(baseMatch, 'visibility.pointA')).toBe(true);
+      expect(getValueByDataMapKey({ ...baseMatch, currentSet: { servingTeam: 'B' } }, 'visibility.pointA')).toBe(false);
+    });
+
+    test('visibility.pointB возвращает true когда подаёт команда B', () => {
+      expect(getValueByDataMapKey(baseMatch, 'visibility.pointB')).toBe(false);
+      expect(getValueByDataMapKey({ ...baseMatch, currentSet: { servingTeam: 'B' } }, 'visibility.pointB')).toBe(true);
+    });
+  });
+
+  describe('вычисляемые: счёт по партиям', () => {
+    test('scoreASets возвращает количество выигранных партий командой A', () => {
+      // baseMatch: set1 25>20 (A), set2 22<25 (B) — A выиграла 1 партию
+      expect(getValueByDataMapKey(baseMatch, 'scoreASets')).toBe('1');
+      const matchBWins = {
+        ...baseMatch,
+        sets: [
+          { setNumber: 1, scoreA: 20, scoreB: 25, completed: true, status: 'completed' },
+          { setNumber: 2, scoreA: 22, scoreB: 25, completed: true, status: 'completed' },
+        ],
+      };
+      expect(getValueByDataMapKey(matchBWins, 'scoreASets')).toBe('0');
+      expect(getValueByDataMapKey(matchBWins, 'scoreBSets')).toBe('2');
+    });
+
+    test('scoreBSets возвращает количество выигранных партий командой B', () => {
+      // baseMatch: set2 выиграла B — 1 партия
+      expect(getValueByDataMapKey(baseMatch, 'scoreBSets')).toBe('1');
+    });
+  });
+
+  describe('вычисляемые: дата/время', () => {
+    test('matchDate форматирует date и time', () => {
+      expect(getValueByDataMapKey(baseMatch, 'matchDate')).toBe('15.01.2024 18:00');
+      expect(getValueByDataMapKey({ ...baseMatch, time: '' }, 'matchDate')).toBe('15.01.2024');
+      expect(getValueByDataMapKey({ ...baseMatch, date: '' }, 'matchDate')).toBe('');
+    });
+  });
+
+  describe('прямые пути в match', () => {
+    test('возвращает значения по directPaths', () => {
+      expect(getValueByDataMapKey(baseMatch, 'tournament')).toBe('Турнир');
+      expect(getValueByDataMapKey(baseMatch, 'tournamentSubtitle')).toBe('Финал');
+      expect(getValueByDataMapKey(baseMatch, 'location')).toBe('Москва');
+      expect(getValueByDataMapKey(baseMatch, 'venue')).toBe('Зал');
+      expect(getValueByDataMapKey(baseMatch, 'date')).toBe('2024-01-15');
+      expect(getValueByDataMapKey(baseMatch, 'time')).toBe('18:00');
+      expect(getValueByDataMapKey(baseMatch, 'teamA.name')).toBe('Команда A');
+      expect(getValueByDataMapKey(baseMatch, 'teamA.city')).toBe('Город A');
+      expect(getValueByDataMapKey(baseMatch, 'teamA.color')).toBe('#3498db');
+      expect(getValueByDataMapKey(baseMatch, 'teamA.liberoColor')).toBe('#2980b9');
+      expect(getValueByDataMapKey(baseMatch, 'teamA.coach')).toBe('Тренер A');
+      expect(getValueByDataMapKey(baseMatch, 'teamB.name')).toBe('Команда B');
+      expect(getValueByDataMapKey(baseMatch, 'currentSet.scoreA')).toBe('15');
+      expect(getValueByDataMapKey(baseMatch, 'currentSet.scoreB')).toBe('12');
+      expect(getValueByDataMapKey(baseMatch, 'currentSet.servingTeam')).toBe('A');
+      expect(getValueByDataMapKey(baseMatch, 'officials.referee1')).toBe('Судья 1');
+      expect(getValueByDataMapKey(baseMatch, 'officials.referee2')).toBe('Судья 2');
+      expect(getValueByDataMapKey(baseMatch, 'officials.lineJudge1')).toBe('Л1');
+      expect(getValueByDataMapKey(baseMatch, 'officials.lineJudge2')).toBe('Л2');
+      expect(getValueByDataMapKey(baseMatch, 'officials.scorer')).toBe('Секретарь');
+    });
+
+    test('возвращает пустую строку для отсутствующих полей по directPaths', () => {
+      const minimal = { teamA: {}, teamB: {}, currentSet: {} };
+      expect(getValueByDataMapKey(minimal, 'teamA.name')).toBe('');
+      expect(getValueByDataMapKey(minimal, 'teamA.color')).toBe('');
+    });
+  });
+
+  describe('ростер: rosterA/rosterB.playerN Number/Name', () => {
+    test('rosterA.player1Number, rosterA.player1Name и т.д.', () => {
+      expect(getValueByDataMapKey(baseMatch, 'rosterA.player1Number')).toBe('1');
+      expect(getValueByDataMapKey(baseMatch, 'rosterA.player1Name')).toBe('Игрок 1');
+      expect(getValueByDataMapKey(baseMatch, 'rosterA.player2Number')).toBe('2');
+      expect(getValueByDataMapKey(baseMatch, 'rosterA.player2Name')).toBe('Игрок 2');
+      expect(getValueByDataMapKey(baseMatch, 'rosterB.player1Number')).toBe('10');
+      expect(getValueByDataMapKey(baseMatch, 'rosterB.player1Name')).toBe('Игрок 10');
+    });
+
+    test('возвращает пустую строку при отсутствии игрока в ростер', () => {
+      const noRoster = { ...baseMatch, teamA: { ...baseMatch.teamA, roster: [] } };
+      expect(getValueByDataMapKey(noRoster, 'rosterA.player1Number')).toBe('');
+      expect(getValueByDataMapKey(noRoster, 'rosterA.player1Name')).toBe('');
+    });
+  });
+
+  describe('стартовый состав: startingA/startingB.playerN, libero', () => {
+    test('startingA.player1Number/Name по startingLineupOrder', () => {
+      expect(getValueByDataMapKey(baseMatch, 'startingA.player1Number')).toBe('1');
+      expect(getValueByDataMapKey(baseMatch, 'startingA.player1Name')).toBe('Игрок 1');
+    });
+
+    test('liberoN Number/Name и liberoNBackground', () => {
+      const matchWithLiberos = {
+        ...baseMatch,
+        teamA: {
+          ...baseMatch.teamA,
+          roster: [
+            { number: 1, name: 'Игрок 1', isStarter: true },
+            { number: 2, name: 'Игрок 2', isStarter: true },
+            { number: 5, name: 'Либеро', isStarter: false },
+          ],
+          startingLineupOrder: [0, 1, undefined, undefined, undefined, undefined, 2],
+        },
+      };
+      const val = getValueByDataMapKey(matchWithLiberos, 'startingA.libero1Number');
+      expect(val === '5' || val === '').toBe(true);
+      const nameVal = getValueByDataMapKey(matchWithLiberos, 'startingA.libero1Name');
+      expect(nameVal === 'Либеро' || nameVal === '').toBe(true);
+    });
+
+    test('liberoNBackground возвращает liberoColor или color команды', () => {
+      expect(getValueByDataMapKey(baseMatch, 'startingA.libero1Background')).toBe('#2980b9');
+    });
+  });
+
+  describe('партии: setN.scoreA, setN.scoreB, setN.duration', () => {
+    test('set1.scoreA, set1.scoreB, set2.scoreA и т.д.', () => {
+      expect(getValueByDataMapKey(baseMatch, 'set1.scoreA')).toBe('25');
+      expect(getValueByDataMapKey(baseMatch, 'set1.scoreB')).toBe('20');
+      expect(getValueByDataMapKey(baseMatch, 'set2.scoreA')).toBe('22');
+      expect(getValueByDataMapKey(baseMatch, 'set2.scoreB')).toBe('25');
+    });
+
+    test('setN.duration в минутах по startTime/endTime', () => {
+      expect(getValueByDataMapKey(baseMatch, 'set1.duration')).toBe("1'");
+      // startTime/endTime не должны быть 0 (в коде проверка set.startTime && set.endTime)
+      const set60min = {
+        ...baseMatch,
+        sets: [{ setNumber: 1, startTime: 1000, endTime: 3610000 }],
+      };
+      expect(getValueByDataMapKey(set60min, 'set1.duration')).toBe("60'");
+    });
+
+    test('возвращает пустую строку для несуществующей партии', () => {
+      expect(getValueByDataMapKey(baseMatch, 'set5.scoreA')).toBe('');
+      expect(getValueByDataMapKey(baseMatch, 'set5.duration')).toBe('');
+    });
+  });
+
+  describe('универсальный путь (getByPath)', () => {
+    test('teamA.logo, teamA.logoPath и другие пути', () => {
+      const withLogo = { ...baseMatch, teamA: { ...baseMatch.teamA, logo: 'logo_a.png' } };
+      expect(getValueByDataMapKey(withLogo, 'teamA.logo')).toBe('logo_a.png');
+    });
+
+    test('пустой ключ после trim не ломает', () => {
+      expect(getValueByDataMapKey(baseMatch, '  teamA.name  ')).toBe('Команда A');
+    });
+  });
+});

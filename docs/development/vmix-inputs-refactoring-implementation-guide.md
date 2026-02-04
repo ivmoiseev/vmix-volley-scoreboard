@@ -1,6 +1,6 @@
 # Инструкции по реализации рефакторинга: работа с инпутами vMix
 
-*Последнее обновление: 2026-02-03*
+*Последнее обновление: 2026-02-04*
 
 ## 1. Назначение документа
 
@@ -62,6 +62,8 @@
 ---
 
 ## 4. Этап 1: Подключение к vMix (connectionState, Подключить/Отключить)
+
+**Статус: ✅ Выполнено (2026-02-04).** Добавлены connectionState в настройки, кнопки «Подключить»/«Отключить» с сохранением в файл, восстановление при запуске, валидация.
 
 **Цель:** Сохранять и восстанавливать состояние подключения; при «Подключить» сохранять `connectionState: "connected"` в файл; при «Отключить» — `"disconnected"`; при запуске приложения при `connectionState === "connected"` автоматически выполнять подключение.
 
@@ -126,6 +128,8 @@
 
 ## 5. Этап 2: API Main Process (getGTInputs, getInputFields, кэш, IPC)
 
+**Статус: ✅ Выполнено (2026-02-04).** Реализованы getGTInputs(), getInputFields(), кэш полей, IPC vmix:getGTInputs и vmix:getInputFields.
+
 **Цель:** В `vmix-client.ts` добавить метод `getGTInputs()` (парсинг XML, фильтр по `type="GT"`), метод `getInputFields(inputNumber)` (или по ключу), кэш списка полей по инпуту; зарегистрировать IPC `vmix:getGTInputs`, `vmix:getInputFields`.
 
 **Ссылка на план:** раздел 2, этап 2 в разделе 6 плана.
@@ -185,6 +189,8 @@
 
 ## 6. Этап 3: Структура данных настроек (inputOrder, пустой inputs, валидация)
 
+**Статус: ✅ Выполнено (2026-02-04).** Добавлены inputOrder и нормализация при загрузке, валидация inputOrder, утилита removeInputFromVMixConfig в shared.
+
 **Цель:** Секция `vmix` в настройках поддерживает `inputOrder: string[]`, `inputs: Record<string, VMixInputConfig}`; при отсутствии — по умолчанию `inputOrder: []`, `inputs: {}`. Валидация допускает новую структуру; при удалении инпута id убирается из `inputOrder`.
 
 **Ссылка на план:** раздел 5 плана, этап 7 (миграция не требуется).
@@ -235,6 +241,8 @@
 
 ## 7. Этап 4: Справочник данных приложения (иерархия, фильтр по типу)
 
+**Статус: ✅ Выполнено (2026-02-04).** Создан src/shared/dataMapCatalog.js с getDataMapCatalog({ fieldType }), иерархические группы по vmix-data-map.
+
 **Цель:** На основе vmix-data-map сформировать иерархический справочник пунктов «Данные приложения» с человекопонятными названиями; модель данных — расширяемая; функция фильтрации по типу поля (text / color / image).
 
 **Ссылка на план:** раздел 4.3 плана, этап 6 плана.
@@ -276,6 +284,8 @@
 ---
 
 ## 8. Этап 5: UI — страница «Настройки vMix» (список инпутов, добавление, удаление, порядок)
+
+**Статус: ✅ Выполнено (2026-02-04).** Добавлен блок «Динамические инпуты vMix»: список по inputOrder, кнопка «Добавить инпут», модальное окно (название + выбор GT-инпута), удаление с подтверждением. Реализовано перетаскивание порядка инпутов в левой колонке (HTML5 DnD, без доп. библиотек).
 
 **Цель:** На странице «Настройки подключения к vMix» блок «Настройка инпутов» по умолчанию пустой; кнопка «Добавить инпут»; модальное окно (название + выпадающий список GT-инпутов); при создании инпута присваивать uuid; список инпутов в порядке `inputOrder`; перетаскивание по вертикали; удаление инпута (с подтверждением, с удалением id из `inputOrder`); недоступные инпуты помечаются визуально.
 
@@ -330,6 +340,8 @@
 
 ## 9. Этап 6: UI — поля инпута (раскрывающиеся блоки, сопоставление, customValue)
 
+**Статус: ✅ Выполнено (2026-02-04).** Реализованы VMixInputFieldsPanel (раскрывающиеся блоки полей, сопоставление по dataMapCatalog, произвольный текст, очистка сопоставления) и интеграция в VMixSettingsPage справа от выбранного динамического инпута.
+
 **Цель:** При выборе инпута справа отображать все поля инпута из `getInputFields` (или из кэша) в виде раскрывающихся блоков; в блоке — выбор источника данных (справочник или «Произвольный текст» для text); ключ записи в fields — имя поля vMix; кнопка «Очистить сопоставление»; для недоступного инпута — только просмотр из кэша.
 
 **Ссылка на план:** разделы 4.2–4.4, этап 4 плана.
@@ -378,6 +390,8 @@
 ---
 
 ## 10. Этап 7: Логика отправки в vMix (useVMix по новой структуре, Input=vmixTitle)
+
+**Статус: ✅ Выполнено (2026-02-04).** В main при show-overlay/hide-overlay используется vmixTitle. Реализованы: getValueByDataMapKey(match, dataMapKey) в src/shared/getValueByDataMapKey.js; в useVMix — updateDynamicInputs(matchData, forceUpdate): обход config.inputOrder, сбор полей из сопоставлений (dataMapKey/customValue), разделение по типам (text/color/image/visibility), кэш и фильтр изменений, вызов updateVMixInputFields(vmixTitle, …). updateDynamicInputs вызывается из debounced updateMatchData после фиксированных инпутов.
 
 **Цель:** Адаптировать useVMix (и при необходимости main): при обновлении матча проходить по сохранённым инпутам из `config.vmix.inputOrder` и `config.vmix.inputs`; для каждого инпута передавать в API параметр `Input=vmixTitle` (URL-кодированный); для каждого поля — значение из match по dataMapKey или customValue; вызывать SetText/SetColor/SetImage/SetTextVisibleOn/Off с `SelectedName` = имя поля vMix (ключ в fields), при необходимости кодировать для URL.
 
@@ -430,6 +444,8 @@
 
 ## 11. Этап 8: Компонент «Управление плашками vMix» на странице «Управление матчем»
 
+**Статус: ✅ Выполнено (2026-02-04).** В VMixOverlayButtons добавлен вывод кнопок из inputOrder (динамические инпуты с displayName) в том же порядке; фиксированный список плашек сохранён ниже. Поддержка vmixTitle в main для show/hide overlay реализована.
+
 **Цель:** Список инпутов в компоненте «Управление плашками vMix» — тот же, что на странице «Настройки vMix»: те же данные из `config.vmix.inputs` и порядок `inputOrder`; недоступные инпуты подсвечиваются так же, как сейчас.
 
 **Ссылка на план:** раздел 3.7, этап 3 плана.
@@ -466,6 +482,8 @@
 
 ## 12. Этап 9: Интеграционное тестирование и документация
 
+**Статус: ⏳ Частично (2026-02-04).** Отметки по этапам внесены в настоящий документ. Интеграционные тесты и ручная проверка выполняются разработчиком. Рекомендуется обновить vmix-settings-redesign-plan.md и docs/development/README.md после стабилизации.
+
 **Цель:** Прогнать сценарии из плана рефакторинга; обновить документацию.
 
 **Ссылка на план:** этап 8 плана (тестирование и документация).
@@ -492,6 +510,21 @@
 - Обновить `docs/architecture/vmix-settings-redesign-plan.md` или создать краткую заметку о переходе на динамическую модель (ссылка на план рефакторинга и на этот гайд).
 - При необходимости обновить `docs/api/vmix-api-reference.md` (примеры с Input по имени/title).
 - Обновить `docs/development/README.md` — добавить ссылку на инструкцию по реализации рефакторинга vMix.
+
+### 12.4. Добавленные тесты (реализовано 2026-02-04)
+
+| Файл | Назначение |
+|------|-------------|
+| `tests/unit/shared/getValueByDataMapKey.test.js` | Покрытие getValueByDataMapKey: прямые пути, видимость, вычисляемые (счёт по партиям, дата), ростер, старт, партии |
+| `src/main/vmix-overlay-utils.ts` | Вынесены из main.ts: resolveLogoUrlsInImageFields, findInputConfig (для тестирования) |
+| `tests/unit/main/vmix-overlay-utils.test.ts` | Тесты преобразования URL логотипов и поиска конфига инпута по ключу/vmixTitle/vmixNumber |
+| `tests/unit/renderer/VMixOverlayButtons.test.jsx` | Динамические кнопки из inputOrder, сообщение при отсутствии инпутов, показ/скрытие оверлеев |
+| `tests/unit/renderer/VMixInputFieldsPanel.test.jsx` | Аккордеон полей, загрузка полей, выбор «Не сопоставлено», onFieldChange |
+| `tests/unit/renderer/useVMix-dynamic-inputs.test.js` | showOverlay (vmixTitle/vmixNumber), updateMatchData с forceUpdate, смена matchId, валидация инпута |
+| `tests/unit/renderer/VMixSettingsPage.test.jsx` | handleSave и navigate с forceUpdateVMix, список инпутов с draggable, пустой inputOrder |
+| `tests/unit/renderer/MobileAccessPage.test.jsx` | Исправлены падающие тесты: getByRole для кнопок, мок getMobileServerInfo с `running: true`, синхронизация моков с window.electronAPI, мок QRCodeCanvas без getContext |
+
+Запуск только этих тестов: `npm run test -- --run tests/unit/shared/getValueByDataMapKey.test.js tests/unit/main/vmix-overlay-utils.test.ts tests/unit/renderer/VMixOverlayButtons.test.jsx tests/unit/renderer/VMixInputFieldsPanel.test.jsx tests/unit/renderer/useVMix-dynamic-inputs.test.js tests/unit/renderer/VMixSettingsPage.test.jsx tests/unit/renderer/MobileAccessPage.test.jsx`
 
 ---
 

@@ -21,6 +21,22 @@ testing/
 └── TESTING_SETUP_GUIDE.md           # Настройка окружения
 ```
 
+## 📂 Новые и обновлённые тесты (2026-02-04)
+
+Добавлены и исправлены юнит-тесты для рефакторинга инпутов vMix и страницы мобильного доступа:
+
+| Каталог | Файл | Описание |
+|---------|------|----------|
+| `tests/unit/shared/` | `getValueByDataMapKey.test.js` | Извлечение значений из матча по ключам dataMapCatalog |
+| `tests/unit/main/` | `vmix-overlay-utils.test.ts` | URL логотипов, поиск конфига инпута (vmix-overlay-utils) |
+| `tests/unit/renderer/` | `VMixOverlayButtons.test.jsx` | Динамические кнопки плашек, показ/скрытие оверлеев |
+| `tests/unit/renderer/` | `VMixInputFieldsPanel.test.jsx` | Аккордеон полей, сопоставление, «Не сопоставлено» |
+| `tests/unit/renderer/` | `useVMix-dynamic-inputs.test.js` | Динамические инпуты useVMix, vmixTitle/vmixNumber, updateMatchData |
+| `tests/unit/renderer/` | `VMixSettingsPage.test.jsx` | Сохранение настроек, forceUpdateVMix, список инпутов с draggable |
+| `tests/unit/renderer/` | `MobileAccessPage.test.jsx` | Исправлены падающие тесты (getByRole, running в моках, window.electronAPI) |
+
+Запуск только файла тестов: `npm run test -- --run tests/unit/renderer/MobileAccessPage.test.jsx`
+
 ## 🚀 Быстрый старт
 
 1. Начните с [Быстрого старта](TESTING_QUICK_START.md)
