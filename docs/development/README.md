@@ -7,6 +7,8 @@
 ### Планирование и аудит
 - **[QA Аудит](QA_AUDIT_REPORT.md)** - ⚠️ **ВАЖНО**: отчет о качестве кода, найденных проблемах и рекомендациях по улучшению
 - **[Руководство по рефакторингу](REFACTORING_GUIDE.md)** - подробный план рефакторинга и улучшения кода
+- **[План рефакторинга: работа с инпутами vMix](vmix-inputs-refactoring-plan.md)** - план перехода к динамической настройке инпутов (подключение, GT-инпуты из API, сопоставление полей с vmix-data-map)
+- **[Инструкции по реализации рефакторинга vMix](vmix-inputs-refactoring-implementation-guide.md)** - пошаговые инструкции для программистов: разбивка на этапы, TDD (Red–Green–Refactor), тесты и файлы для изменения
 
 ### Миграции и улучшения
 - **[Руководство по миграции на Vitest](vitest-migration-guide.md)** - пошаговая инструкция по миграции с Jest на Vitest
@@ -17,6 +19,9 @@
 - **[Состояния партий и тайминг - Руководство](set-status-and-timing-implementation-guide.md)** - руководство по реализации функционала управления состояниями партий
 - **[Инпуты "Счет после X партии"](set-score-inputs-implementation-guide.md)** - руководство по реализации функционала инпутов "Счет после X партии" (set1Score - set5Score)
 - **[Рефакторинг: Управление счетом и состояниями партий - Руководство](score-and-set-status-refactoring-implementation-guide.md)** - руководство по реализации рефакторинга с пошаговыми инструкциями
+
+### Данные и интеграция vMix
+- **[Карта данных для vMix](vmix-data-map.md)** - полная карта данных приложения для отправки в vMix (источники, поля, типы)
 
 ### Документация логики
 - **[Логика управления счетом и состояниями партий](score-and-set-status-logic-documentation.md)** - подробная документация всей логики управления счетом, начисления счета, смены состояний партий
@@ -44,6 +49,9 @@ development/
 ├── set-score-inputs-implementation-guide.md # Руководство по реализации инпутов "Счет после X партии"
 ├── score-and-set-status-logic-documentation.md # Документация логики управления счетом и партиями
 ├── score-and-set-status-refactoring-implementation-guide.md # Руководство по реализации рефакторинга
+├── vmix-inputs-refactoring-plan.md        # План рефакторинга работы с инпутами vMix
+├── vmix-inputs-refactoring-implementation-guide.md # Инструкции по реализации (TDD, этапы)
+├── vmix-data-map.md                      # Карта данных приложения для vMix
 ├── multi-process-architecture-analysis.md # Анализ многопроцессной архитектуры
 ├── architecture-diagrams.md               # Диаграммы архитектуры
 └── auto-updates-setup.md                 # Настройка автоматических обновлений
