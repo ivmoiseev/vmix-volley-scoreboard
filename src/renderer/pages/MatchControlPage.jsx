@@ -9,9 +9,11 @@ import ServeControl from "../components/ServeControl";
 import ScoreButtons from "../components/ScoreButtons";
 import VMixOverlayButtons from "../components/VMixOverlayButtons";
 import SetEditModal from "../components/SetEditModal";
+import Button from "../components/Button";
 import { SET_STATUS } from "../../shared/types/Match";
 // @ts-ignore - временно, пока не будет TypeScript версии
 import { SetDomain } from "../../shared/domain/SetDomain.js";
+import { space, radius, light, typography } from "../theme/tokens";
 
 function MatchControlPage({ match: initialMatch, onMatchChange }) {
   const navigate = useNavigate();
@@ -302,7 +304,7 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
   // Условный рендеринг ПОСЛЕ всех хуков
   if (!initialMatch || !match) {
     return (
-      <div style={{ padding: "2rem", textAlign: "center" }}>
+      <div style={{ padding: space.xl, textAlign: "center" }}>
         <h2>Матч не загружен</h2>
         <p>Пожалуйста, создайте новый матч или откройте существующий.</p>
         <button
@@ -310,12 +312,12 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
           style={{
             padding: "0.75rem 1.5rem",
             fontSize: "1rem",
-            backgroundColor: "#3498db",
+            backgroundColor: "var(--color-primary)",
             color: "white",
             border: "none",
-            borderRadius: "4px",
+            borderRadius: radius.sm,
             cursor: "pointer",
-            marginTop: "1rem",
+            marginTop: space.md,
           }}
         >
           Вернуться на главную
@@ -339,25 +341,25 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
   };
 
   return (
-    <div style={{ padding: "1rem", maxWidth: "1600px", margin: "0 auto" }}>
+    <div style={{ padding: space.md, maxWidth: "1600px", margin: "0 auto" }}>
       {/* Основной контент: 2/3 слева, 1/3 справа */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "minmax(0, 2fr) minmax(280px, 1fr)",
-          gap: "1rem",
+          gap: space.md,
           alignItems: "start",
         }}
       >
         {/* Левая часть (2/3) - Управление матчем */}
-        <div>
+        <div style={{ minWidth: "790px" }}>
           {/* Информация о матче */}
           <div
             style={{
-              backgroundColor: "#ecf0f1",
-              padding: "1rem",
-              borderRadius: "4px",
-              marginBottom: "1rem",
+              backgroundColor: "var(--color-surface-muted)",
+              padding: space.md,
+              borderRadius: radius.sm,
+              marginBottom: space.md,
             }}
           >
             <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
@@ -381,16 +383,16 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
-              gap: "1rem",
-              marginBottom: "1rem",
+              gap: space.md,
+              marginBottom: space.md,
             }}
           >
             <div
               style={{
-                backgroundColor: match.teamA.color || "#3498db",
-                color: getContrastTextColor(match.teamA.color || "#3498db"),
-                padding: "1rem",
-                borderRadius: "4px",
+                backgroundColor: match.teamA.color || light.primary,
+                color: getContrastTextColor(match.teamA.color || light.primary),
+                padding: space.md,
+                borderRadius: radius.sm,
                 textAlign: "center",
               }}
             >
@@ -399,10 +401,10 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
             </div>
             <div
               style={{
-                backgroundColor: match.teamB.color || "#e74c3c",
-                color: getContrastTextColor(match.teamB.color || "#e74c3c"),
-                padding: "1rem",
-                borderRadius: "4px",
+                backgroundColor: match.teamB.color || light.danger,
+                color: getContrastTextColor(match.teamB.color || light.danger),
+                padding: space.md,
+                borderRadius: radius.sm,
                 textAlign: "center",
               }}
             >
@@ -421,11 +423,11 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
           {/* Текущий счет */}
           <div
             style={{
-              backgroundColor: "#fff",
-              border: "2px solid #3498db",
-              borderRadius: "4px",
-              padding: "1rem",
-              marginBottom: "1rem",
+              backgroundColor: "var(--color-surface)",
+              border: "2px solid var(--color-border-strong)",
+              borderRadius: radius.sm,
+              padding: space.md,
+              marginBottom: space.md,
             }}
           >
             <h3 style={{ textAlign: "center", marginTop: 0 }}>
@@ -441,6 +443,8 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
               scoreA={match.currentSet.scoreA}
               scoreB={match.currentSet.scoreB}
               servingTeam={match.currentSet.servingTeam}
+              teamAColor={match.teamA.color}
+              teamBColor={match.teamB.color}
               isSetball={isSetballNow}
               setballTeam={setballTeam}
               isMatchball={isMatchballNow}
@@ -468,9 +472,9 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
           <div
             style={{
               display: "flex",
-              gap: "1rem",
+              gap: space.md,
               justifyContent: "center",
-              marginBottom: "1rem",
+              marginBottom: space.md,
             }}
           >
             <button
@@ -480,11 +484,11 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                 padding: "0.75rem 1.5rem",
                 fontSize: "1rem",
                 backgroundColor: currentSetStatus === SET_STATUS.PENDING 
-                  ? "#3498db" 
-                  : (canFinish ? "#27ae60" : "#95a5a6"),
+                  ? "var(--color-primary)" 
+                  : (canFinish ? "var(--color-success)" : "var(--color-neutral)"),
                 color: "white",
                 border: "none",
-                borderRadius: "4px",
+                borderRadius: radius.sm,
                 cursor: (currentSetStatus === SET_STATUS.IN_PROGRESS && !canFinish) 
                   ? "not-allowed" 
                   : "pointer",
@@ -502,10 +506,10 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
               style={{
                 padding: "0.75rem 1.5rem",
                 fontSize: "1rem",
-                backgroundColor: (hasHistory && currentSetStatus === SET_STATUS.IN_PROGRESS) ? "#e74c3c" : "#95a5a6",
+                backgroundColor: (hasHistory && currentSetStatus === SET_STATUS.IN_PROGRESS) ? "var(--color-danger)" : "var(--color-neutral)",
                 color: "white",
                 border: "none",
-                borderRadius: "4px",
+                borderRadius: radius.sm,
                 cursor: hasHistory ? "pointer" : "not-allowed",
               }}
             >
@@ -513,42 +517,33 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
             </button>
           </div>
 
-          {/* Расширенная статистика */}
+          {/* Расширенная статистика (по умолчанию свёрнута для компактности) */}
           <div
             style={{
-              backgroundColor: "#ecf0f1",
-              padding: "1rem",
-              borderRadius: "4px",
-              marginBottom: "1rem",
+              backgroundColor: "var(--color-surface-muted)",
+              padding: space.md,
+              borderRadius: radius.sm,
+              marginBottom: space.md,
             }}
           >
-            <div
+            <label
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "1rem",
-                marginBottom: match.statistics.enabled ? "1rem" : 0,
+                gap: space.sm,
+                cursor: "pointer",
               }}
             >
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={match.statistics.enabled}
-                  onChange={(e) => toggleStatistics(e.target.checked)}
-                />
-                <span>Расширенная статистика</span>
-              </label>
-            </div>
+              <input
+                type="checkbox"
+                checked={match.statistics.enabled}
+                onChange={(e) => toggleStatistics(e.target.checked)}
+              />
+              <span>Расширенная статистика</span>
+            </label>
 
             {match.statistics.enabled && (
-              <div>
+              <div style={{ marginTop: space.md }}>
                 <div
                   style={{
                     display: "grid",
@@ -578,15 +573,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("A", "attack", -1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#e74c3c",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-danger)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             -1
                           </button>
@@ -594,15 +589,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("A", "attack", 1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#27ae60",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-success)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             +1
                           </button>
@@ -625,15 +620,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("A", "block", -1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#e74c3c",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-danger)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             -1
                           </button>
@@ -641,15 +636,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("A", "block", 1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#27ae60",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-success)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             +1
                           </button>
@@ -672,15 +667,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("A", "serve", -1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#e74c3c",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-danger)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             -1
                           </button>
@@ -688,15 +683,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("A", "serve", 1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#27ae60",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-success)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             +1
                           </button>
@@ -719,15 +714,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("A", "opponentErrors", -1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#e74c3c",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-danger)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             -1
                           </button>
@@ -735,15 +730,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("A", "opponentErrors", 1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#27ae60",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-success)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             +1
                           </button>
@@ -778,15 +773,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("B", "attack", -1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#e74c3c",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-danger)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             -1
                           </button>
@@ -794,15 +789,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("B", "attack", 1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#27ae60",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-success)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             +1
                           </button>
@@ -825,15 +820,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("B", "block", -1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#e74c3c",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-danger)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             -1
                           </button>
@@ -841,15 +836,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("B", "block", 1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#27ae60",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-success)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             +1
                           </button>
@@ -872,15 +867,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("B", "serve", -1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#e74c3c",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-danger)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             -1
                           </button>
@@ -888,15 +883,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("B", "serve", 1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#27ae60",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-success)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             +1
                           </button>
@@ -919,15 +914,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("B", "opponentErrors", -1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#e74c3c",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-danger)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             -1
                           </button>
@@ -935,15 +930,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
                             onClick={(e) =>
                               changeStatistics("B", "opponentErrors", 1, e)
                             }
-                            style={{
-                              flex: 1,
-                              padding: "0.5rem",
-                              backgroundColor: "#27ae60",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
+            style={{
+              flex: 1,
+              padding: space.sm,
+              backgroundColor: "var(--color-success)",
+              color: "white",
+              border: "none",
+              borderRadius: radius.sm,
+              cursor: "pointer",
+            }}
                           >
                             +1
                           </button>
@@ -987,10 +982,10 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
             style={{
               padding: "0.75rem 1rem",
               backgroundColor: connectionStatus.connected
-                ? "#27ae60"
-                : "#e74c3c",
+                ? "var(--color-success)"
+                : "var(--color-danger)",
               color: "white",
-              borderRadius: "4px",
+              borderRadius: radius.sm,
               textAlign: "center",
               fontSize: "0.95rem",
             }}
@@ -1002,22 +997,13 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
           </div>
 
           {/* Кнопка настроек vMix */}
-          <button
+          <Button
+            variant="primary"
             onClick={() => navigate("/vmix/settings")}
-            style={{
-              padding: "0.75rem 1rem",
-              fontSize: "1rem",
-              backgroundColor: "#16a085",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontWeight: "bold",
-              width: "100%",
-            }}
+            style={{ fontWeight: "bold", width: "100%" }}
           >
             Настройки vMix
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1025,54 +1011,21 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
       <div
         style={{
           display: "flex",
-          gap: "1rem",
+          gap: space.md,
           justifyContent: "center",
-          marginTop: "1rem",
+          marginTop: space.md,
           flexWrap: "wrap",
         }}
       >
-        <button
-          onClick={() => navigate("/match/settings")}
-          style={{
-            padding: "0.75rem 1.5rem",
-            fontSize: "1rem",
-            backgroundColor: "#3498db",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
+        <Button variant="primary" onClick={() => navigate("/match/settings")}>
           Настройки матча
-        </button>
-        <button
-          onClick={() => navigate("/match/roster")}
-          style={{
-            padding: "0.75rem 1.5rem",
-            fontSize: "1rem",
-            backgroundColor: "#9b59b6",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
+        </Button>
+        <Button variant="accent" onClick={() => navigate("/match/roster")}>
           Управление составами
-        </button>
-        <button
-          onClick={() => navigate("/mobile/access")}
-          style={{
-            padding: "0.75rem 1.5rem",
-            fontSize: "1rem",
-            backgroundColor: "#f39c12",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
+        </Button>
+        <Button variant="warning" onClick={() => navigate("/mobile/access")}>
           Мобильный доступ
-        </button>
+        </Button>
       </div>
 
       {/* Модальное окно редактирования партии */}

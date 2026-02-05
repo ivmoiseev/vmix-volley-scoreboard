@@ -1,75 +1,61 @@
+import { space, radius } from '../theme/tokens';
+import Button from './Button';
 
 function ScoreButtons({ teamAName, teamBName, onScoreChange, disabled = false }) {
-  const buttonStyle = {
-    padding: '1rem 2rem',
+  const sizeStyle = {
+    padding: `${space.md} ${space.xl}`,
     fontSize: '1.5rem',
     fontWeight: 'bold',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: disabled ? 'not-allowed' : 'pointer',
     minWidth: '120px',
-    opacity: disabled ? 0.6 : 1,
   };
 
   return (
     <div style={{
       display: 'grid',
       gridTemplateColumns: '1fr 1fr',
-      gap: '1rem',
-      marginBottom: '1rem',
+      gap: space.md,
+      marginBottom: space.md,
     }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>{teamAName}</div>
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-          <button
-            onClick={() => !disabled && onScoreChange('A', -1)}
+        <div style={{ marginBottom: space.sm, fontWeight: 'bold' }}>{teamAName}</div>
+        <div style={{ display: 'flex', gap: space.sm, justifyContent: 'center' }}>
+          <Button
+            variant="danger"
             disabled={disabled}
-            style={{
-              ...buttonStyle,
-              backgroundColor: '#e74c3c',
-              color: 'white',
-            }}
+            onClick={() => !disabled && onScoreChange('A', -1)}
+            style={sizeStyle}
           >
             -1
-          </button>
-          <button
-            onClick={() => !disabled && onScoreChange('A', 1)}
+          </Button>
+          <Button
+            variant="success"
             disabled={disabled}
-            style={{
-              ...buttonStyle,
-              backgroundColor: '#27ae60',
-              color: 'white',
-            }}
+            onClick={() => !disabled && onScoreChange('A', 1)}
+            style={sizeStyle}
           >
             +1
-          </button>
+          </Button>
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>{teamBName}</div>
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-          <button
-            onClick={() => !disabled && onScoreChange('B', -1)}
+        <div style={{ marginBottom: space.sm, fontWeight: 'bold' }}>{teamBName}</div>
+        <div style={{ display: 'flex', gap: space.sm, justifyContent: 'center' }}>
+          <Button
+            variant="danger"
             disabled={disabled}
-            style={{
-              ...buttonStyle,
-              backgroundColor: '#e74c3c',
-              color: 'white',
-            }}
+            onClick={() => !disabled && onScoreChange('B', -1)}
+            style={sizeStyle}
           >
             -1
-          </button>
-          <button
-            onClick={() => !disabled && onScoreChange('B', 1)}
+          </Button>
+          <Button
+            variant="success"
             disabled={disabled}
-            style={{
-              ...buttonStyle,
-              backgroundColor: '#27ae60',
-              color: 'white',
-            }}
+            onClick={() => !disabled && onScoreChange('B', 1)}
+            style={sizeStyle}
           >
             +1
-          </button>
+          </Button>
         </div>
       </div>
     </div>

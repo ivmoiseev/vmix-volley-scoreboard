@@ -1,19 +1,20 @@
 import { memo } from 'react';
+import { space, radius } from '../theme/tokens';
 
 const StatusIndicators = memo(function StatusIndicators({ isSetball, isMatchball }) {
   return (
     <div style={{
       display: 'flex',
-      gap: '1rem',
+      gap: space.md,
       justifyContent: 'center',
-      marginBottom: '1rem',
+      marginBottom: space.md,
     }}>
       {isSetball && (
         <div style={{
-          padding: '0.5rem 1rem',
-          backgroundColor: '#f39c12',
+          padding: `${space.sm} ${space.md}`,
+          backgroundColor: 'var(--color-warning)',
           color: 'white',
-          borderRadius: '4px',
+          borderRadius: radius.sm,
           fontWeight: 'bold',
         }}>
           СЕТБОЛ
@@ -21,10 +22,10 @@ const StatusIndicators = memo(function StatusIndicators({ isSetball, isMatchball
       )}
       {isMatchball && (
         <div style={{
-          padding: '0.5rem 1rem',
-          backgroundColor: '#e74c3c',
+          padding: `${space.sm} ${space.md}`,
+          backgroundColor: 'var(--color-danger)',
           color: 'white',
-          borderRadius: '4px',
+          borderRadius: radius.sm,
           fontWeight: 'bold',
         }}>
           МАТЧБОЛ

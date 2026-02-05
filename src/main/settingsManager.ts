@@ -114,6 +114,9 @@ function getDefaultSettings() {
     autoUpdate: {
       enabled: true, // По умолчанию автоматические обновления включены
     },
+    ui: {
+      theme: 'light', // 'light' | 'dark' | 'system'
+    },
   };
 }
 
@@ -545,6 +548,32 @@ async function setAutoUpdateSettings(autoUpdateConfig) {
 }
 
 /**
+ * Получает настройки UI (тема и др.)
+ */
+async function getUISettings() {
+  const settings = await loadSettings();
+  if (!settings.ui) {
+    const defaultUI = getDefaultSettings().ui;
+    settings.ui = defaultUI;
+    await saveSettings(settings);
+  }
+  return settings.ui;
+}
+
+/**
+ * Сохраняет настройки UI
+ */
+async function setUISettings(uiConfig) {
+  const settings = await loadSettings();
+  const defaultUI = getDefaultSettings().ui;
+  settings.ui = {
+    ...defaultUI,
+    ...uiConfig,
+  };
+  await saveSettings(settings);
+}
+
+/**
  * Экспортирует настройки в указанный файл
  * @param filePath - путь к файлу для экспорта
  * @throws {Error} если настройки невалидны или произошла ошибка записи
@@ -576,6 +605,8 @@ export {
   setAutoSaveSettings,
   getAutoUpdateSettings,
   setAutoUpdateSettings,
+  getUISettings,
+  setUISettings,
   getSetting,
   setSetting,
   getSettingsFilePath,

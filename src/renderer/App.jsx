@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { applyTheme } from './theme/applyTheme';
+import { light, dark } from './theme/tokens';
 import Layout from './components/Layout';
 import WelcomePage from './pages/WelcomePage';
 import MatchControlPage from './pages/MatchControlPage';
@@ -11,8 +13,48 @@ import AboutPage from './pages/AboutPage';
 
 function App() {
   const [currentMatch, setCurrentMatch] = useState(null);
+  const [theme, setTheme] = useState('light'); // 'light' | 'dark' — эффективная тема для отображения
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Загружаем настройку темы и применяем
+  useEffect(() => {
+    let resolved = 'light';
+    const loadTheme = async () => {
+      if (!window.electronAPI?.getUISettings) return;
+      try {
+        const result = await window.electronAPI.getUISettings();
+        if (result.success && result.theme) {
+          if (result.theme === 'system') {
+            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          } else {
+            resolved = result.theme;
+          }
+        }
+      } catch (e) {
+        console.error('Ошибка загрузки темы:', e);
+      }
+      setTheme(resolved);
+    };
+    loadTheme();
+  }, []);
+
+  // Слушаем смену темы извне (например, из меню)
+  useEffect(() => {
+    if (!window.electronAPI?.onUIThemeChanged) return;
+    const remove = window.electronAPI.onUIThemeChanged((newTheme) => {
+      const resolved = newTheme === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : newTheme;
+      setTheme(resolved);
+    });
+    return () => remove?.();
+  }, []);
+
+  // Применяем тему к DOM
+  useEffect(() => {
+    applyTheme(theme === 'dark' ? dark : light);
+  }, [theme]);
 
   // Получаем матч из state при навигации
   useEffect(() => {

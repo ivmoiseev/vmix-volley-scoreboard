@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useVMix } from '../hooks/useVMix';
 import { useHeaderButtons } from '../components/Layout';
 import { getContrastTextColor } from '../utils/colorContrast';
+import Button from '../components/Button';
+import { space, radius } from '../theme/tokens';
 
 const POSITIONS = [
   'Не указано',
@@ -286,7 +288,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
     e.dataTransfer.dropEffect = 'move';
     // Добавляем визуальную обратную связь
     if (e.currentTarget && e.currentTarget.style) {
-      e.currentTarget.style.backgroundColor = '#e8f5e9';
+      e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
     }
   };
 
@@ -473,33 +475,12 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
     if (match) {
       setButtons(
         <>
-          <button
-            onClick={handleCancel}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#95a5a6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
+          <Button variant="secondary" onClick={handleCancel}>
             Отменить
-          </button>
-          <button
-            onClick={handleSave}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#27ae60',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-            }}
-          >
+          </Button>
+          <Button variant="success" onClick={handleSave} style={{ fontWeight: 'bold' }}>
             Сохранить и вернуться
-          </button>
+          </Button>
         </>
       );
     }
@@ -611,7 +592,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
           style={{
             padding: '0.75rem 1.5rem',
             fontSize: '1rem',
-            backgroundColor: selectedTeam === 'A' ? match.teamA.color : '#95a5a6',
+            backgroundColor: selectedTeam === 'A' ? match.teamA.color : 'var(--color-neutral)',
             color: getContrastTextColor(selectedTeam === 'A' ? match.teamA.color : '#95a5a6'),
             border: 'none',
             borderRadius: '4px',
@@ -626,7 +607,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
           style={{
             padding: '0.75rem 1.5rem',
             fontSize: '1rem',
-            backgroundColor: selectedTeam === 'B' ? match.teamB.color : '#95a5a6',
+            backgroundColor: selectedTeam === 'B' ? match.teamB.color : 'var(--color-neutral)',
             color: getContrastTextColor(selectedTeam === 'B' ? match.teamB.color : '#95a5a6'),
             border: 'none',
             borderRadius: '4px',
@@ -640,7 +621,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
 
       {/* Состав команды */}
       <div style={{
-        backgroundColor: '#ecf0f1',
+        backgroundColor: 'var(--color-surface-muted)',
         padding: '1.5rem',
         borderRadius: '4px',
         marginBottom: '1.5rem',
@@ -655,7 +636,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <label style={{
               padding: '0.5rem 1rem',
-              backgroundColor: '#27ae60',
+              backgroundColor: 'var(--color-success)',
               color: 'white',
               borderRadius: '4px',
               cursor: 'pointer',
@@ -669,32 +650,12 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                 style={{ display: 'none' }}
               />
             </label>
-            <button
-              onClick={handleExportRoster}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: '#3498db',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            >
+            <Button variant="primary" onClick={handleExportRoster}>
               Экспорт
-            </button>
-            <button
-              onClick={handleAddPlayer}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: '#27ae60',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            >
+            </Button>
+            <Button variant="success" onClick={handleAddPlayer}>
               Добавить игрока
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -702,11 +663,12 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
           <table style={{
             width: '100%',
             borderCollapse: 'collapse',
-            backgroundColor: 'white',
+            backgroundColor: 'var(--color-surface)',
+            color: 'var(--color-text)',
             borderRadius: '4px',
           }}>
             <thead>
-              <tr style={{ backgroundColor: '#34495e', color: 'white' }}>
+              <tr style={{ backgroundColor: 'var(--color-header-bg)', color: 'white' }}>
                 <th style={{ padding: '0.75rem', textAlign: 'left', width: '30px' }}></th>
                 <th style={{ padding: '0.75rem', textAlign: 'left' }}>№</th>
                 <th style={{ padding: '0.75rem', textAlign: 'left' }}>Имя</th>
@@ -720,7 +682,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                 <tr 
                   key={index} 
                   style={{ 
-                    borderBottom: '1px solid #ecf0f1',
+                    borderBottom: '1px solid var(--color-surface-muted)',
                     opacity: draggedRosterIndex === index ? 0.5 : 1,
                     cursor: 'move',
                   }}
@@ -740,7 +702,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                       textAlign: 'center',
                       cursor: 'grab',
                       userSelect: 'none',
-                      color: '#7f8c8d',
+                      color: 'var(--color-text-secondary)',
                     }}
                     title="Перетащите для изменения порядка"
                   >
@@ -754,19 +716,19 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                       <div style={{
                         width: '16px',
                         height: '2px',
-                        backgroundColor: '#7f8c8d',
+                        backgroundColor: 'var(--color-neutral-hover)',
                         borderRadius: '1px',
                       }}></div>
                       <div style={{
                         width: '16px',
                         height: '2px',
-                        backgroundColor: '#7f8c8d',
+                        backgroundColor: 'var(--color-neutral-hover)',
                         borderRadius: '1px',
                       }}></div>
                       <div style={{
                         width: '16px',
                         height: '2px',
-                        backgroundColor: '#7f8c8d',
+                        backgroundColor: 'var(--color-neutral-hover)',
                         borderRadius: '1px',
                       }}></div>
                     </div>
@@ -803,7 +765,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                       style={{
                         width: '80px',
                         padding: '0.25rem',
-                        border: '1px solid #bdc3c7',
+                        border: '1px solid var(--color-border)',
                         borderRadius: '4px',
                       }}
                     />
@@ -816,7 +778,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                       style={{
                         width: '100%',
                         padding: '0.25rem',
-                        border: '1px solid #bdc3c7',
+                        border: '1px solid var(--color-border)',
                         borderRadius: '4px',
                       }}
                       placeholder="Имя игрока"
@@ -829,7 +791,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                       style={{
                         width: '100%',
                         padding: '0.25rem',
-                        border: '1px solid #bdc3c7',
+                        border: '1px solid var(--color-border)',
                         borderRadius: '4px',
                       }}
                     >
@@ -846,33 +808,27 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                     />
                   </td>
                   <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                    <button
+                    <Button
+                      variant="danger"
                       onClick={() => handleRemovePlayer(index)}
-                      style={{
-                        padding: '0.25rem 0.5rem',
-                        backgroundColor: '#e74c3c',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                      }}
+                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.9rem' }}
                     >
                       Удалить
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
           {roster.length === 0 && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#7f8c8d' }}>
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
               Состав пуст. Добавьте игроков.
             </div>
           )}
         </div>
         
         {/* Поле тренера под списком команды */}
-        <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '2px solid #bdc3c7' }}>
+        <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '2px solid var(--color-border)' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
             Тренер
           </label>
@@ -914,7 +870,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
               maxWidth: '400px',
               padding: '0.5rem',
               fontSize: '1rem',
-              border: '1px solid #bdc3c7',
+              border: '1px solid var(--color-border)',
               borderRadius: '4px',
             }}
             placeholder="Имя тренера"
@@ -925,13 +881,13 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
       {/* Стартовый состав */}
       {starters.length > 0 && (
         <div style={{
-          backgroundColor: '#ecf0f1',
+          backgroundColor: 'var(--color-surface-muted)',
           padding: '1.5rem',
           borderRadius: '4px',
           marginBottom: '1.5rem',
         }}>
           <h3 style={{ marginTop: 0 }}>Стартовый состав</h3>
-          <p style={{ marginTop: '-0.5rem', marginBottom: '1rem', fontSize: '0.9rem', color: '#7f8c8d' }}>
+          <p style={{ marginTop: '-0.5rem', marginBottom: '1rem', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>
             Перетащите игроков для изменения порядка
           </p>
           <div style={{
@@ -958,11 +914,11 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                   }}
                   style={{
                     minHeight: '80px',
-                    border: `2px ${isLibero ? 'solid' : 'dashed'} ${draggedIndex === cellIndex ? '#229954' : '#bdc3c7'}`,
+                    border: `2px ${isLibero ? 'solid' : 'dashed'} ${draggedIndex === cellIndex ? 'var(--color-success-hover)' : 'var(--color-border)'}`,
                     borderRadius: '4px',
                     padding: '0.75rem',
-                    backgroundColor: player ? (draggedIndex === cellIndex ? '#229954' : '#27ae60') : 'white',
-                    color: player ? 'white' : '#7f8c8d',
+                    backgroundColor: player ? (draggedIndex === cellIndex ? 'var(--color-success-hover)' : 'var(--color-success)') : 'var(--color-surface)',
+                    color: player ? 'white' : 'var(--color-text-secondary)',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -974,15 +930,15 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                   }}
                   onDragEnter={(e) => {
                     if (!player && draggedIndex !== null) {
-                      e.currentTarget.style.backgroundColor = '#d5f4e6';
-                      e.currentTarget.style.borderColor = '#27ae60';
+                      e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
+                      e.currentTarget.style.borderColor = 'var(--color-success)';
                       e.currentTarget.style.borderStyle = 'solid';
                     }
                   }}
                   onDragLeave={(e) => {
                     if (!player) {
-                      e.currentTarget.style.backgroundColor = 'white';
-                      e.currentTarget.style.borderColor = '#bdc3c7';
+                      e.currentTarget.style.backgroundColor = 'var(--color-surface)';
+                      e.currentTarget.style.borderColor = 'var(--color-border)';
                       e.currentTarget.style.borderStyle = isLibero ? 'solid' : 'dashed';
                     }
                   }}
@@ -1037,35 +993,12 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
         gap: '1rem',
         justifyContent: 'flex-end',
       }}>
-        <button
-          onClick={handleCancel}
-          style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            backgroundColor: '#95a5a6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
+        <Button variant="secondary" onClick={handleCancel}>
           Отменить
-        </button>
-        <button
-          onClick={handleSave}
-          style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            backgroundColor: '#27ae60',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-          }}
-        >
+        </Button>
+        <Button variant="success" onClick={handleSave} style={{ fontWeight: 'bold' }}>
           Сохранить и вернуться
-        </button>
+        </Button>
       </div>
     </div>
   );

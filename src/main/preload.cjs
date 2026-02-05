@@ -58,7 +58,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // AutoUpdate settings management
   getAutoUpdateSettings: () => ipcRenderer.invoke('autoupdate:get-settings'),
   setAutoUpdateSettings: (enabled) => ipcRenderer.invoke('autoupdate:set-settings', enabled),
-  
+
+  // UI settings (theme)
+  getUISettings: () => ipcRenderer.invoke('ui:get-settings'),
+  setUISettings: (uiConfig) => ipcRenderer.invoke('ui:set-settings', uiConfig),
+
   // Listeners (возвращают функцию для удаления слушателя)
   onNavigate: (callback) => {
     const handler = (event, path) => callback(path);
@@ -95,5 +99,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (event, enabled) => callback(enabled);
     ipcRenderer.on('autoupdate-settings-changed', handler);
     return () => ipcRenderer.removeListener('autoupdate-settings-changed', handler);
+  },
+  onUIThemeChanged: (callback) => {
+    const handler = (event, theme) => callback(theme);
+    ipcRenderer.on('ui-theme-changed', handler);
+    return () => ipcRenderer.removeListener('ui-theme-changed', handler);
   },
 });

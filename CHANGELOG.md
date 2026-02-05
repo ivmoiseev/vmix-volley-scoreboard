@@ -9,6 +9,17 @@
 
 ### Добавлено
 
+- **Система дизайна (design tokens) и тёмная тема**
+  - Design tokens: `src/shared/theme/tokens.js` (цвета светлой/тёмной темы, отступы, радиусы, типографика), реэкспорт в `src/renderer/theme/tokens.js`
+  - Применение темы: `src/renderer/theme/applyTheme.js` — запись токенов в CSS-переменные на `document.documentElement`
+  - Настройка темы: секция `ui.theme` в settings.json (`'light' | 'dark' | 'system'`), валидация в settingsValidator, IPC ui:get-settings / ui:set-settings, событие ui-theme-changed
+  - Переключение темы через меню **Вид → «Переключить тему (светлая ↔ тёмная)»** (кнопка в header убрана)
+  - Тёмная тема на градациях серого (background, surface, surfaceMuted, headerBg); мобильная панель получает тему из настроек и подставляет токены в HTML
+  - Компонент **Button** (`src/renderer/components/Button.jsx`) с вариантами primary, secondary, success, danger, warning, accent; тесты в `tests/unit/renderer/Button.test.jsx`
+  - Глобальные стили полей ввода в `index.html`: input/select/textarea — фон, цвет текста и рамка из CSS-переменных темы (тёмная подложка в тёмной теме)
+  - Токены подающей команды: `servingBorder`, `servingBadge` — фиксированные цвета для рамки и бейджа «Подача» (видимы на любом фоне)
+  - Доступность: стили `:focus-visible` в index.html для button, input, select, textarea, a
+
 - **Тесты для рефакторинга инпутов vMix**
   - `tests/unit/shared/getValueByDataMapKey.test.js` — покрытие getValueByDataMapKey (прямые пути, видимость, вычисляемые, ростер, партии)
   - `src/main/vmix-overlay-utils.ts` — вынесены из main.ts: resolveLogoUrlsInImageFields, findInputConfig (для тестирования)
@@ -26,13 +37,31 @@
   - Синхронизация моков с global.window.electronAPI в тестах «ошибки при генерации QR-кода», «QR из сохраненной сессии», «остановить сервер», «очищать QR-код»
   - Мок QRCodeCanvas без вызова getContext('2d') (в jsdom не реализован)
 
+### Изменено
+
+- **Оформление интерфейса под тему**
+  - Все основные компоненты и страницы переведены на CSS-переменные (`var(--color-text)`, `var(--color-surface)` и т.д.) и токены (space, radius)
+  - **ScoreDisplay:** фиксированная ширина блоков команд (200px), подающая команда выделяется только рамкой (плашка «Подача» в блоке счёта убрана), плашки «Сетбол»/«Матчбол» под цифрой счёта с фиксированной высотой блока, уменьшен шрифт названия команды (0.875rem), обрезка длинных имён с ellipsis, логотипы с minWidth/minHeight и flexShrink: 0
+  - **MatchControlPage:** блок «Расширенная статистика» раскрывается только по галочке (кнопка «Развернуть/Свернуть» убрана), левая колонка с minWidth: 790px
+  - **WelcomePage:** блок «Быстрый старт» — surface-muted, border, цвет текста из темы
+  - **MobileAccessPage:** блоки ссылки и QR-кода, блок инструкции — оформление как на Welcome (surface-muted, border), единый стиль с темой
+  - **MatchSettingsPage:** выпадающий список «Часовой пояс» без захардкоженного белого фона — глобальные стили темы
+  - **RosterManagementPage:** таблица состава и сетка расстановки — surface и color из темы
+  - **VMixSettingsPage:** панели «Настройка инпутов» (список инпутов и настройки выбранного), модальное окно «Добавить инпут», VMixInputFieldsPanel — surface, цвет текста и подписей из темы
+  - **Button:** явный opacity: 1 в baseStyle для обычного состояния; при disabled — opacity: 0.7 (тесты ScoreButtons приведены в соответствие)
+
 ### Документация
 
+- **Дизайн:** добавлен единый документ **docs/development/DESIGN.md** — актуальное описание системы дизайна (токены, темы, компоненты, оформление страниц)
+- **Структура UI:** обновлён docs/getting-started/ui-structure.md — меню «Вид» с пунктом «Переключить тему», ссылка на DESIGN.md
+- **Аудит и рефакторинг:** в docs/development/ui-ux-audit-report.md и design-refactoring-implementation-guide.md добавлены статус и ссылки на DESIGN.md
+- Удалены устаревшие docs/development/design-theme-and-score-fixes-plan.md и dark-theme-inputs-analysis.md (содержимое учтено в DESIGN.md)
+- Обновлены docs/README.md и docs/development/README.md — ссылки на DESIGN.md и актуальный список документов
 - Обновлены docs/development/README.md — раздел «Тесты рефакторинга инпутов vMix»
 - Обновлены docs/development/vmix-inputs-refactoring-implementation-guide.md — раздел 12.4 «Добавленные тесты»
 - Обновлены docs/testing/README.md — таблица новых и обновлённых тестов
 - Обновлены docs/architecture/ARCHITECTURE.md — vmix-overlay-utils.ts в main, getValueByDataMapKey.js в shared
-- Обновлён docs/README.md — дата последнего обновления 2026-02-04
+- Обновлён docs/README.md — дата последнего обновления 2026-02-05
 
 ## [1.0.9] - 2026-01-23
 

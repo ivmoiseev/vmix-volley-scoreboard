@@ -101,6 +101,13 @@ export interface AutoUpdateSettings {
 }
 
 /**
+ * Структура настроек UI (тема и др.)
+ */
+export interface UISettings {
+  theme?: 'light' | 'dark' | 'system';
+}
+
+/**
  * Полная структура настроек приложения
  */
 export interface Settings {
@@ -108,6 +115,7 @@ export interface Settings {
   mobile?: MobileSettings;
   autoSave?: AutoSaveSettings;
   autoUpdate?: AutoUpdateSettings;
+  ui?: UISettings;
 }
 
 /**
@@ -149,6 +157,38 @@ export function validateSettings(settings: any): ValidationResult {
     const autoUpdateResult = validateAutoUpdateSettings(settings.autoUpdate);
     if (!autoUpdateResult.valid) {
       errors.push(...autoUpdateResult.errors.map(e => `autoUpdate: ${e}`));
+    }
+  }
+
+  if (settings.ui !== undefined) {
+    const uiResult = validateUISettings(settings.ui);
+    if (!uiResult.valid) {
+      errors.push(...uiResult.errors.map(e => `ui: ${e}`));
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Валидирует настройки UI
+ */
+export function validateUISettings(ui: any): ValidationResult {
+  const errors: string[] = [];
+
+  if (!ui || typeof ui !== 'object') {
+    return {
+      valid: false,
+      errors: ['ui должен быть объектом'],
+    };
+  }
+
+  if (ui.theme !== undefined) {
+    if (ui.theme !== 'light' && ui.theme !== 'dark' && ui.theme !== 'system') {
+      errors.push('theme должен быть "light", "dark" или "system"');
     }
   }
 

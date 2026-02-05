@@ -1,31 +1,34 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { getDataMapCatalog } from "../../shared/dataMapCatalog";
+import { space, radius, typography } from "../theme/tokens";
 
 const panelStyle = {
-  marginTop: "1rem",
-  paddingTop: "1rem",
-  borderTop: "1px solid #ecf0f1",
+  marginTop: space.md,
+  paddingTop: space.md,
+  borderTop: "1px solid var(--color-surface-muted)",
 };
 
 const blockHeaderStyle = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  padding: "0.5rem 0.75rem",
-  backgroundColor: "#f8f9fa",
-  border: "1px solid #dee2e6",
-  borderRadius: "4px",
+  padding: `${space.sm} 0.75rem`,
+  backgroundColor: "var(--color-surface-muted)",
+  color: "var(--color-text)",
+  border: "1px solid var(--color-border)",
+  borderRadius: radius.sm,
   cursor: "pointer",
-  marginBottom: "0.25rem",
+  marginBottom: space.xs,
 };
 
 const blockBodyStyle = {
   padding: "0.75rem",
-  backgroundColor: "#fff",
-  border: "1px solid #dee2e6",
+  backgroundColor: "var(--color-surface)",
+  color: "var(--color-text)",
+  border: "1px solid var(--color-border)",
   borderTop: "none",
-  borderRadius: "0 0 4px 4px",
-  marginBottom: "0.5rem",
+  borderRadius: `0 0 ${radius.sm} ${radius.sm}`,
+  marginBottom: space.sm,
 };
 
 /**
@@ -114,7 +117,7 @@ function VMixInputFieldsPanel({
   if (loading) {
     return (
       <div style={panelStyle}>
-        <p style={{ color: "#7f8c8d" }}>Загрузка полей инпута…</p>
+        <p style={{ color: 'var(--color-text-secondary)' }}>Загрузка полей инпута…</p>
       </div>
     );
   }
@@ -122,7 +125,7 @@ function VMixInputFieldsPanel({
   if (error) {
     return (
       <div style={panelStyle}>
-        <p style={{ color: "#e74c3c" }}>{error}</p>
+        <p style={{ color: "var(--color-danger)" }}>{error}</p>
       </div>
     );
   }
@@ -130,14 +133,14 @@ function VMixInputFieldsPanel({
   if (fields.length === 0) {
     return (
       <div style={panelStyle}>
-        <p style={{ color: "#7f8c8d" }}>Нет полей или инпут недоступен.</p>
+        <p style={{ color: "var(--color-text-secondary)" }}>Нет полей или инпут недоступен.</p>
       </div>
     );
   }
 
   return (
     <div style={panelStyle}>
-      <h5 style={{ marginTop: 0, marginBottom: "0.75rem" }}>Поля инпута</h5>
+      <h5 style={{ marginTop: 0, marginBottom: "0.75rem", color: "var(--color-text)" }}>Поля инпута</h5>
       {fields.map((field) => {
         const fieldMapping = currentFields[field.name];
         const isExpanded = expandedNames.has(field.name);
@@ -162,7 +165,7 @@ function VMixInputFieldsPanel({
               <span style={{ fontWeight: 500 }}>
                 {field.name}
                 {preview && (
-                  <span style={{ marginLeft: "0.5rem", color: "#27ae60", fontSize: "0.875rem" }}>
+                  <span style={{ marginLeft: "0.5rem", color: "var(--color-success)", fontSize: typography.small }}>
                     — {preview}
                   </span>
                 )}
@@ -231,7 +234,7 @@ function FieldBlockContent({
 
   if (readOnly) {
     return (
-      <div style={{ fontSize: "0.875rem", color: "#7f8c8d" }}>
+      <div style={{ fontSize: typography.small, color: "var(--color-text-secondary)" }}>
         {fieldMapping?.dataMapKey && (
           <p>Данные приложения: {getDataMapLabel(fieldMapping.dataMapKey, type)}</p>
         )}
@@ -249,7 +252,7 @@ function FieldBlockContent({
     <div style={{ display: "grid", gap: "0.75rem" }}>
       {type === "text" && (
         <>
-          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--color-text)" }}>
             <input
               type="checkbox"
               checked={!!isCustomText}
@@ -263,17 +266,17 @@ function FieldBlockContent({
               value={localCustomText}
               onChange={handleCustomTextChange}
               placeholder="Введите текст"
-              style={{ padding: "0.5rem", border: "1px solid #bdc3c7", borderRadius: "4px" }}
+              style={{ padding: space.sm, border: "1px solid var(--color-border)", borderRadius: radius.sm }}
             />
           ) : (
             <div>
-              <label style={{ display: "block", marginBottom: "0.25rem", fontWeight: "bold" }}>
+              <label style={{ display: "block", marginBottom: "0.25rem", fontWeight: "bold", color: "var(--color-text)" }}>
                 Данные приложения
               </label>
               <select
                 value={fieldMapping?.dataMapKey ?? ""}
                 onChange={handleDataMapSelect}
-                style={{ width: "100%", padding: "0.5rem", border: "1px solid #bdc3c7", borderRadius: "4px" }}
+                style={{ width: "100%", padding: space.sm, border: "1px solid var(--color-border)", borderRadius: radius.sm }}
               >
                 <option value="">— Не сопоставлено —</option>
                 {options.map((opt) => (
@@ -288,13 +291,13 @@ function FieldBlockContent({
       )}
       {(type === "color" || type === "image") && (
         <div>
-          <label style={{ display: "block", marginBottom: "0.25rem", fontWeight: "bold" }}>
+          <label style={{ display: "block", marginBottom: "0.25rem", fontWeight: "bold", color: "var(--color-text)" }}>
             Данные приложения
           </label>
           <select
             value={fieldMapping?.dataMapKey ?? ""}
             onChange={handleDataMapSelect}
-            style={{ width: "100%", padding: "0.5rem", border: "1px solid #bdc3c7", borderRadius: "4px" }}
+            style={{ width: "100%", padding: space.sm, border: "1px solid var(--color-border)", borderRadius: radius.sm }}
           >
             <option value="">— Не сопоставлено —</option>
             {options.map((opt) => (

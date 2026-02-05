@@ -1,4 +1,12 @@
 import { memo } from 'react';
+import { space, radius } from '../theme/tokens';
+
+// Фиксированная ширина блока команды (счёт + название), чтобы не было скачков при разной длине имён
+const TEAM_BLOCK_WIDTH = 200;
+// Минимальная высота блока «счёт + плашка сетбол/матчбол», чтобы высота не менялась при появлении плашки
+const SCORE_BADGE_BLOCK_MIN_HEIGHT = '4.5rem';
+// Размер шрифта названия команды — меньше основного, чтобы в блоке помещалось больше символов до обрезки
+const TEAM_NAME_FONT_SIZE = '0.875rem';
 
 const ScoreDisplay = memo(function ScoreDisplay({ 
   teamA, 
@@ -6,6 +14,8 @@ const ScoreDisplay = memo(function ScoreDisplay({
   scoreA, 
   scoreB, 
   servingTeam,
+  teamAColor,
+  teamBColor,
   isSetball = false,
   setballTeam = null,
   isMatchball = false,
@@ -13,6 +23,9 @@ const ScoreDisplay = memo(function ScoreDisplay({
   teamALogo = null,
   teamBLogo = null,
 }) {
+  const isServingA = servingTeam === 'A';
+  const isServingB = servingTeam === 'B';
+
   return (
     <div style={{
       display: 'flex',
@@ -21,7 +34,7 @@ const ScoreDisplay = memo(function ScoreDisplay({
       gap: '2rem',
       fontSize: '2rem',
       fontWeight: 'bold',
-      padding: '1rem',
+      padding: space.md,
       position: 'relative',
     }}>
       {/* Логотип команды A */}
@@ -29,12 +42,15 @@ const ScoreDisplay = memo(function ScoreDisplay({
         <div style={{
           width: '120px',
           height: '120px',
+          minWidth: '120px',
+          minHeight: '120px',
+          flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          padding: '0.5rem',
+          backgroundColor: 'var(--color-surface)',
+          borderRadius: radius.md,
+          padding: space.sm,
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
         }}>
           <img
@@ -49,73 +65,111 @@ const ScoreDisplay = memo(function ScoreDisplay({
         </div>
       )}
       
-      {/* Команда A */}
+      {/* Команда A: подающая команда выделяется рамкой */}
       <div style={{
         textAlign: 'center',
-        color: servingTeam === 'A' ? '#f39c12' : '#34495e',
+        color: 'var(--color-text)',
         position: 'relative',
-        minWidth: '150px',
+        width: TEAM_BLOCK_WIDTH,
+        minWidth: TEAM_BLOCK_WIDTH,
+        maxWidth: TEAM_BLOCK_WIDTH,
+        padding: space.sm,
+        borderRadius: radius.sm,
+        border: isServingA ? '2px solid var(--color-serving-border)' : '2px solid transparent',
+        boxSizing: 'border-box',
       }}>
-        <div>{teamA}</div>
-        <div style={{ 
-          fontSize: '3rem',
-          position: 'relative',
+        <div style={{
+          marginBottom: space.xs,
         }}>
-          {scoreA}
-          {/* Индикатор сетбола/матчбола для команды A */}
-          {(isMatchball && matchballTeam === 'A') || (isSetball && setballTeam === 'A' && !isMatchball) ? (
-            <div style={{
-              position: 'absolute',
-              top: '-10px',
-              right: '-20px',
-              padding: '0.25rem 0.5rem',
-              backgroundColor: isMatchball ? '#e74c3c' : '#f39c12',
+          <span style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            display: 'block',
+            maxWidth: '100%',
+            fontSize: TEAM_NAME_FONT_SIZE,
+          }}>
+            {teamA}
+          </span>
+        </div>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: space.xs,
+          minHeight: SCORE_BADGE_BLOCK_MIN_HEIGHT,
+        }}>
+          <span style={{ fontSize: '3rem' }}>{scoreA}</span>
+          {((isMatchball && matchballTeam === 'A') || (isSetball && setballTeam === 'A' && !isMatchball)) ? (
+            <span style={{
+              padding: '2px 8px',
+              backgroundColor: isMatchball ? 'var(--color-danger)' : 'var(--color-warning)',
               color: 'white',
-              borderRadius: '4px',
+              borderRadius: '999px',
               fontSize: '0.7rem',
               fontWeight: 'bold',
-              whiteSpace: 'nowrap',
-              zIndex: 10,
+              letterSpacing: '0.02em',
             }}>
-              {isMatchball ? 'МАТЧБОЛ' : 'СЕТБОЛ'}
-            </div>
-          ) : null}
+              {isMatchball ? 'Матчбол' : 'Сетбол'}
+            </span>
+          ) : (
+            <span style={{ minHeight: '1.25rem', display: 'block' }} aria-hidden="true" />
+          )}
         </div>
       </div>
       
-      <div style={{ fontSize: '2rem' }}>:</div>
+      <div style={{ fontSize: '2rem', flexShrink: 0 }}>:</div>
       
-      {/* Команда B */}
+      {/* Команда B: подающая команда выделяется рамкой */}
       <div style={{
         textAlign: 'center',
-        color: servingTeam === 'B' ? '#f39c12' : '#34495e',
+        color: 'var(--color-text)',
         position: 'relative',
-        minWidth: '150px',
+        width: TEAM_BLOCK_WIDTH,
+        minWidth: TEAM_BLOCK_WIDTH,
+        maxWidth: TEAM_BLOCK_WIDTH,
+        padding: space.sm,
+        borderRadius: radius.sm,
+        border: isServingB ? '2px solid var(--color-serving-border)' : '2px solid transparent',
+        boxSizing: 'border-box',
       }}>
-        <div>{teamB}</div>
-        <div style={{ 
-          fontSize: '3rem',
-          position: 'relative',
+        <div style={{
+          marginBottom: space.xs,
         }}>
-          {scoreB}
-          {/* Индикатор сетбола/матчбола для команды B */}
-          {(isMatchball && matchballTeam === 'B') || (isSetball && setballTeam === 'B' && !isMatchball) ? (
-            <div style={{
-              position: 'absolute',
-              top: '-10px',
-              left: '-20px',
-              padding: '0.25rem 0.5rem',
-              backgroundColor: isMatchball ? '#e74c3c' : '#f39c12',
+          <span style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            display: 'block',
+            maxWidth: '100%',
+            fontSize: TEAM_NAME_FONT_SIZE,
+          }}>
+            {teamB}
+          </span>
+        </div>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: space.xs,
+          minHeight: SCORE_BADGE_BLOCK_MIN_HEIGHT,
+        }}>
+          <span style={{ fontSize: '3rem' }}>{scoreB}</span>
+          {((isMatchball && matchballTeam === 'B') || (isSetball && setballTeam === 'B' && !isMatchball)) ? (
+            <span style={{
+              padding: '2px 8px',
+              backgroundColor: isMatchball ? 'var(--color-danger)' : 'var(--color-warning)',
               color: 'white',
-              borderRadius: '4px',
+              borderRadius: '999px',
               fontSize: '0.7rem',
               fontWeight: 'bold',
-              whiteSpace: 'nowrap',
-              zIndex: 10,
+              letterSpacing: '0.02em',
             }}>
-              {isMatchball ? 'МАТЧБОЛ' : 'СЕТБОЛ'}
-            </div>
-          ) : null}
+              {isMatchball ? 'Матчбол' : 'Сетбол'}
+            </span>
+          ) : (
+            <span style={{ minHeight: '1.25rem', display: 'block' }} aria-hidden="true" />
+          )}
         </div>
       </div>
       
@@ -124,12 +178,15 @@ const ScoreDisplay = memo(function ScoreDisplay({
         <div style={{
           width: '120px',
           height: '120px',
+          minWidth: '120px',
+          minHeight: '120px',
+          flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          padding: '0.5rem',
+          backgroundColor: 'var(--color-surface)',
+          borderRadius: radius.md,
+          padding: space.sm,
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
         }}>
           <img

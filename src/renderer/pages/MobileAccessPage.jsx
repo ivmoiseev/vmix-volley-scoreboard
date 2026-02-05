@@ -5,6 +5,8 @@ import { useHeaderButtons } from '../components/Layout';
 // qrcode.react - это React-компонент, который работает в браузере и совместим с Vite production сборкой
 // Он не имеет проблем с минификацией, в отличие от библиотеки qrcode
 import { QRCodeCanvas } from 'qrcode.react';
+import Button from '../components/Button';
+import { space, radius } from '../theme/tokens';
 
 function MobileAccessPage() {
   const navigate = useNavigate();
@@ -341,33 +343,12 @@ function MobileAccessPage() {
 
     setButtons(
       <>
-        <button
-          onClick={handleCancelClick}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#95a5a6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
+        <Button variant="secondary" onClick={handleCancelClick}>
           Отменить
-        </button>
-        <button
-          onClick={handleSaveClick}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#27ae60',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-          }}
-        >
+        </Button>
+        <Button variant="success" onClick={handleSaveClick} style={{ fontWeight: 'bold' }}>
           Сохранить
-        </button>
+        </Button>
       </>
     );
     return () => setButtons(null);
@@ -379,7 +360,7 @@ function MobileAccessPage() {
 
       {/* Статус сервера */}
       <div style={{
-        backgroundColor: '#ecf0f1',
+        backgroundColor: 'var(--color-surface-muted)',
         padding: '1.5rem',
         borderRadius: '4px',
         marginBottom: '1.5rem',
@@ -390,7 +371,7 @@ function MobileAccessPage() {
             width: '12px',
             height: '12px',
             borderRadius: '50%',
-            backgroundColor: isServerRunning ? '#27ae60' : '#e74c3c',
+            backgroundColor: isServerRunning ? 'var(--color-success)' : 'var(--color-danger)',
           }}></div>
           <span style={{ fontWeight: 'bold' }}>
             {isServerRunning ? 'Запущен' : 'Остановлен'}
@@ -415,9 +396,9 @@ function MobileAccessPage() {
               maxWidth: '400px',
               padding: '0.5rem',
               fontSize: '1rem',
-              border: '1px solid #bdc3c7',
+              border: '1px solid var(--color-border)',
               borderRadius: '4px',
-              backgroundColor: savingIP || isServerRunning ? '#ecf0f1' : 'white',
+              backgroundColor: savingIP || isServerRunning ? 'var(--color-surface-muted)' : 'var(--color-surface)',
               cursor: savingIP || isServerRunning ? 'not-allowed' : 'pointer',
             }}
           >
@@ -434,7 +415,7 @@ function MobileAccessPage() {
           <div style={{
             marginTop: '0.5rem',
             fontSize: '0.85rem',
-            color: '#7f8c8d',
+            color: 'var(--color-text-secondary)',
           }}>
             {savingIP ? 'Сохранение...' : isServerRunning ? 'Остановите сервер для изменения интерфейса' : 'Выберите сетевой интерфейс для мобильного сервера'}
           </div>
@@ -453,39 +434,23 @@ function MobileAccessPage() {
 
         <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
           {!isServerRunning ? (
-            <button
+            <Button
+              variant="success"
               onClick={handleStartServer}
               disabled={loading}
-              style={{
-                padding: '0.75rem 1.5rem',
-                fontSize: '1rem',
-                backgroundColor: loading ? '#95a5a6' : '#27ae60',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold',
-              }}
+              style={{ fontWeight: 'bold' }}
             >
               {loading ? 'Запуск...' : 'Запустить сервер'}
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
+              variant="danger"
               onClick={handleStopServer}
               disabled={loading}
-              style={{
-                padding: '0.75rem 1.5rem',
-                fontSize: '1rem',
-                backgroundColor: loading ? '#95a5a6' : '#e74c3c',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold',
-              }}
+              style={{ fontWeight: 'bold' }}
             >
               {loading ? 'Остановка...' : 'Остановить сервер'}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -493,7 +458,7 @@ function MobileAccessPage() {
       {/* Генерация ссылки и QR-кода */}
       {isServerRunning && (
         <div style={{
-          backgroundColor: '#ecf0f1',
+          backgroundColor: 'var(--color-surface-muted)',
           padding: '1.5rem',
           borderRadius: '4px',
           marginBottom: '1.5rem',
@@ -503,57 +468,37 @@ function MobileAccessPage() {
           {sessionData && sessionData.url ? (
             <>
               <div style={{
-                backgroundColor: 'white',
+                backgroundColor: 'var(--color-surface)',
+                color: 'var(--color-text)',
                 padding: '1rem',
                 borderRadius: '4px',
                 marginBottom: '1rem',
-                border: '2px solid #3498db',
+                border: `2px solid var(--color-primary)`,
                 wordBreak: 'break-all',
               }}>
-                <div style={{ fontSize: '0.9rem', color: '#7f8c8d', marginBottom: '0.5rem' }}>
+                <div style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>
                   Ссылка для мобильного доступа:
                 </div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#2c3e50' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--color-text)' }}>
                   {sessionData.url}
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                <button
-                  onClick={copyLinkToClipboard}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    fontSize: '1rem',
-                    backgroundColor: '#3498db',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                  }}
-                >
+                <Button variant="primary" onClick={copyLinkToClipboard}>
                   Копировать ссылку
-                </button>
-                <button
-                  onClick={generateSession}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    fontSize: '1rem',
-                    backgroundColor: '#9b59b6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                  }}
-                >
+                </Button>
+                <Button variant="accent" onClick={generateSession}>
                   Сгенерировать новую ссылку
-                </button>
+                </Button>
               </div>
 
               {/* QR-код */}
               <div style={{
                 textAlign: 'center',
                 padding: '1rem',
-                backgroundColor: 'white',
+                backgroundColor: 'var(--color-surface)',
+                color: 'var(--color-text)',
                 borderRadius: '4px',
               }}>
                 <h4 style={{ marginTop: 0, marginBottom: '1rem' }}>
@@ -576,9 +521,9 @@ function MobileAccessPage() {
                   <div style={{
                     display: 'inline-block',
                     padding: '1rem',
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--color-surface)',
                     borderRadius: '8px',
-                    border: '2px solid #ecf0f1',
+                    border: `2px solid var(--color-border)`,
                   }}>
                     <img
                       src={qrCodeDataUrl}
@@ -595,12 +540,12 @@ function MobileAccessPage() {
                     width: '300px',
                     height: '300px',
                     margin: '0 auto',
-                    backgroundColor: '#ecf0f1',
+                    backgroundColor: 'var(--color-surface-muted)',
                     borderRadius: '8px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#7f8c8d',
+                    color: 'var(--color-text-secondary)',
                   }}>
                     Загрузка QR-кода...
                   </div>
@@ -608,7 +553,7 @@ function MobileAccessPage() {
                 <p style={{
                   marginTop: '1rem',
                   fontSize: '0.9rem',
-                  color: '#7f8c8d',
+                  color: 'var(--color-text-secondary)',
                 }}>
                   Отсканируйте QR-код камерой мобильного устройства для быстрого доступа
                 </p>
@@ -616,24 +561,12 @@ function MobileAccessPage() {
             </>
           ) : (
             <div style={{ textAlign: 'center', padding: '2rem' }}>
-              <p style={{ marginBottom: '1rem', color: '#7f8c8d' }}>
+              <p style={{ marginBottom: '1rem', color: 'var(--color-text-secondary)' }}>
                 Нажмите кнопку для генерации уникальной ссылки доступа
               </p>
-              <button
-                onClick={generateSession}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  fontSize: '1rem',
-                  backgroundColor: '#27ae60',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                }}
-              >
+              <Button variant="success" onClick={generateSession} style={{ fontWeight: 'bold' }}>
                 Сгенерировать ссылку
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -641,13 +574,14 @@ function MobileAccessPage() {
 
       {/* Инструкции */}
       <div style={{
-        backgroundColor: '#fff3cd',
-        padding: '1rem',
-        borderRadius: '4px',
-        border: '1px solid #ffc107',
+        backgroundColor: 'var(--color-surface-muted)',
+        padding: space.md,
+        borderRadius: radius.md,
+        border: '1px solid var(--color-border)',
+        color: 'var(--color-text)',
       }}>
-        <h4 style={{ marginTop: 0 }}>Инструкция:</h4>
-        <ol style={{ margin: 0, paddingLeft: '1.5rem' }}>
+        <h4 style={{ marginTop: 0, color: 'var(--color-text)' }}>Инструкция:</h4>
+        <ol style={{ margin: 0, paddingLeft: '1.5rem', lineHeight: '1.8', color: 'var(--color-text)' }}>
           <li><strong>Выберите сетевой интерфейс</strong> в выпадающем списке выше (интерфейс должен быть в той же подсети, что и vMix)</li>
           <li>Запустите сервер, нажав кнопку "Запустить сервер"</li>
           <li>Сгенерируйте уникальную ссылку для доступа</li>
@@ -658,9 +592,10 @@ function MobileAccessPage() {
         <div style={{
           marginTop: '1rem',
           padding: '0.75rem',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '4px',
+          backgroundColor: 'var(--color-surface)',
+          borderRadius: radius.sm,
           fontSize: '0.9rem',
+          color: 'var(--color-text)',
         }}>
           <strong>Важно:</strong> Если вы изменили сетевой интерфейс, необходимо остановить и заново запустить сервер для применения изменений.
         </div>
@@ -668,41 +603,21 @@ function MobileAccessPage() {
 
       {/* Кнопки */}
       <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-        <button
-          onClick={() => navigate('/match')}
-          style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            backgroundColor: '#95a5a6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
+        <Button variant="secondary" onClick={() => navigate('/match')}>
           Отменить
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="success"
           onClick={async () => {
             if (selectedIP) {
               await handleSelectIP(selectedIP);
-              // Закрываем страницу после сохранения
               navigate('/match');
             }
           }}
-          style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            backgroundColor: '#27ae60',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-          }}
+          style={{ fontWeight: 'bold' }}
         >
           Сохранить
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { resizeImage } from '../utils/imageResize';
 import { useVMix } from '../hooks/useVMix';
 import { useHeaderButtons } from '../components/Layout';
+import Button from '../components/Button';
+import { space, radius } from '../theme/tokens';
 
 function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   const navigate = useNavigate();
@@ -286,33 +288,12 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     if (match) {
       setButtons(
         <>
-          <button
-            onClick={handleCancel}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#95a5a6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
+          <Button variant="secondary" onClick={handleCancel}>
             Отмена
-          </button>
-          <button
-            onClick={handleSave}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#27ae60',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-            }}
-          >
+          </Button>
+          <Button variant="success" onClick={handleSave} style={{ fontWeight: 'bold' }}>
             Сохранить изменения
-          </button>
+          </Button>
         </>
       );
     }
@@ -324,15 +305,15 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   }
 
   return (
-    <div style={{ padding: '1rem', maxWidth: '1000px', margin: '0 auto' }}>
+    <div style={{ padding: space.md, maxWidth: '1000px', margin: '0 auto' }}>
       <h2>Настройки матча</h2>
 
       {/* Информация о турнире */}
       <div style={{
-        backgroundColor: '#ecf0f1',
-        padding: '1.5rem',
-        borderRadius: '4px',
-        marginBottom: '1.5rem',
+        backgroundColor: 'var(--color-surface-muted)',
+        padding: space.lg,
+        borderRadius: radius.sm,
+        marginBottom: space.lg,
       }}>
         <h3 style={{ marginTop: 0 }}>Информация о турнире</h3>
         <div style={{ display: 'grid', gap: '1rem' }}>
@@ -350,8 +331,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                   width: '100%',
                   padding: '0.5rem',
                   fontSize: '1rem',
-                  border: '1px solid #bdc3c7',
-                  borderRadius: '4px',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: radius.sm,
                 }}
                 placeholder="Введите заголовок турнира"
               />
@@ -368,8 +349,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                   width: '100%',
                   padding: '0.5rem',
                   fontSize: '1rem',
-                  border: '1px solid #bdc3c7',
-                  borderRadius: '4px',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: radius.sm,
                 }}
                 placeholder="Введите подзаголовок турнира"
               />
@@ -390,8 +371,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                   width: '100%',
                   padding: '0.5rem',
                   fontSize: '1rem',
-                  border: '1px solid #bdc3c7',
-                  borderRadius: '4px',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: radius.sm,
                 }}
                 placeholder="Введите город и страну"
               />
@@ -408,8 +389,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                   width: '100%',
                   padding: '0.5rem',
                   fontSize: '1rem',
-                  border: '1px solid #bdc3c7',
-                  borderRadius: '4px',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: radius.sm,
                 }}
                 placeholder="Введите место проведения"
               />
@@ -430,13 +411,13 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                   width: '100%',
                   padding: '0.5rem',
                   fontSize: '1rem',
-                  border: '1px solid #bdc3c7',
-                  borderRadius: '4px',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: radius.sm,
                 }}
               />
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+              <label style={{ display: 'block', marginBottom: space.sm, fontWeight: 'bold' }}>
                 Время начала
               </label>
               <input
@@ -447,13 +428,13 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                   width: '100%',
                   padding: '0.5rem',
                   fontSize: '1rem',
-                  border: '1px solid #bdc3c7',
-                  borderRadius: '4px',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: radius.sm,
                 }}
               />
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+              <label style={{ display: 'block', marginBottom: space.sm, fontWeight: 'bold' }}>
                 Часовой пояс
               </label>
               <select
@@ -463,9 +444,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                   width: '100%',
                   padding: '0.5rem',
                   fontSize: '1rem',
-                  border: '1px solid #bdc3c7',
-                  borderRadius: '4px',
-                  backgroundColor: 'white',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: radius.sm,
                 }}
               >
                 {timezones.map(tz => (
@@ -481,12 +461,12 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
 
       {/* Команды */}
       <div style={{
-        backgroundColor: '#ecf0f1',
-        padding: '1.5rem',
-        borderRadius: '4px',
-        marginBottom: '1.5rem',
+        backgroundColor: 'var(--color-surface-muted)',
+        padding: space.lg,
+        borderRadius: radius.sm,
+        marginBottom: space.lg,
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.md }}>
           <h3 style={{ marginTop: 0, marginBottom: 0 }}>Команды</h3>
           <button
             onClick={async () => {
@@ -590,10 +570,10 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
             style={{
               padding: '0.75rem 1.5rem',
               fontSize: '1rem',
-              backgroundColor: '#f39c12',
+              backgroundColor: 'var(--color-warning)',
               color: 'white',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: radius.sm,
               cursor: 'pointer',
               fontWeight: 'bold',
               display: 'flex',
@@ -623,8 +603,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                     width: '100%',
                     padding: '0.5rem',
                     fontSize: '1rem',
-                    border: '1px solid #bdc3c7',
-                    borderRadius: '4px',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: radius.sm,
                   }}
                   placeholder="Название команды"
                 />
@@ -641,8 +621,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                     style={{
                       width: '60px',
                       height: '40px',
-                      border: '1px solid #bdc3c7',
-                      borderRadius: '4px',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: radius.sm,
                       cursor: 'pointer',
                     }}
                   />
@@ -654,8 +634,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                       flex: 1,
                       padding: '0.5rem',
                       fontSize: '1rem',
-                      border: '1px solid #bdc3c7',
-                      borderRadius: '4px',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: radius.sm,
                     }}
                     placeholder="#3498db"
                   />
@@ -673,8 +653,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                     style={{
                       width: '60px',
                       height: '40px',
-                      border: '1px solid #bdc3c7',
-                      borderRadius: '4px',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: radius.sm,
                       cursor: 'pointer',
                     }}
                   />
@@ -686,8 +666,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                       flex: 1,
                       padding: '0.5rem',
                       fontSize: '1rem',
-                      border: '1px solid #bdc3c7',
-                      borderRadius: '4px',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: radius.sm,
                     }}
                     placeholder="Не указан"
                   />
@@ -705,8 +685,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                     width: '100%',
                     padding: '0.5rem',
                     fontSize: '1rem',
-                    border: '1px solid #bdc3c7',
-                    borderRadius: '4px',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: radius.sm,
                   }}
                   placeholder="Город команды"
                 />
@@ -726,17 +706,17 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                         objectFit: 'contain',
                         backgroundColor: 'white',
                         padding: '0.5rem',
-                        borderRadius: '4px',
-                        border: '1px solid #bdc3c7',
+                        borderRadius: radius.sm,
+                        border: '1px solid var(--color-border)',
                       }}
                     />
                   )}
                   <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
                     <label style={{
                       padding: '0.5rem 1rem',
-                      backgroundColor: '#3498db',
+                      backgroundColor: 'var(--color-primary)',
                       color: 'white',
-                      borderRadius: '4px',
+                      borderRadius: radius.sm,
                       cursor: 'pointer',
                       display: 'inline-block',
                       textAlign: 'center',
@@ -833,10 +813,10 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                         }}
                         style={{
                           padding: '0.5rem 1rem',
-                          backgroundColor: '#e74c3c',
+                          backgroundColor: 'var(--color-danger)',
                           color: 'white',
                           border: 'none',
-                          borderRadius: '4px',
+                          borderRadius: radius.sm,
                           cursor: 'pointer',
                         }}
                       >
@@ -865,8 +845,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                     width: '100%',
                     padding: '0.5rem',
                     fontSize: '1rem',
-                    border: '1px solid #bdc3c7',
-                    borderRadius: '4px',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: radius.sm,
                   }}
                   placeholder="Название команды"
                 />
@@ -883,8 +863,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                     style={{
                       width: '60px',
                       height: '40px',
-                      border: '1px solid #bdc3c7',
-                      borderRadius: '4px',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: radius.sm,
                       cursor: 'pointer',
                     }}
                   />
@@ -896,8 +876,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                       flex: 1,
                       padding: '0.5rem',
                       fontSize: '1rem',
-                      border: '1px solid #bdc3c7',
-                      borderRadius: '4px',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: radius.sm,
                     }}
                     placeholder="#e74c3c"
                   />
@@ -915,8 +895,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                     style={{
                       width: '60px',
                       height: '40px',
-                      border: '1px solid #bdc3c7',
-                      borderRadius: '4px',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: radius.sm,
                       cursor: 'pointer',
                     }}
                   />
@@ -928,8 +908,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                       flex: 1,
                       padding: '0.5rem',
                       fontSize: '1rem',
-                      border: '1px solid #bdc3c7',
-                      borderRadius: '4px',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: radius.sm,
                     }}
                     placeholder="Не указан"
                   />
@@ -947,8 +927,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                     width: '100%',
                     padding: '0.5rem',
                     fontSize: '1rem',
-                    border: '1px solid #bdc3c7',
-                    borderRadius: '4px',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: radius.sm,
                   }}
                   placeholder="Город команды"
                 />
@@ -968,17 +948,17 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                         objectFit: 'contain',
                         backgroundColor: 'white',
                         padding: '0.5rem',
-                        borderRadius: '4px',
-                        border: '1px solid #bdc3c7',
+                        borderRadius: radius.sm,
+                        border: '1px solid var(--color-border)',
                       }}
                     />
                   )}
                   <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
                     <label style={{
                       padding: '0.5rem 1rem',
-                      backgroundColor: '#3498db',
+                      backgroundColor: 'var(--color-primary)',
                       color: 'white',
-                      borderRadius: '4px',
+                      borderRadius: radius.sm,
                       cursor: 'pointer',
                       display: 'inline-block',
                       textAlign: 'center',
@@ -1082,10 +1062,10 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                         }}
                         style={{
                           padding: '0.5rem 1rem',
-                          backgroundColor: '#e74c3c',
+                          backgroundColor: 'var(--color-danger)',
                           color: 'white',
                           border: 'none',
-                          borderRadius: '4px',
+                          borderRadius: radius.sm,
                           cursor: 'pointer',
                         }}
                       >
@@ -1102,9 +1082,9 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
 
       {/* Судейская коллегия */}
       <div style={{
-        backgroundColor: '#ecf0f1',
+        backgroundColor: 'var(--color-surface-muted)',
         padding: '1.5rem',
-        borderRadius: '4px',
+        borderRadius: radius.sm,
         marginBottom: '1.5rem',
       }}>
         <h3 style={{ marginTop: 0 }}>Судейская коллегия</h3>
@@ -1122,8 +1102,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                   width: '100%',
                   padding: '0.5rem',
                   fontSize: '1rem',
-                  border: '1px solid #bdc3c7',
-                  borderRadius: '4px',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: radius.sm,
                 }}
                 placeholder="Имя главного судьи"
               />
@@ -1140,8 +1120,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                   width: '100%',
                   padding: '0.5rem',
                   fontSize: '1rem',
-                  border: '1px solid #bdc3c7',
-                  borderRadius: '4px',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: radius.sm,
                 }}
                 placeholder="Имя второго судьи"
               />
@@ -1160,8 +1140,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                   width: '100%',
                   padding: '0.5rem',
                   fontSize: '1rem',
-                  border: '1px solid #bdc3c7',
-                  borderRadius: '4px',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: radius.sm,
                 }}
                 placeholder="Имя судьи на линии"
               />
@@ -1178,8 +1158,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                   width: '100%',
                   padding: '0.5rem',
                   fontSize: '1rem',
-                  border: '1px solid #bdc3c7',
-                  borderRadius: '4px',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: radius.sm,
                 }}
                 placeholder="Имя судьи на линии"
               />
@@ -1197,8 +1177,8 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                 width: '100%',
                 padding: '0.5rem',
                 fontSize: '1rem',
-                border: '1px solid #bdc3c7',
-                borderRadius: '4px',
+                border: '1px solid var(--color-border)',
+                borderRadius: radius.sm,
               }}
               placeholder="Имя секретаря"
             />
@@ -1217,10 +1197,10 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
           style={{
             padding: '0.75rem 1.5rem',
             fontSize: '1rem',
-            backgroundColor: '#95a5a6',
+            backgroundColor: 'var(--color-neutral)',
             color: 'white',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: radius.sm,
             cursor: 'pointer',
           }}
         >
@@ -1231,10 +1211,10 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
           style={{
             padding: '0.75rem 1.5rem',
             fontSize: '1rem',
-            backgroundColor: '#27ae60',
+            backgroundColor: 'var(--color-success)',
             color: 'white',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: radius.sm,
             cursor: 'pointer',
             fontWeight: 'bold',
           }}

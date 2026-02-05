@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import Button from '../components/Button';
+import { space, radius } from '../theme/tokens';
 
 function AboutPage() {
   const [version, setVersion] = useState('');
@@ -110,7 +112,7 @@ function AboutPage() {
       <h2>О программе</h2>
       
       <div style={{
-        backgroundColor: '#ecf0f1',
+        backgroundColor: 'var(--color-surface-muted)',
         padding: '2rem',
         borderRadius: '8px',
         marginTop: '2rem',
@@ -128,9 +130,9 @@ function AboutPage() {
         <div style={{ 
           marginTop: '2rem', 
           padding: '1rem', 
-          backgroundColor: '#fff', 
-          borderRadius: '4px',
-          border: '1px solid #ddd'
+          backgroundColor: 'var(--color-surface)', 
+          borderRadius: radius.sm,
+          border: '1px solid var(--color-border)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h4 style={{ marginTop: 0, marginBottom: 0 }}>Обновления</h4>
@@ -146,32 +148,32 @@ function AboutPage() {
           </div>
           
           {!autoUpdateEnabled && updateStatus !== 'checking' && updateStatus !== 'downloading' && updateStatus !== 'downloaded' && (
-            <p style={{ color: '#7f8c8d', fontSize: '0.9rem', fontStyle: 'italic' }}>
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', fontStyle: 'italic' }}>
               Автоматические обновления отключены. Вы можете проверить обновления вручную.
             </p>
           )}
           
           {updateStatus === 'disabled' && (
-            <p style={{ color: '#7f8c8d' }}>
+            <p style={{ color: 'var(--color-text-secondary)' }}>
               Автоматические обновления отключены
             </p>
           )}
           
           {updateStatus === 'checking' && (
-            <p style={{ color: '#3498db' }}>Проверка обновлений...</p>
+            <p style={{ color: 'var(--color-primary)' }}>Проверка обновлений...</p>
           )}
           
           {updateStatus === 'available' && updateData && (
             <div>
-              <p style={{ color: '#27ae60', fontWeight: 'bold' }}>
+              <p style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>
                 Доступна новая версия: {updateData.version}
               </p>
               {updateData.releaseNotes && (
                 <div style={{ 
                   marginTop: '0.5rem', 
                   padding: '0.5rem', 
-                  backgroundColor: '#f8f9fa', 
-                  borderRadius: '4px',
+                  backgroundColor: 'var(--color-surface-muted)', 
+                  borderRadius: radius.sm,
                   fontSize: '0.9rem'
                 }}>
                   <strong>Что нового:</strong>
@@ -180,39 +182,31 @@ function AboutPage() {
                   </div>
                 </div>
               )}
-              <button
+              <Button
+                variant="primary"
                 onClick={handleDownloadUpdate}
-                style={{
-                  marginTop: '1rem',
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#3498db',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem'
-                }}
+                style={{ marginTop: '1rem', fontSize: '0.9rem' }}
               >
                 Скачать обновление
-              </button>
+              </Button>
             </div>
           )}
           
           {updateStatus === 'downloading' && updateData && (
             <div>
-              <p style={{ color: '#3498db' }}>Загрузка обновления...</p>
+              <p style={{ color: 'var(--color-primary)' }}>Загрузка обновления...</p>
               <div style={{
                 marginTop: '0.5rem',
                 width: '100%',
                 height: '20px',
-                backgroundColor: '#ecf0f1',
+                backgroundColor: 'var(--color-surface-muted)',
                 borderRadius: '10px',
                 overflow: 'hidden'
               }}>
                 <div style={{
                   width: `${updateData.percent || 0}%`,
                   height: '100%',
-                  backgroundColor: '#3498db',
+                  backgroundColor: 'var(--color-primary)',
                   transition: 'width 0.3s ease',
                   display: 'flex',
                   alignItems: 'center',
@@ -225,7 +219,7 @@ function AboutPage() {
                 </div>
               </div>
               {updateData.transferred && updateData.total && (
-                <p style={{ fontSize: '0.8rem', color: '#7f8c8d', marginTop: '0.5rem' }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>
                   {Math.round(updateData.transferred / 1024 / 1024)} МБ / {Math.round(updateData.total / 1024 / 1024)} МБ
                 </p>
               )}
@@ -234,25 +228,17 @@ function AboutPage() {
           
           {updateStatus === 'downloaded' && updateData && (
             <div>
-              <p style={{ color: '#27ae60', fontWeight: 'bold' }}>
+              <p style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>
                 Обновление {updateData.version} загружено и готово к установке
               </p>
-              <button
+              <Button
+                variant="success"
                 onClick={handleInstallUpdate}
-                style={{
-                  marginTop: '1rem',
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#27ae60',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem'
-                }}
+                style={{ marginTop: '1rem', fontSize: '0.9rem' }}
               >
                 Установить сейчас
-              </button>
-              <p style={{ fontSize: '0.8rem', color: '#7f8c8d', marginTop: '0.5rem' }}>
+              </Button>
+              <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>
                 Приложение будет перезапущено для установки обновления
               </p>
             </div>
@@ -262,23 +248,23 @@ function AboutPage() {
             <div>
               {updateData?.message ? (
                 <div>
-                  <p style={{ color: '#f39c12', fontWeight: 'bold' }}>
+                  <p style={{ color: 'var(--color-warning)', fontWeight: 'bold' }}>
                     {updateData.message}
                   </p>
-                  <p style={{ fontSize: '0.9rem', color: '#7f8c8d', marginTop: '0.5rem' }}>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>
                     Вы можете проверить наличие обновлений на{' '}
                     <a 
                       href="https://github.com/ivmoiseev/vmix-volley-scoreboard/releases" 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      style={{ color: '#3498db' }}
+                      style={{ color: 'var(--color-primary)' }}
                     >
                       странице релизов GitHub
                     </a>
                   </p>
                 </div>
               ) : (
-                <p style={{ color: '#7f8c8d' }}>
+                <p style={{ color: 'var(--color-text-secondary)' }}>
                   У вас установлена последняя версия приложения
                 </p>
               )}
@@ -286,27 +272,19 @@ function AboutPage() {
           )}
           
           {updateStatus === 'error' && updateData && (
-            <p style={{ color: '#e74c3c' }}>
+            <p style={{ color: 'var(--color-danger)' }}>
               Ошибка: {updateData.message || 'Не удалось проверить обновления'}
             </p>
           )}
           
           {(!updateStatus || updateStatus === 'not-available' || updateStatus === 'error' || updateStatus === 'disabled') && (
-            <button
+            <Button
+              variant="secondary"
               onClick={handleCheckForUpdates}
-              style={{
-                marginTop: '0.5rem',
-                padding: '0.5rem 1rem',
-                backgroundColor: '#95a5a6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '0.9rem'
-              }}
+              style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}
             >
               Проверить обновления
-            </button>
+            </Button>
           )}
         </div>
         
@@ -333,22 +311,22 @@ function AboutPage() {
           </ul>
         </div>
 
-        <div style={{ marginTop: '2rem', padding: '1rem', backgroundColor: '#fff', borderRadius: '4px' }}>
+        <div style={{ marginTop: space.xl, padding: space.md, backgroundColor: 'var(--color-surface)', borderRadius: radius.sm }}>
           <h4>Лицензия:</h4>
           <p>См. файл LICENSE в корне проекта</p>
         </div>
 
-        <div style={{ marginTop: '2rem', padding: '1rem', backgroundColor: '#fff', borderRadius: '4px' }}>
+        <div style={{ marginTop: space.xl, padding: space.md, backgroundColor: 'var(--color-surface)', borderRadius: radius.sm }}>
           <h4>Автор:</h4>
           <p style={{ lineHeight: '1.8' }}>
             <strong>Илья Моисеев</strong><br />
             Волгоград, Россия<br />
-            <a href="mailto:ilyamoiseev@inbox.ru" style={{ color: '#3498db' }}>ilyamoiseev@inbox.ru</a><br />
-            <a href="https://webcastmaster.ru" target="_blank" rel="noopener noreferrer" style={{ color: '#3498db' }}>webcastmaster.ru</a>
+            <a href="mailto:ilyamoiseev@inbox.ru" style={{ color: 'var(--color-primary)' }}>ilyamoiseev@inbox.ru</a><br />
+            <a href="https://webcastmaster.ru" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)' }}>webcastmaster.ru</a>
           </p>
         </div>
 
-        <div style={{ marginTop: '2rem', textAlign: 'center', color: '#7f8c8d' }}>
+        <div style={{ marginTop: space.xl, textAlign: 'center', color: 'var(--color-text-secondary)' }}>
           <p>© {new Date().getFullYear()} vMix Volley Scoreboard</p>
         </div>
       </div>

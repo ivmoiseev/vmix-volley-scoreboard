@@ -3,27 +3,22 @@ import { SET_STATUS } from '../../shared/types/Match';
 import { formatDuration } from '../../shared/timeUtils';
 // @ts-ignore - временно, пока не будет TypeScript версии
 import { SetDomain } from '../../shared/domain/SetDomain.js';
+import { space, radius } from '../theme/tokens';
 
 function SetsDisplay({ 
   sets, 
   currentSet,
   onSetClick
 }) {
-  // Логирование для диагностики (временно)
-  console.log('[SetsDisplay] Рендер:', {
-    setsCount: sets.length,
-    sets: sets.map(s => ({ setNumber: s.setNumber, scoreA: s.scoreA, scoreB: s.scoreB, status: s.status })),
-    currentSet: { setNumber: currentSet.setNumber, status: currentSet.status, scoreA: currentSet.scoreA, scoreB: currentSet.scoreB },
-  });
   return (
     <div style={{
-      backgroundColor: '#ecf0f1',
-      padding: '1rem',
-      borderRadius: '4px',
-      marginBottom: '1rem',
+      backgroundColor: 'var(--color-surface-muted)',
+      padding: space.md,
+      borderRadius: radius.sm,
+      marginBottom: space.md,
     }}>
       <h3 style={{ marginTop: 0 }}>Счет по партиям:</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: space.sm }}>
         {[1, 2, 3, 4, 5].map((setNum) => {
           const set = sets.find(s => s.setNumber === setNum);
           // Используем Domain Layer для проверки, является ли это текущей партией
@@ -41,7 +36,7 @@ function SetsDisplay({
           
           if (isCompleted) {
             // Завершенная партия (приоритет над текущей)
-            backgroundColor = '#27ae60';
+            backgroundColor = 'var(--color-success)';
             color = 'white';
             // Показываем длительность, даже если она равна 0
             const duration = (set.duration !== null && set.duration !== undefined) ? formatDuration(set.duration) : '';
@@ -60,7 +55,7 @@ function SetsDisplay({
             );
           } else if (isInProgress) {
             // Текущая партия в игре
-            backgroundColor = '#3498db';
+            backgroundColor = 'var(--color-primary)';
             color = 'white';
             content = (
               <>
@@ -73,8 +68,8 @@ function SetsDisplay({
             );
           } else {
             // Партия не начата
-            backgroundColor = '#bdc3c7';
-            color = '#7f8c8d';
+            backgroundColor = 'var(--color-disabled)';
+            color = 'var(--color-text-secondary)';
             content = (
               <>
                 <div style={{ fontSize: '0.8rem' }}>Партия {setNum}</div>
@@ -88,10 +83,10 @@ function SetsDisplay({
               key={setNum}
               onClick={() => canEdit && onSetClick && onSetClick(setNum)}
               style={{
-                padding: '0.5rem',
+                padding: space.sm,
                 backgroundColor,
                 color,
-                borderRadius: '4px',
+                borderRadius: radius.sm,
                 textAlign: 'center',
                 cursor: (canEdit && onSetClick) ? 'pointer' : 'default',
                 transition: 'opacity 0.2s',

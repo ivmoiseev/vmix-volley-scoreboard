@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useHeaderButtons } from "../components/Layout";
 import { removeInputFromVMixConfig } from "../../shared/vmixConfigUtils";
 import VMixInputFieldsPanel from "../components/VMixInputFieldsPanel";
+import Button from "../components/Button";
+import { space, radius } from "../theme/tokens";
 
 function VMixSettingsPage() {
   const navigate = useNavigate();
@@ -45,33 +47,12 @@ function VMixSettingsPage() {
   useEffect(() => {
     setButtons(
       <>
-        <button
-          onClick={() => navigate("/match")}
-          style={{
-            padding: "0.5rem 1rem",
-            backgroundColor: "#95a5a6",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
+        <Button variant="secondary" onClick={() => navigate("/match")}>
           Отмена
-        </button>
-        <button
-          onClick={handleSave}
-          style={{
-            padding: "0.5rem 1rem",
-            backgroundColor: "#27ae60",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
+        </Button>
+        <Button variant="success" onClick={handleSave} style={{ fontWeight: "bold" }}>
           Сохранить
-        </button>
+        </Button>
       </>
     );
 
@@ -275,9 +256,9 @@ function VMixSettingsPage() {
       {/* Настройки подключения */}
       <div
         style={{
-          backgroundColor: "#ecf0f1",
+          backgroundColor: "var(--color-surface-muted)",
           padding: "1.5rem",
-          borderRadius: "4px",
+          borderRadius: radius.sm,
           marginBottom: "1.5rem",
         }}
       >
@@ -302,8 +283,8 @@ function VMixSettingsPage() {
                 maxWidth: "300px",
                 padding: "0.5rem",
                 fontSize: "1rem",
-                border: "1px solid #bdc3c7",
-                borderRadius: "4px",
+                border: "1px solid var(--color-border)",
+                borderRadius: radius.sm,
               }}
               placeholder="192.168.1.100"
             />
@@ -329,55 +310,36 @@ function VMixSettingsPage() {
                 maxWidth: "150px",
                 padding: "0.5rem",
                 fontSize: "1rem",
-                border: "1px solid #bdc3c7",
-                borderRadius: "4px",
+                border: "1px solid var(--color-border)",
+                borderRadius: radius.sm,
               }}
               placeholder="8088"
             />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-            <button
+            <Button
+              variant={connectionStatus.connected ? "danger" : "primary"}
               onClick={connectionStatus.connected ? handleDisconnect : handleConnect}
               disabled={connectionStatus.testing}
-              style={{
-                padding: "0.75rem 1.5rem",
-                fontSize: "1rem",
-                backgroundColor: connectionStatus.testing
-                  ? "#95a5a6"
-                  : connectionStatus.connected
-                    ? "#e74c3c"
-                    : "#3498db",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: connectionStatus.testing ? "not-allowed" : "pointer",
-              }}
             >
               {connectionStatus.testing
                 ? "Проверка..."
                 : connectionStatus.connected
                   ? "Отключить"
                   : "Подключить"}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               onClick={handleTestConnection}
               disabled={connectionStatus.testing}
-              style={{
-                padding: "0.75rem 1rem",
-                fontSize: "0.9rem",
-                backgroundColor: connectionStatus.testing ? "#95a5a6" : "#7f8c8d",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: connectionStatus.testing ? "not-allowed" : "pointer",
-              }}
+              style={{ fontSize: "0.9rem" }}
             >
               Тест подключения
-            </button>
+            </Button>
             {connectionStatus.message && (
               <span
                 style={{
-                  color: connectionStatus.connected ? "#27ae60" : "#e74c3c",
+                  color: connectionStatus.connected ? "var(--color-success)" : "var(--color-danger)",
                   fontWeight: "bold",
                 }}
               >
@@ -391,9 +353,9 @@ function VMixSettingsPage() {
       {/* Настройка инпутов (динамические инпуты по списку GT из vMix) */}
       <div
         style={{
-          backgroundColor: "#ecf0f1",
+          backgroundColor: "var(--color-surface-muted)",
           padding: "1.5rem",
-          borderRadius: "4px",
+          borderRadius: radius.sm,
           marginBottom: "1.5rem",
         }}
       >
@@ -404,32 +366,25 @@ function VMixSettingsPage() {
           <div
             style={{
               width: "250px",
-              backgroundColor: "white",
-              borderRadius: "4px",
+              backgroundColor: "var(--color-surface)",
+              color: "var(--color-text)",
+              borderRadius: radius.sm,
               padding: "0.5rem",
-              border: "1px solid #bdc3c7",
+              border: "1px solid var(--color-border)",
               overflowY: "auto",
               maxHeight: "400px",
             }}
           >
-            <button
+            <Button
               type="button"
+              variant="success"
               onClick={() => setShowAddInputModal(true)}
-              style={{
-                width: "100%",
-                marginBottom: "0.5rem",
-                padding: "0.5rem",
-                backgroundColor: "#27ae60",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
+              style={{ width: "100%", marginBottom: "0.5rem" }}
             >
               Добавить инпут
-            </button>
+            </Button>
             {dynamicInputsList.length === 0 ? (
-              <div style={{ padding: "0.75rem", color: "#7f8c8d", fontSize: "0.9rem" }}>
+              <div style={{ padding: "0.75rem", color: "var(--color-text-secondary)", fontSize: "0.9rem" }}>
                 Нет инпутов. Подключитесь к vMix и нажмите «Добавить инпут».
               </div>
             ) : (
@@ -453,11 +408,11 @@ function VMixSettingsPage() {
                       gap: "0.5rem",
                       padding: "0.75rem",
                       marginBottom: "0.25rem",
-                      borderRadius: "4px",
+                      borderRadius: radius.sm,
                       cursor: "grab",
-                      backgroundColor: isDragOver ? "#e8f4f8" : isSelected ? "#3498db" : "white",
-                      color: isSelected && !isDragOver ? "white" : "#2c3e50",
-                      border: `1px solid ${isDragOver ? "#3498db" : isSelected ? "#2980b9" : "#bdc3c7"}`,
+                      backgroundColor: isDragOver ? "var(--color-primary-light)" : isSelected ? "var(--color-primary)" : "var(--color-surface)",
+                      color: isSelected && !isDragOver ? "white" : "var(--color-text)",
+                      border: `1px solid ${isDragOver ? "var(--color-primary)" : isSelected ? "var(--color-primary-hover)" : "var(--color-border)"}`,
                       opacity: isDragging ? 0.5 : 1,
                     }}
                   >
@@ -465,7 +420,7 @@ function VMixSettingsPage() {
                       title="Перетащите для смены порядка"
                       style={{
                         cursor: "grab",
-                        color: isSelected && !isDragOver ? "rgba(255,255,255,0.8)" : "#7f8c8d",
+                        color: isSelected && !isDragOver ? "rgba(255,255,255,0.8)" : "var(--color-text-secondary)",
                         fontSize: "0.9rem",
                         userSelect: "none",
                       }}
@@ -483,16 +438,17 @@ function VMixSettingsPage() {
             <div
               style={{
                 flex: 1,
-                backgroundColor: "white",
-                borderRadius: "4px",
+                backgroundColor: "var(--color-surface)",
+                color: "var(--color-text)",
+                borderRadius: radius.sm,
                 padding: "1rem",
-                border: "1px solid #bdc3c7",
+                border: "1px solid var(--color-border)",
               }}
             >
-              <h4 style={{ marginTop: 0 }}>Настройки инпута</h4>
+              <h4 style={{ marginTop: 0, color: "var(--color-text)" }}>Настройки инпута</h4>
               <div style={{ display: "grid", gap: "0.75rem", marginBottom: "1rem" }}>
                 <div>
-                  <label style={{ display: "block", marginBottom: "0.25rem", fontWeight: "bold" }}>Отображаемое имя</label>
+                  <label style={{ display: "block", marginBottom: "0.25rem", fontWeight: "bold", color: "var(--color-text)" }}>Отображаемое имя</label>
                   <input
                     type="text"
                     value={config.inputs[selectedDynamicInputId].displayName || ""}
@@ -508,11 +464,11 @@ function VMixSettingsPage() {
                         },
                       }))
                     }
-                    style={{ width: "100%", padding: "0.5rem", border: "1px solid #bdc3c7", borderRadius: "4px" }}
+                    style={{ width: "100%", padding: "0.5rem", border: "1px solid var(--color-border)", borderRadius: radius.sm }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--color-text)" }}>
                     <input
                       type="checkbox"
                       checked={config.inputs[selectedDynamicInputId].enabled !== false}
@@ -533,7 +489,7 @@ function VMixSettingsPage() {
                   </label>
                 </div>
                 <div>
-                  <label style={{ display: "block", marginBottom: "0.25rem", fontWeight: "bold" }}>Оверлей</label>
+                  <label style={{ display: "block", marginBottom: "0.25rem", fontWeight: "bold", color: "var(--color-text)" }}>Оверлей</label>
                   <select
                     value={config.inputs[selectedDynamicInputId].overlay || 1}
                     onChange={(e) =>
@@ -548,29 +504,18 @@ function VMixSettingsPage() {
                         },
                       }))
                     }
-                    style={{ padding: "0.5rem", border: "1px solid #bdc3c7", borderRadius: "4px" }}
+                    style={{ padding: "0.5rem", border: "1px solid var(--color-border)", borderRadius: radius.sm }}
                   >
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
                       <option key={n} value={n}>Оверлей {n}</option>
                     ))}
                   </select>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleDeleteDynamicInput}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    backgroundColor: "#e74c3c",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
-                >
+                <Button type="button" variant="danger" onClick={handleDeleteDynamicInput}>
                   Удалить инпут
-                </button>
+                </Button>
               </div>
-              <p style={{ fontSize: "0.9rem", color: "#7f8c8d" }}>
+              <p style={{ fontSize: "0.9rem", color: "var(--color-text-secondary)" }}>
                 Инпут vMix: <strong>{config.inputs[selectedDynamicInputId].vmixTitle}</strong>
               </p>
               <VMixInputFieldsPanel
@@ -591,7 +536,7 @@ function VMixSettingsPage() {
           style={{
             position: "fixed",
             inset: 0,
-            backgroundColor: "rgba(0,0,0,0.5)",
+            backgroundColor: "var(--color-overlay)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -601,35 +546,36 @@ function VMixSettingsPage() {
         >
           <div
             style={{
-              backgroundColor: "white",
-              padding: "1.5rem",
-              borderRadius: "8px",
+              backgroundColor: "var(--color-surface)",
+              color: "var(--color-text)",
+              padding: space.lg,
+              borderRadius: radius.md,
               minWidth: "360px",
               maxWidth: "90%",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ marginTop: 0 }}>Добавить инпут</h3>
+            <h3 style={{ marginTop: 0, color: "var(--color-text)" }}>Добавить инпут</h3>
             <div style={{ display: "grid", gap: "1rem", marginBottom: "1rem" }}>
               <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}>Название (в приложении)</label>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold", color: "var(--color-text)" }}>Название (в приложении)</label>
                 <input
                   type="text"
                   value={addFormDisplayName}
                   onChange={(e) => setAddFormDisplayName(e.target.value)}
                   placeholder="Например: Текущий счёт"
-                  style={{ width: "100%", padding: "0.5rem", border: "1px solid #bdc3c7", borderRadius: "4px" }}
+                  style={{ width: "100%", padding: "0.5rem", border: "1px solid var(--color-border)", borderRadius: radius.sm }}
                 />
               </div>
               <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}>Инпут vMix (GT)</label>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold", color: "var(--color-text)" }}>Инпут vMix (GT)</label>
                 <select
                   value={addFormSelectedGT ? addFormSelectedGT.key : ""}
                   onChange={(e) => {
                     const gt = gtInputs.find((i) => i.key === e.target.value);
                     setAddFormSelectedGT(gt || null);
                   }}
-                  style={{ width: "100%", padding: "0.5rem", border: "1px solid #bdc3c7", borderRadius: "4px" }}
+                  style={{ width: "100%", padding: "0.5rem", border: "1px solid var(--color-border)", borderRadius: radius.sm }}
                 >
                   <option value="">— Выберите инпут —</option>
                   {gtInputs.map((inp) => (
@@ -641,32 +587,25 @@ function VMixSettingsPage() {
               </div>
             </div>
             <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => {
                   setShowAddInputModal(false);
                   setAddFormDisplayName("");
                   setAddFormSelectedGT(null);
                 }}
-                style={{ padding: "0.5rem 1rem", border: "1px solid #bdc3c7", borderRadius: "4px", cursor: "pointer" }}
               >
                 Отмена
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="success"
                 onClick={handleAddDynamicInput}
                 disabled={!addFormDisplayName.trim() || !addFormSelectedGT}
-                style={{
-                  padding: "0.5rem 1rem",
-                  backgroundColor: "#27ae60",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: !addFormDisplayName.trim() || !addFormSelectedGT ? "not-allowed" : "pointer",
-                }}
               >
                 Добавить
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -680,35 +619,12 @@ function VMixSettingsPage() {
           justifyContent: "flex-end",
         }}
       >
-        <button
-          onClick={() => navigate("/match")}
-          style={{
-            padding: "0.75rem 1.5rem",
-            fontSize: "1rem",
-            backgroundColor: "#95a5a6",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
+        <Button variant="secondary" onClick={() => navigate("/match")}>
           Отмена
-        </button>
-        <button
-          onClick={handleSave}
-          style={{
-            padding: "0.75rem 1.5rem",
-            fontSize: "1rem",
-            backgroundColor: "#27ae60",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
+        </Button>
+        <Button variant="success" onClick={handleSave} style={{ fontWeight: "bold" }}>
           Сохранить настройки
-        </button>
+        </Button>
       </div>
     </div>
   );

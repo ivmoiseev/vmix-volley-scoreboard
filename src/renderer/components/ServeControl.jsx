@@ -1,13 +1,9 @@
+import { space, radius } from '../theme/tokens';
+import Button from './Button';
 
 function ServeControl({ servingTeam, teamAName, teamBName, onChange }) {
   const servingTeamName = servingTeam === 'A' ? teamAName : teamBName;
-  
-  // Левая стрелка (◄) передает подачу команде A
-  // Если уже подает A, кнопка неактивна
   const isLeftDisabled = servingTeam === 'A';
-  
-  // Правая стрелка (►) передает подачу команде B
-  // Если уже подает B, кнопка неактивна
   const isRightDisabled = servingTeam === 'B';
 
   return (
@@ -15,48 +11,45 @@ function ServeControl({ servingTeam, teamAName, teamBName, onChange }) {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: '1rem',
-      padding: '0.5rem',
-      backgroundColor: '#ecf0f1',
-      borderRadius: '4px',
-      marginBottom: '1rem',
+      gap: space.md,
+      padding: space.sm,
+      backgroundColor: 'var(--color-surface-muted)',
+      borderRadius: radius.sm,
+      marginBottom: space.md,
     }}>
       <span>Подача:</span>
-      <span style={{ fontWeight: 'bold', color: '#f39c12' }}>{servingTeamName}</span>
-      <button
+      <span
+        style={{
+          padding: `${space.xs} ${space.sm}`,
+          backgroundColor: 'var(--color-serving-badge)',
+          color: 'white',
+          borderRadius: radius.sm,
+          fontWeight: 'bold',
+          fontSize: '0.9rem',
+        }}
+      >
+        {servingTeamName}
+      </span>
+      <Button
+        variant="primary"
         onClick={() => !isLeftDisabled && onChange('A')}
         disabled={isLeftDisabled}
-        style={{
-          padding: '0.25rem 0.5rem',
-          fontSize: '1rem',
-          backgroundColor: isLeftDisabled ? '#bdc3c7' : '#3498db',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: isLeftDisabled ? 'not-allowed' : 'pointer',
-          opacity: isLeftDisabled ? 0.5 : 1,
-        }}
+        style={{ padding: `${space.xs} ${space.sm}` }}
         title={isLeftDisabled ? 'Команда A уже подает' : 'Передать подачу команде A'}
+        aria-label={isLeftDisabled ? 'Команда A уже подает' : 'Передать подачу команде A'}
       >
         ◄
-      </button>
-      <button
+      </Button>
+      <Button
+        variant="primary"
         onClick={() => !isRightDisabled && onChange('B')}
         disabled={isRightDisabled}
-        style={{
-          padding: '0.25rem 0.5rem',
-          fontSize: '1rem',
-          backgroundColor: isRightDisabled ? '#bdc3c7' : '#3498db',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: isRightDisabled ? 'not-allowed' : 'pointer',
-          opacity: isRightDisabled ? 0.5 : 1,
-        }}
+        style={{ padding: `${space.xs} ${space.sm}` }}
         title={isRightDisabled ? 'Команда B уже подает' : 'Передать подачу команде B'}
+        aria-label={isRightDisabled ? 'Команда B уже подает' : 'Передать подачу команде B'}
       >
         ►
-      </button>
+      </Button>
     </div>
   );
 }

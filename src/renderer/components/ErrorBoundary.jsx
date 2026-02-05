@@ -1,4 +1,5 @@
 import React from 'react';
+import { space, radius } from '../theme/tokens';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -18,27 +19,27 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div style={{
-          padding: '2rem',
+          padding: space.xl,
           textAlign: 'center',
           maxWidth: '600px',
-          margin: '2rem auto',
+          margin: `${space.xl} auto`,
         }}>
-          <h2 style={{ color: '#e74c3c' }}>Произошла ошибка</h2>
-          <p style={{ marginBottom: '1rem' }}>
+          <h2 style={{ color: 'var(--color-danger)' }}>Произошла ошибка</h2>
+          <p style={{ marginBottom: space.md }}>
             Приложение столкнулось с неожиданной ошибкой.
           </p>
           <details style={{
             textAlign: 'left',
-            backgroundColor: '#ecf0f1',
-            padding: '1rem',
-            borderRadius: '4px',
-            marginBottom: '1rem',
+            backgroundColor: 'var(--color-surface-muted)',
+            padding: space.md,
+            borderRadius: radius.sm,
+            marginBottom: space.md,
           }}>
             <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
               Детали ошибки
             </summary>
             <pre style={{
-              marginTop: '0.5rem',
+              marginTop: space.sm,
               fontSize: '0.9rem',
               overflow: 'auto',
             }}>
@@ -51,12 +52,12 @@ class ErrorBoundary extends React.Component {
               window.location.reload();
             }}
             style={{
-              padding: '0.75rem 1.5rem',
+              padding: `${space.sm} ${space.lg}`,
               fontSize: '1rem',
-              backgroundColor: '#3498db',
+              backgroundColor: 'var(--color-primary)',
               color: 'white',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: radius.sm,
               cursor: 'pointer',
             }}
           >

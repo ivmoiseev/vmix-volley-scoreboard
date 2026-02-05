@@ -3,6 +3,8 @@ import { SET_STATUS } from '../../shared/types/Match';
 import { formatTimestamp, calculateDuration, formatDuration } from '../../shared/timeUtils';
 // @ts-ignore - временно, пока не будет TypeScript версии
 import { SetDomain } from '../../shared/domain/SetDomain.js';
+import Button from './Button';
+import { space, radius } from '../theme/tokens';
 
 /**
  * Модальное окно для редактирования партии
@@ -558,16 +560,16 @@ export default function SetEditModal({
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: 'var(--color-overlay)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 1000,
     }} onClick={onClose}>
       <div style={{
-        backgroundColor: 'white',
-        padding: '2rem',
-        borderRadius: '8px',
+        backgroundColor: 'var(--color-surface)',
+        padding: space.xl,
+        borderRadius: radius.md,
         maxWidth: '500px',
         width: '90%',
         maxHeight: '90vh',
@@ -577,11 +579,11 @@ export default function SetEditModal({
         
         {errors.length > 0 && (
           <div style={{
-            backgroundColor: '#fee',
-            color: '#c33',
+            backgroundColor: 'var(--color-danger)',
+            color: 'white',
             padding: '0.75rem',
-            borderRadius: '4px',
-            marginBottom: '1rem',
+            borderRadius: radius.sm,
+            marginBottom: space.md,
           }}>
             {errors.map((error, i) => (
               <div key={i}>{error}</div>
@@ -592,11 +594,11 @@ export default function SetEditModal({
         {/* Предупреждение о блокировке изменения статуса */}
         {isStatusChangeBlocked && (
           <div style={{
-            backgroundColor: '#fff3cd',
-            color: '#856404',
+            backgroundColor: 'var(--color-warning)',
+            color: 'var(--color-text)',
             padding: '0.75rem',
-            borderRadius: '4px',
-            marginBottom: '1rem',
+            borderRadius: radius.sm,
+            marginBottom: space.md,
           }}>
             Изменение статуса недоступно: следующая партия уже началась. Можно редактировать счет и время.
           </div>
@@ -615,8 +617,8 @@ export default function SetEditModal({
               width: '100%',
               padding: '0.5rem',
               fontSize: '1rem',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
+              border: '1px solid var(--color-border)',
+              borderRadius: radius.sm,
             }}
           />
         </div>
@@ -634,8 +636,8 @@ export default function SetEditModal({
               width: '100%',
               padding: '0.5rem',
               fontSize: '1rem',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
+              border: '1px solid var(--color-border)',
+              borderRadius: radius.sm,
             }}
           />
         </div>
@@ -652,8 +654,8 @@ export default function SetEditModal({
               width: '100%',
               padding: '0.5rem',
               fontSize: '1rem',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
+              border: '1px solid var(--color-border)',
+              borderRadius: radius.sm,
               opacity: isStatusChangeBlocked ? 0.5 : 1,
             }}
           >
@@ -678,13 +680,13 @@ export default function SetEditModal({
               width: '100%',
               padding: '0.5rem',
               fontSize: '1rem',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
+              border: '1px solid var(--color-border)',
+              borderRadius: radius.sm,
               opacity: formData.status === SET_STATUS.PENDING ? 0.5 : 1,
             }}
           />
           {formData.startTime && (
-            <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
               {formatTimestamp(formData.startTime, timezone)}
             </div>
           )}
@@ -703,53 +705,31 @@ export default function SetEditModal({
               width: '100%',
               padding: '0.5rem',
               fontSize: '1rem',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
+              border: '1px solid var(--color-border)',
+              borderRadius: radius.sm,
               opacity: (formData.status === SET_STATUS.PENDING || formData.status === SET_STATUS.IN_PROGRESS) ? 0.5 : 1,
             }}
           />
           {formData.endTime && (
-            <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
               {formatTimestamp(formData.endTime, timezone)}
             </div>
           )}
         </div>
         
         {duration !== null && (
-          <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
+          <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: 'var(--color-surface-muted)', borderRadius: radius.sm }}>
             <strong>Продолжительность:</strong> {formatDuration(duration)}
           </div>
         )}
         
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '0.75rem 1.5rem',
-              fontSize: '1rem',
-              backgroundColor: '#95a5a6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
+          <Button variant="secondary" onClick={onClose}>
             Отмена
-          </button>
-          <button
-            onClick={handleSave}
-            style={{
-              padding: '0.75rem 1.5rem',
-              fontSize: '1rem',
-              backgroundColor: '#27ae60',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
+          </Button>
+          <Button variant="success" onClick={handleSave}>
             Сохранить
-          </button>
+          </Button>
         </div>
       </div>
     </div>

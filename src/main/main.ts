@@ -815,6 +815,23 @@ async function createMenu() {
       label: "Вид",
       submenu: [
         {
+          label: "Переключить тему (светлая ↔ тёмная)",
+          click: async () => {
+            if (mainWindow) {
+              try {
+                const ui = await settingsManager.getUISettings();
+                const current = ui?.theme ?? "light";
+                const next = current === "dark" ? "light" : "dark";
+                await settingsManager.setUISettings({ theme: next });
+                mainWindow.webContents.send("ui-theme-changed", next);
+              } catch (e) {
+                console.error("Ошибка переключения темы:", e);
+              }
+            }
+          },
+        },
+        { type: "separator" },
+        {
           label: "Управление матчем",
           click: () => {
             if (mainWindow) {
@@ -1661,6 +1678,30 @@ ipcMain.handle("autoupdate:set-settings", async (event, enabled) => {
     return { success: true };
   } catch (error) {
     console.error("Error setting auto-update settings:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+// UI settings (theme) handlers
+ipcMain.handle("ui:get-settings", async () => {
+  try {
+    const ui = await settingsManager.getUISettings();
+    return { success: true, theme: ui?.theme ?? "light" };
+  } catch (error) {
+    console.error("Error getting UI settings:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("ui:set-settings", async (event, uiConfig: { theme?: string }) => {
+  try {
+    await settingsManager.setUISettings(uiConfig);
+    if (mainWindow && uiConfig.theme !== undefined) {
+      mainWindow.webContents.send("ui-theme-changed", uiConfig.theme);
+    }
+    return { success: true };
+  } catch (error) {
+    console.error("Error setting UI settings:", error);
     return { success: false, error: error.message };
   }
 });

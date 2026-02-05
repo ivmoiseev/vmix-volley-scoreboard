@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createRequire } from 'module';
 import errorHandler from '../shared/errorHandler.js';
+import { light as lightTheme, dark as darkTheme } from '../shared/theme/tokens.js';
 import * as settingsManager from './settingsManager.ts';
 import * as domUtils from './utils/domUtils.ts';
 import { setupApiRoutes } from './server/api/MatchApiRoutes.ts';
@@ -92,15 +93,21 @@ class MobileServer {
    */
   setupRoutes() {
     // Главная страница мобильной панели
-    this.app.get('/panel/:sessionId', (req, res) => {
+    this.app.get('/panel/:sessionId', async (req, res) => {
       const { sessionId } = req.params;
       
       if (!this.validateSession(sessionId)) {
         return res.status(403).send('Неверная или истекшая сессия');
       }
 
-      // Отправляем HTML страницу мобильной панели
-      res.send(this.getMobilePanelHTML(sessionId));
+      let theme = 'light';
+      try {
+        const ui = await settingsManager.getUISettings();
+        if (ui?.theme === 'dark') theme = 'dark';
+      } catch (e) {
+        // оставляем light по умолчанию
+      }
+      res.send(this.getMobilePanelHTML(sessionId, theme));
     });
 
     // API маршруты настроены через MatchApiRoutes
@@ -167,9 +174,19 @@ class MobileServer {
 
   /**
    * Генерирует HTML для мобильной панели
+   * @param {string} sessionId
+   * @param {'light'|'dark'} theme - тема из настроек ui.theme
    */
-  getMobilePanelHTML(sessionId) {
+  getMobilePanelHTML(sessionId, theme = 'light') {
     const serverPort = this.port;
+    const bodyTheme = theme === 'dark' ? ' data-theme="dark"' : '';
+    const themeObj = theme === 'dark' ? darkTheme : lightTheme;
+    const rootVars = Object.entries(themeObj)
+      .map(([k, v]) => {
+        const name = '--color-' + k.replace(/([A-Z])/g, '-$1').toLowerCase().replace(/^-/, '');
+        return `${name}:${v}`;
+      })
+      .join(';');
     return `
 <!DOCTYPE html>
 <html lang="ru">
@@ -180,6 +197,9 @@ class MobileServer {
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>vMix Volley Scoreboard</title>
   <style>
+    :root {
+      ${rootVars}
+    }
     * {
       margin: 0;
       padding: 0;
@@ -192,6 +212,9 @@ class MobileServer {
       min-height: 100vh;
       padding: 0.5rem;
       padding-bottom: env(safe-area-inset-bottom);
+    }
+    [data-theme="dark"] body {
+      background: linear-gradient(135deg, #121212 0%, #1a1a1a 100%);
     }
     .container {
       max-width: 600px;
@@ -471,9 +494,48 @@ class MobileServer {
         font-size: 1.3rem;
       }
     }
+    /* Тёмная тема мобильной панели (градации серого) */
+    [data-theme="dark"] .header {
+      background: rgba(26, 26, 26, 0.95);
+    }
+    [data-theme="dark"] .match-info {
+      background: rgba(56, 56, 56, 0.95);
+      color: #b0b0b0;
+    }
+    [data-theme="dark"] .score-section {
+      background: #252525;
+      border-color: #3498db;
+    }
+    [data-theme="dark"] .teams,
+    [data-theme="dark"] .score {
+      color: #e8e8e8;
+    }
+    [data-theme="dark"] .sets {
+      background: #252525;
+    }
+    [data-theme="dark"] .sets h3 {
+      color: #e8e8e8;
+    }
+    [data-theme="dark"] .set-item {
+      border-bottom-color: #404040;
+      color: #e8e8e8;
+    }
+    [data-theme="dark"] .set-item.current {
+      background: #383838;
+    }
+    [data-theme="dark"] .serve-info {
+      background: #383838;
+      color: #e8e8e8;
+    }
+    [data-theme="dark"] .logo-container {
+      background: #252525;
+    }
+    [data-theme="dark"] .set-info {
+      color: #b0b0b0;
+    }
   </style>
 </head>
-<body>
+<body${bodyTheme}>
   <div class="container">
     <div class="header">
       <h1>vMix Volley Scoreboard</h1>

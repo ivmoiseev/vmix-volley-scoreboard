@@ -10,7 +10,7 @@
 
 ### 1. Создана утилита для безопасной работы с DOM
 
-**Файл:** `src/main/utils/domUtils.js`
+**Файл:** `src/main/utils/domUtils.ts`
 
 Создан модуль, который экспортирует JavaScript функции для безопасной работы с DOM. Функции встраиваются в HTML страницу мобильного интерфейса.
 
@@ -23,7 +23,7 @@
 
 ### 2. Обновлен server.js
 
-**Файл:** `src/main/server.js`
+**Файл:** `src/main/server.ts`
 
 **Изменения:**
 1. Добавлен импорт `domUtils`
@@ -94,34 +94,18 @@
    - HTML теги экранируются
    - Текст отображается корректно
 
-4. **Запустите тесты** (после установки зависимостей):
+4. **Запустите тесты:**
    ```bash
-   npm install --save-dev jsdom jest
-   npm test -- tests/security/xss.test.js
+   npm run test:security
    ```
 
 ---
 
 ## Дополнительные рекомендации
 
-1. **Установите зависимости для тестов:**
-   ```bash
-   npm install --save-dev jsdom jest @types/jest
-   ```
+1. **Зависимости:** Vitest и jsdom уже включены в проект.
 
-2. **Настройте Jest** в `package.json`:
-   ```json
-   {
-     "scripts": {
-       "test": "jest"
-     },
-     "jest": {
-       "testEnvironment": "node"
-     }
-   }
-   ```
-
-3. **Рассмотрите использование Content Security Policy (CSP)** для дополнительной защиты
+2. **Рассмотрите использование Content Security Policy (CSP)** для дополнительной защиты (см. [SECURITY_AUDIT_REPORT.md](../development/SECURITY_AUDIT_REPORT.md)).
 
 ---
 

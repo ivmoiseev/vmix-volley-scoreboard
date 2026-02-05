@@ -1,5 +1,7 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { space, radius, typography } from '../theme/tokens';
+import Button from './Button';
 
 // Context для передачи кнопок из страниц в Layout
 const HeaderButtonsContext = createContext({
@@ -113,13 +115,13 @@ function Layout({ children, match, onMatchChange }) {
   // На главной странице Header не показываем
   if (location.pathname === '/') {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
         flexDirection: 'column',
-        fontFamily: 'system-ui, -apple-system, sans-serif'
+        fontFamily: typography.fontFamily,
       }}>
-        <main style={{ flex: 1, padding: '1rem', backgroundColor: '#f5f5f5' }}>
+        <main style={{ flex: 1, padding: space.md, backgroundColor: 'var(--color-background)' }}>
           {children}
         </main>
       </div>
@@ -129,36 +131,36 @@ function Layout({ children, match, onMatchChange }) {
   // На странице управления матчем показываем специальный Header
   if (location.pathname === '/match') {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
         flexDirection: 'column',
-        fontFamily: 'system-ui, -apple-system, sans-serif'
+        fontFamily: typography.fontFamily,
       }}>
         <header style={{
-          backgroundColor: '#2c3e50',
+          backgroundColor: 'var(--color-header-bg)',
           color: 'white',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         }}>
           <div style={{
-            padding: '1rem',
+            padding: space.md,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
-            gap: '0.5rem',
+            gap: space.sm,
             maxWidth: '1600px',
             margin: '0 auto',
             width: '100%',
           }}>
-            <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Управление матчем</h2>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <label style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.5rem', 
+            <h2 style={{ margin: 0, fontSize: typography.h2 }}>Управление матчем</h2>
+            <div style={{ display: 'flex', gap: space.sm, alignItems: 'center', flexWrap: 'wrap' }}>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: space.sm,
                 cursor: 'pointer',
-                fontSize: '0.9rem',
+                fontSize: typography.small,
                 userSelect: 'none',
               }}>
                 <input
@@ -169,36 +171,16 @@ function Layout({ children, match, onMatchChange }) {
                 />
                 <span>Автосохранение</span>
               </label>
-              <button
-                onClick={handleSaveMatch}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#27ae60',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                }}
-              >
+              <Button variant="success" onClick={handleSaveMatch} style={{ padding: `${space.sm} ${space.md}` }}>
                 Сохранить
-              </button>
-              <button
-                onClick={handleSaveAsMatch}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#95a5a6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                }}
-              >
+              </Button>
+              <Button variant="secondary" onClick={handleSaveAsMatch} style={{ padding: `${space.sm} ${space.md}` }}>
                 Сохранить как...
-              </button>
+              </Button>
             </div>
           </div>
         </header>
-        <main style={{ flex: 1, padding: '1rem', backgroundColor: '#f5f5f5' }}>
+        <main style={{ flex: 1, padding: space.md, backgroundColor: 'var(--color-background)' }}>
           {children}
         </main>
       </div>
@@ -221,43 +203,43 @@ function Layout({ children, match, onMatchChange }) {
 
   return (
     <HeaderButtonsContext.Provider value={{ buttons: headerButtons, setButtons: setHeaderButtons }}>
-      <div style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
         flexDirection: 'column',
-        fontFamily: 'system-ui, -apple-system, sans-serif'
+        fontFamily: typography.fontFamily,
       }}>
         <header style={{
-          backgroundColor: '#2c3e50',
+          backgroundColor: 'var(--color-header-bg)',
           color: 'white',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         }}>
           <div style={{
-            padding: '1rem',
+            padding: space.md,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
-            gap: '0.5rem',
+            gap: space.sm,
             maxWidth: '1600px',
             margin: '0 auto',
             width: '100%',
           }}>
             {pageTitle && (
-              <h2 style={{ margin: 0, fontSize: '1.5rem' }}>
+              <h2 style={{ margin: 0, fontSize: typography.h2 }}>
                 {pageTitle}
               </h2>
             )}
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: space.md, alignItems: 'center', flexWrap: 'wrap' }}>
               {headerButtons && (
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: space.sm, alignItems: 'center' }}>
                   {headerButtons}
                 </div>
               )}
             </div>
           </div>
         </header>
-        <main style={{ flex: 1, padding: '1rem', backgroundColor: '#f5f5f5' }}>
+        <main style={{ flex: 1, padding: space.md, backgroundColor: 'var(--color-background)' }}>
           {children}
         </main>
       </div>

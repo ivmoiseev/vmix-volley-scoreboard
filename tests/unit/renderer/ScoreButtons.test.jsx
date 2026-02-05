@@ -119,9 +119,9 @@ describe('ScoreButtons', () => {
     render(<ScoreButtons {...defaultProps} disabled={true} />);
 
     const buttons = screen.getAllByRole('button');
-    
+    // Button использует opacity: 0.7 при disabled
     buttons.forEach(button => {
-      expect(button).toHaveStyle({ opacity: '0.6', cursor: 'not-allowed' });
+      expect(button).toHaveStyle({ opacity: '0.7', cursor: 'not-allowed' });
     });
   });
 
@@ -129,7 +129,6 @@ describe('ScoreButtons', () => {
     render(<ScoreButtons {...defaultProps} disabled={false} />);
 
     const buttons = screen.getAllByRole('button');
-    
     buttons.forEach(button => {
       expect(button).toHaveStyle({ opacity: '1', cursor: 'pointer' });
     });
