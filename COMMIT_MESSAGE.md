@@ -1,18 +1,16 @@
-feat(ui): Система дизайна (design tokens), тёмная тема и актуализация документации
+feat(overlay): intro/rosters — дизайн, API (matchDate, city, positionShort), форматирование даты для vMix
 
-Дизайн и темы:
-- Design tokens: src/shared/theme/tokens.js (светлая/тёмная тема, space, radius, typography), applyTheme.js для применения к DOM
-- Настройка ui.theme в settings.json, переключение через меню Вид → «Переключить тему (светлая ↔ тёмная)» (кнопка в header убрана)
-- Тёмная тема на градациях серого; мобильная панель подставляет токены из настроек
-- Компонент Button, глобальные стили полей ввода (input/select/textarea) в цветах темы
-- ScoreDisplay: фиксированная ширина блоков, рамка подающей команды, плашки сетбол/матчбол под счётом, логотипы не сжимаются
-- Оформление страниц (Welcome, MobileAccess, MatchSettings, RosterManagement, VMixSettings) под тему
-- Доступность: :focus-visible в index.html
+Overlay-страницы:
+- Intro: центрированный синий блок с градиентной полоской; турнир, команды (логотипы + названия + города), место, дата/время (ДД.ММ.ГГГГ ЧЧ:ММ, без timezone)
+- Rosters: центрированный синий блок с полоской; колонка Поз. (OH/MB/OPP/S/L), симметричные колонки, ширина под 14 игроков без scale; неразрывный пробел перед * у стартовых
+- API GET /api/overlay/match: matchDate, date в формате ДД.ММ.ГГГГ, city в командах, positionShort в roster (getPositionAbbreviation)
+
+Форматирование даты:
+- getValueByDataMapKey: ключ date возвращает ДД.ММ.ГГГГ; formatMatchDate экспортирована
+- MatchControlPage: использует formatMatchDate для отображения даты (без дублирования логики)
+- vmix-data-map.md: обновлено описание поля date (формат в vMix)
 
 Документация:
-- Добавлен docs/development/DESIGN.md — единое описание системы дизайна
-- Обновлены ui-structure.md (меню, тема), ui-ux-audit-report.md и design-refactoring-implementation-guide.md (статус, ссылки на DESIGN)
-- Удалены design-theme-and-score-fixes-plan.md и dark-theme-inputs-analysis.md
-- Обновлены docs/README.md и docs/development/README.md
-
-CHANGELOG: раздел [Unreleased] дополнен блоком «Система дизайна и тёмная тема», «Изменено» (оформление), «Документация».
+- overlay-pages-browser-source-plan.md — раздел «Текущая реализация», обновлены 6.2–6.3, чек-лист
+- vmix-current-functionality.md — 6.1 API overlay, 5.3 дата/formatMatchDate, ссылка на overlay-plan
+- CHANGELOG: раздел [Unreleased] дополнен

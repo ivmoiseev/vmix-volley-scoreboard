@@ -13,6 +13,7 @@ import Button from "../components/Button";
 import { SET_STATUS } from "../../shared/types/Match";
 // @ts-ignore - временно, пока не будет TypeScript версии
 import { SetDomain } from "../../shared/domain/SetDomain.js";
+import { formatMatchDate } from "../../shared/getValueByDataMapKey.js";
 import { space, radius, light, typography } from "../theme/tokens";
 
 function MatchControlPage({ match: initialMatch, onMatchChange }) {
@@ -25,19 +26,10 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
   const matchFromState = location.state?.match;
   const effectiveInitialMatch = matchFromState || initialMatch;
 
-  // Функция для форматирования даты в формат ДД.ММ.ГГГГ
+  // Форматирование даты ДД.ММ.ГГГГ (общая функция с vMix и overlay)
   const formatDate = (dateStr) => {
-    if (!dateStr) return "Не указана";
-    try {
-      // Парсим дату в формате YYYY-MM-DD
-      const [year, month, day] = dateStr.split("-");
-      if (!year || !month || !day) return dateStr; // Если формат неправильный, возвращаем как есть
-      // Форматируем дату в ДД.ММ.ГГГГ
-      return `${day}.${month}.${year}`;
-    } catch (error) {
-      console.error("Ошибка при форматировании даты:", error);
-      return dateStr || "Не указана";
-    }
+    const formatted = formatMatchDate(dateStr || "", "");
+    return formatted || "Не указана";
   };
 
   // Отслеживание предыдущего matchId для определения первой загрузки

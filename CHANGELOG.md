@@ -9,6 +9,14 @@
 
 ### Добавлено
 
+- **Overlay-страницы (intro, rosters): дизайн и API**
+  - Intro: центрированный синий прямоугольник с градиентной полоской сверху (как scoreboard); турнир, подзаголовок, блок команд (логотипы слева/справа от названий, под названием — город), место проведения, дата/время (ДД.ММ.ГГГГ ЧЧ:ММ, без часового пояса). Фон страницы прозрачный.
+  - Rosters: центрированный синий прямоугольник с градиентной полоской; две симметричные колонки, таблица **№ / Поз. / Имя**; колонка «Поз.» — международные сокращения (OH, MB, OPP, S, L) из `positionShort` в API. Размеры без `transform: scale`, до 14 игроков в 1080px; увеличенная ширина блоков и колонок с именами; неразрывный пробел перед * у стартовых.
+  - API GET /api/overlay/match: в ответ добавлены `matchDate` (ДД.ММ.ГГГГ ЧЧ:ММ), поле `date` в формате ДД.ММ.ГГГГ; в объектах команд — `city`; в элементах `roster[]` — `positionShort` (getPositionAbbreviation из shared/playerPositions.js).
+
+- **Форматирование даты для vMix и UI**
+  - В vMix и на странице «Управление матчем» дата отображается в формате ДД.ММ.ГГГГ. Функция `formatMatchDate` экспортирована из `getValueByDataMapKey.js` и используется для ключа `date` (vMix) и в MatchControlPage (подпись «Не указана» при пустой дате). Единая логика без дублирования.
+
 - **MatchDomain.hasMatchStarted** — функция определения, начат ли матч (есть завершённые партии или текущая партия в игре)
 - **Блокировка смены варианта волейбола** — поле «Вариант волейбола» в настройках матча блокируется после начала игры с подсказкой
 
@@ -46,6 +54,8 @@
   - Мок QRCodeCanvas без вызова getContext('2d') (в jsdom не реализован)
 
 ### Документация
+
+- **Overlay и vMix:** в docs/development/overlay-pages-browser-source-plan.md добавлен раздел «Текущая реализация» (intro, rosters, API), обновлены разделы 6.2–6.3 и чек-лист. В vmix-current-functionality.md — подраздел 6.1 (API для страниц overlay), уточнён 5.3 (дата ДД.ММ.ГГГГ, formatMatchDate), ссылка на overlay-pages-browser-source-plan в разделе 9. В vmix-data-map.md ранее обновлено описание поля date (формат в vMix — ДД.ММ.ГГГГ).
 
 - **Консолидация документации по вариантам волейбола** — создан единый документ `docs/development/volleyball-variants.md` (правила, архитектура, hasMatchStarted)
 - Удалены устаревшие: `volleyball-variants-implementation-guide.md`, `volleyball-variants-refactoring-plan.md`, `volleyball-variants-rules.md`

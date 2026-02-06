@@ -73,6 +73,13 @@
         ]
       },
       {
+        "from": "public",
+        "to": "public",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
         "from": "matches",
         "to": "matches",
         "filter": [

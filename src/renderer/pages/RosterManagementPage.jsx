@@ -5,16 +5,7 @@ import { useHeaderButtons } from '../components/Layout';
 import { getContrastTextColor } from '../utils/colorContrast';
 import Button from '../components/Button';
 import { space, radius } from '../theme/tokens';
-
-// Первый вариант — «не указано», в данных хранится пустая строка, в vMix уходит ""
-const POSITION_OPTIONS = [
-  { value: '', label: '— Не указано —' },
-  { value: 'Нападающий', label: 'Нападающий' },
-  { value: 'Связующий', label: 'Связующий' },
-  { value: 'Доигровщик', label: 'Доигровщик' },
-  { value: 'Центральный блокирующий', label: 'Центральный блокирующий' },
-  { value: 'Либеро', label: 'Либеро' },
-];
+import { POSITION_OPTIONS, migrateRosterPositions } from '../../shared/playerPositions';
 
 function RosterManagementPage({ match: propMatch, onMatchChange }) {
   const navigate = useNavigate();
@@ -520,7 +511,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
           return;
         }
         
-        const importedRoster = importedData.roster;
+        const importedRoster = migrateRosterPositions(importedData.roster);
         const importedCoach = importedData.coach || '';
         
         // Инициализируем startingLineupOrder для импортированного состава

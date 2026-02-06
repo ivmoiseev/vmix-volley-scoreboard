@@ -69,6 +69,7 @@ alwaysApply: true
 - @src/shared/volleyballRulesConfig.js - конфигурации правил по вариантам (VARIANTS, RULES_CONFIGS)
 - @src/shared/domain/MatchDomain.ts - доменная логика матча (hasMatchStarted — блокировка смены варианта после начала игры)
 - @src/shared/errorHandler.js - централизованная обработка ошибок
+- @src/shared/playerPositions.js - позиции игроков (международный стандарт OH, MB, OPP, S, L)
 - @src/shared/vmix-field-utils.js - общие утилиты для работы с полями vMix (используются в main и renderer)
 
 ## Важные паттерны и соглашения

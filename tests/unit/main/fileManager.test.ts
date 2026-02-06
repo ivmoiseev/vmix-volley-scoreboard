@@ -396,7 +396,7 @@ describe('fileManager', () => {
       await expect(fileManager.openMatch(filePath)).rejects.toThrow('Ошибка чтения JSON файла');
     });
 
-    test('при открытии матча мигрирует позиции игроков "Другое"/"Не указано" в пустую строку', async () => {
+    test('при открытии матча мигрирует позиции игроков: "Другое"/"Не указано"→"", "Нападающий"→"Доигровщик"', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
       const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
 
@@ -418,7 +418,7 @@ describe('fileManager', () => {
 
       expect(loaded.teamA.roster[0].position).toBe('');
       expect(loaded.teamA.roster[1].position).toBe('');
-      expect(loaded.teamA.roster[2].position).toBe('Нападающий');
+      expect(loaded.teamA.roster[2].position).toBe('Доигровщик'); // "Нападающий" мигрирует в "Доигровщик" (OH)
       expect(loaded.teamB.roster[0].position).toBe('');
     });
   });

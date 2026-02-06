@@ -1,6 +1,6 @@
 # Карта данных приложения для vMix
 
-*Последнее обновление: 2026-02-07*
+*Последнее обновление: 2026-02-06*
 
 ## Описание
 
@@ -50,18 +50,18 @@
 
 ### 1.3. Дата и время
 
-| Поле | Тип | Описание | Источник | Формат |
-|------|-----|----------|----------|--------|
-| `date` | string | Дата проведения | `match.date` | ISO date (YYYY-MM-DD) |
+| Поле | Тип | Описание | Источник | Формат в vMix |
+|------|-----|----------|----------|----------------|
+| `date` | string | Дата проведения | `match.date` (ISO YYYY-MM-DD) | ДД.ММ.ГГГГ (форматируется через `formatMatchDate`) |
 | `time` | string | Время проведения | `match.time` | ISO time (HH:MM) |
 | `timezone` | string | Часовой пояс | `match.timezone` | IANA timezone (например, "Europe/Moscow") |
 
 **Вычисляемые поля:**
-- `matchDate` - форматированная дата и время в формате "ДД.ММ.ГГГГ ЧЧ:ММ"
-  - Используется в инпуте `lineup` - поле `matchDate`
+- `matchDate` — дата и время в формате «ДД.ММ.ГГГГ ЧЧ:ММ» (функция `formatMatchDate`, общая с UI и overlay)
+  - Используется в инпуте `lineup` — поле `matchDate`
 
 **Использование:**
-- Инпут `lineup` - поле `matchDate` (комбинация date + time)
+- Инпут `lineup` — поле `matchDate` (комбинация date + time), поле даты — ключ `date` (отдаётся в формате ДД.ММ.ГГГГ)
 
 ---
 
@@ -117,9 +117,23 @@
 |------|-----|----------|----------|--------|
 | `player.number` | number | Номер игрока | `match.teamA.roster[i].number` | 1 |
 | `player.name` | string | Имя игрока | `match.teamA.roster[i].name` | "Иванов Иван" |
-| `player.position` | string | Позиция игрока | `match.teamA.roster[i].position` | "Доигровщик" |
+| `player.position` | string | Позиция игрока (полное название) | `match.teamA.roster[i].position` | "Доигровщик" |
 | `player.isStarter` | boolean | Является ли игрок стартовым | `match.teamA.roster[i].isStarter` | true/false |
 | `player.numberOnCard` | string | Номер игрока на карте | `match.teamA.roster[i].numberOnCard` | "1" (опционально) |
+
+**Позиции игроков (международный стандарт):**
+
+| Полное название | Сокращение (PositionShort) |
+|-----------------|----------------------------|
+| Доигровщик | OH |
+| Центральный блокирующий | MB |
+| Диагональный | OPP |
+| Связующий | S |
+| Либеро | L |
+
+В настройках полей инпутов vMix доступны два варианта для позиции каждого игрока:
+- **Position** — полное название (например, «Доигровщик»)
+- **PositionShort** — сокращённое международное обозначение (OH, MB, OPP, S, L)
 
 ### 3.2. Полный состав команды A (rosterTeamA)
 
@@ -131,7 +145,8 @@
 - `teamLogo` - логотип команды A (image)
 - `player1Number` до `player14Number` - номера игроков (1-14)
 - `player1Name` до `player14Name` - имена игроков (1-14)
-- `player1Position` до `player14Position` - позиции игроков (1-14), задаются на странице «Управление составами» (Нападающий, Связующий, Центральный блокирующий, Диагональный, Либеро)
+- `player1Position` до `player14Position` - позиции игроков (полное название): Доигровщик, Центральный блокирующий, Диагональный, Связующий, Либеро
+- `player1PositionShort` до `player14PositionShort` - позиции игроков (сокращение): OH, MB, OPP, S, L
 
 **Источник данных:**
 - Игроки берутся из `match.teamA.roster[]` в порядке их появления в массиве
@@ -148,7 +163,7 @@
 - `teamLogo` - логотип команды B (image)
 - `player1Number` до `player14Number` - номера игроков (1-14)
 - `player1Name` до `player14Name` - имена игроков (1-14)
-- `player1Position` до `player14Position` - позиции игроков (1-14), задаются на странице «Управление составами»
+- `player1Position` до `player14Position` - позиции (полное название); `player1PositionShort` до `player14PositionShort` - позиции (сокращение OH/MB/OPP/S/L)
 
 **Источник данных:**
 - Игроки берутся из `match.teamB.roster[]` в порядке их появления в массиве
@@ -179,17 +194,20 @@
 - `teamLogo` - логотип команды A (image)
 - `player1Number` до `player6Number` - номера основных игроков (1-6)
 - `player1Name` до `player6Name` - имена основных игроков (1-6)
-- `player1Position` до `player6Position` - позиции основных игроков (1-6), из состава
+- `player1Position` до `player6Position` - позиции основных игроков (полное название)
+- `player1PositionShort` до `player6PositionShort` - позиции основных игроков (сокращение OH/MB/OPP/S/L)
 - `player1NumberOnCard` до `player6NumberOnCard` - номера на карте (1-6)
 - `libero1Number` - номер либеро 1
 - `libero1Name` - имя либеро 1
-- `libero1Position` - позиция либеро 1 (из состава)
+- `libero1Position` - позиция либеро 1 (полное название)
+- `libero1PositionShort` - позиция либеро 1 (сокращение)
 - `libero1NumberOnCard` - номер либеро 1 на карте
 - `libero1Background` - цвет подложки либеро 1 (fill)
 - `libero1BackgroundOnCard` - цвет подложки либеро 1 на карте (fill)
 - `libero2Number` - номер либеро 2
 - `libero2Name` - имя либеро 2
-- `libero2Position` - позиция либеро 2 (из состава)
+- `libero2Position` - позиция либеро 2 (полное название)
+- `libero2PositionShort` - позиция либеро 2 (сокращение)
 - `libero2NumberOnCard` - номер либеро 2 на карте
 - `libero2Background` - цвет подложки либеро 2 (fill)
 - `libero2BackgroundOnCard` - цвет подложки либеро 2 на карте (fill)
@@ -203,7 +221,7 @@
 ### 4.3. Стартовый состав команды B (startingLineupTeamB)
 
 **Доступные поля:** (аналогично команде A)
-- Все те же поля, но для команды B (в т.ч. `player1Position`–`player6Position`, `libero1Position`, `libero2Position`)
+- Все те же поля, но для команды B (в т.ч. `player1Position`–`player6Position`, `player1PositionShort`–`player6PositionShort`, `libero1Position`, `libero1PositionShort`, `libero2Position`, `libero2PositionShort`)
 
 ---
 

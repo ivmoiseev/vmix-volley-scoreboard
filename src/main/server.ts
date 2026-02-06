@@ -10,9 +10,12 @@ import errorHandler from '../shared/errorHandler.js';
 import { light as lightTheme, dark as darkTheme } from '../shared/theme/tokens.js';
 import * as settingsManager from './settingsManager.ts';
 import * as domUtils from './utils/domUtils.ts';
+import path from 'path';
 import { setupApiRoutes } from './server/api/MatchApiRoutes.ts';
-import { getLogosDir } from './utils/pathUtils.ts';
+import { getLogosDir, getPublicDir } from './utils/pathUtils.ts';
 import { getRules, RULES_CONFIGS, VARIANTS } from '../shared/volleyballRules.js';
+import { getValueByDataMapKey } from '../shared/getValueByDataMapKey.js';
+import { getPositionAbbreviation } from '../shared/playerPositions.js';
 
 // Получаем __dirname для ES-модулей
 const __filename = fileURLToPath(import.meta.url);
@@ -69,8 +72,9 @@ class MobileServer {
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
 
-    // Статические файлы (для мобильного интерфейса)
-    this.app.use(express.static('public'));
+    // Статические файлы (для мобильного интерфейса и overlay)
+    // В production public лежит в resources (extraResources), не в asar
+    this.app.use(express.static(getPublicDir()));
     
     // Статические файлы для логотипов
     // Определяем путь динамически при инициализации
@@ -114,6 +118,24 @@ class MobileServer {
     // API маршруты настроены через MatchApiRoutes
     // Используем новый API Layer для всех операций с матчем
     setupApiRoutes(this.app, this);
+
+    // API оверлеев (read-only, без сессии) — для Browser Source в vMix/OBS
+    this.app.get('/api/overlay/match', (_req, res) => {
+      const payload = this.getOverlayMatchPayload();
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.status(200).json(payload);
+    });
+
+    const overlayDir = path.join(getPublicDir(), 'overlay');
+    this.app.get('/overlay/scoreboard', (_req, res) => {
+      res.sendFile(path.join(overlayDir, 'scoreboard.html'));
+    });
+    this.app.get('/overlay/intro', (_req, res) => {
+      res.sendFile(path.join(overlayDir, 'intro.html'));
+    });
+    this.app.get('/overlay/rosters', (_req, res) => {
+      res.sendFile(path.join(overlayDir, 'rosters.html'));
+    });
 
     // API: Проверка доступности логотипов (для отладки)
     this.app.get('/api/logos/check', async (req, res) => {
@@ -171,6 +193,78 @@ class MobileServer {
 
     // API маршруты для операций с матчем теперь обрабатываются через MatchApiRoutes
     // (настроены выше через setupApiRoutes)
+  }
+
+  /**
+   * Формирует «лёгкий» объект матча для overlay-страниц (GET /api/overlay/match).
+   * Включает setballTeam и matchballTeam, вычисленные по правилам; URL логотипов — относительные.
+   * @returns {Object|null} payload или null, если матча нет
+   */
+  getOverlayMatchPayload() {
+    const m = this.currentMatch;
+    if (!m || !m.teamA || !m.teamB || !m.currentSet) {
+      return null;
+    }
+
+    const logoUrl = (team) => {
+      const p = team && (team as any).logoPath;
+      if (!p || typeof p !== 'string') return null;
+      return p.startsWith('logos/') ? '/' + p : '/logos/' + p;
+    };
+
+    const rules = getRules(m);
+    const cs = m.currentSet;
+    const setball = rules.isSetball(cs.scoreA, cs.scoreB, cs.setNumber);
+    const matchball = rules.isMatchball(m.sets || [], cs.setNumber, cs.scoreA, cs.scoreB);
+
+    const rosterFor = (team) => (team.roster || []).map((p) => ({
+      number: p.number,
+      name: p.name,
+      isStarter: !!p.isStarter,
+      positionShort: getPositionAbbreviation(p.position || ''),
+    }));
+
+    return {
+      teamA: {
+        name: m.teamA.name || '',
+        city: m.teamA.city || '',
+        color: m.teamA.color || '#3498db',
+        logoUrl: logoUrl(m.teamA),
+        coach: m.teamA.coach,
+        roster: rosterFor(m.teamA),
+      },
+      teamB: {
+        name: m.teamB.name || '',
+        city: m.teamB.city || '',
+        color: m.teamB.color || '#e74c3c',
+        logoUrl: logoUrl(m.teamB),
+        coach: m.teamB.coach,
+        roster: rosterFor(m.teamB),
+      },
+      currentSet: {
+        scoreA: cs.scoreA,
+        scoreB: cs.scoreB,
+        servingTeam: cs.servingTeam || 'A',
+        setNumber: cs.setNumber,
+      },
+      sets: (m.sets || []).map((s) => ({
+        setNumber: s.setNumber,
+        scoreA: s.scoreA,
+        scoreB: s.scoreB,
+        status: s.status,
+      })),
+      setballTeam: setball.isSetball ? setball.team : null,
+      matchballTeam: matchball.isMatchball ? matchball.team : null,
+      tournament: m.tournament,
+      tournamentSubtitle: m.tournamentSubtitle,
+      venue: m.venue,
+      location: m.location,
+      date: m.date,
+      time: m.time,
+      timezone: m.timezone,
+      /** Форматированная дата и время в формате ДД.ММ.ГГГГ ЧЧ:ММ (как в vMix) */
+      matchDate: getValueByDataMapKey(m, 'matchDate') || null,
+    };
   }
 
   /**

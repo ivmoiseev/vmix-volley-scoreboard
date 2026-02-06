@@ -112,7 +112,7 @@
 
 ### 5.3. Получение значений из матча
 
-- Функция `getValueByDataMapKey(match, dataMapKey)` (shared) возвращает значение по ключу справочника: прямые пути (`teamA.name`, `currentSet.scoreA` и т.д.), вычисляемые (счёт по партиям, дата/время, видимость индикаторов подачи), данные составов и т.д. См. `src/shared/getValueByDataMapKey.js` и [vmix-data-map.md](vmix-data-map.md).
+- Функция `getValueByDataMapKey(match, dataMapKey)` (shared) возвращает значение по ключу справочника: прямые пути (`teamA.name`, `currentSet.scoreA` и т.д.), вычисляемые (счёт по партиям, **дата в формате ДД.ММ.ГГГГ** для ключа `date`, **matchDate** — ДД.ММ.ГГГГ ЧЧ:ММ, видимость индикаторов подачи), данные составов (в т.ч. PositionShort) и т.д. Общая функция форматирования даты `formatMatchDate` экспортируется и используется также на странице «Управление матчем» и в overlay. См. `src/shared/getValueByDataMapKey.js` и [vmix-data-map.md](vmix-data-map.md).
 
 ---
 
@@ -120,6 +120,10 @@
 
 - На странице «Управление матчем» блок «Управление плашками vMix» (`VMixOverlayButtons`): кнопки строятся по `config.inputOrder` и `config.inputs`; подпись кнопки — `displayName` инпута. По клику вызываются `showVMixOverlay(inputKey)` / `hideVMixOverlay(inputKey)`.
 - В main обработчики `vmix:show-overlay` и `vmix:hide-overlay` по `inputKey` находят конфиг инпута (по id из настроек), берут `vmixTitle` (или `vmixNumber`) и номер оверлея (`overlay`), затем вызывают vMix API (OverlayInputN In/Out). Состояние оверлеев периодически опрашивается через vMix API, чтобы синхронизировать подсветку активной кнопки.
+
+### 6.1. API для страниц overlay (Browser Source)
+
+- Страницы scoreboard, intro, rosters отдаются мобильным сервером (GET /overlay/scoreboard, /overlay/intro, /overlay/rosters) и получают данные через **GET /api/overlay/match**. Payload формируется в `server.getOverlayMatchPayload()`: лёгкий JSON с командами (name, city, logoUrl, coach, roster), счётом, setballTeam/matchballTeam, турниром, местом, датой/временем. В ответе: **matchDate** (ДД.ММ.ГГГГ ЧЧ:ММ), **date** в формате ДД.ММ.ГГГГ; в объектах команд — **city**; в элементах roster — **positionShort** (OH, MB, OPP, S, L). Подробности — в [overlay-pages-browser-source-plan.md](overlay-pages-browser-source-plan.md).
 
 ---
 
@@ -152,4 +156,5 @@
 
 - **[vmix-data-map.md](vmix-data-map.md)** — карта данных приложения для vMix (источники, типы, примеры использования).
 - **[vmix-api-reference.md](../api/vmix-api-reference.md)** — HTTP API vMix (SetText, SetColor, SetImage, оверлеи, параметры).
+- **[overlay-pages-browser-source-plan.md](overlay-pages-browser-source-plan.md)** — план и текущая реализация HTML-страниц оверлеев (scoreboard, intro, rosters) и API GET /api/overlay/match.
 - **docs/architecture/ARCHITECTURE.md** — общая архитектура приложения (раздел про vMix при необходимости обновить по этому документу).

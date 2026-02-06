@@ -115,7 +115,7 @@ describe('getValueByDataMapKey', () => {
       expect(getValueByDataMapKey(baseMatch, 'tournamentSubtitle')).toBe('Финал');
       expect(getValueByDataMapKey(baseMatch, 'location')).toBe('Москва');
       expect(getValueByDataMapKey(baseMatch, 'venue')).toBe('Зал');
-      expect(getValueByDataMapKey(baseMatch, 'date')).toBe('2024-01-15');
+      expect(getValueByDataMapKey(baseMatch, 'date')).toBe('15.01.2024'); // date форматируется через formatMatchDate
       expect(getValueByDataMapKey(baseMatch, 'time')).toBe('18:00');
       expect(getValueByDataMapKey(baseMatch, 'teamA.name')).toBe('Команда A');
       expect(getValueByDataMapKey(baseMatch, 'teamA.city')).toBe('Город A');
@@ -156,13 +156,30 @@ describe('getValueByDataMapKey', () => {
         teamA: {
           ...baseMatch.teamA,
           roster: [
-            { number: 1, name: 'Игрок 1', position: 'Нападающий', isStarter: true },
+            { number: 1, name: 'Игрок 1', position: 'Доигровщик', isStarter: true },
             { number: 2, name: 'Игрок 2', position: '', isStarter: true },
           ],
         },
       };
-      expect(getValueByDataMapKey(withPosition, 'rosterA.player1Position')).toBe('Нападающий');
+      expect(getValueByDataMapKey(withPosition, 'rosterA.player1Position')).toBe('Доигровщик');
       expect(getValueByDataMapKey(withPosition, 'rosterA.player2Position')).toBe('');
+    });
+
+    test('rosterA.playerNPositionShort возвращает сокращение позиции (OH, MB, OPP, S, L)', () => {
+      const withPosition = {
+        ...baseMatch,
+        teamA: {
+          ...baseMatch.teamA,
+          roster: [
+            { number: 1, name: 'Игрок 1', position: 'Доигровщик', isStarter: true },
+            { number: 2, name: 'Игрок 2', position: 'Связующий', isStarter: true },
+            { number: 3, name: 'Игрок 3', position: '', isStarter: true },
+          ],
+        },
+      };
+      expect(getValueByDataMapKey(withPosition, 'rosterA.player1PositionShort')).toBe('OH');
+      expect(getValueByDataMapKey(withPosition, 'rosterA.player2PositionShort')).toBe('S');
+      expect(getValueByDataMapKey(withPosition, 'rosterA.player3PositionShort')).toBe('');
     });
 
     test('позиция не указана (пустая строка, null, "Не указано") → в vMix уходит ""', () => {
@@ -202,6 +219,22 @@ describe('getValueByDataMapKey', () => {
       };
       expect(getValueByDataMapKey(withPositions, 'startingA.player1Position')).toBe('Связующий');
       expect(getValueByDataMapKey(withPositions, 'startingA.player2Position')).toBe('');
+    });
+
+    test('startingA.playerNPositionShort возвращает сокращение позиции', () => {
+      const withPositions = {
+        ...baseMatch,
+        teamA: {
+          ...baseMatch.teamA,
+          roster: [
+            { number: 1, name: 'Игрок 1', position: 'Связующий', isStarter: true },
+            { number: 2, name: 'Игрок 2', position: 'Либеро', isStarter: true },
+          ],
+          startingLineupOrder: [0, 1],
+        },
+      };
+      expect(getValueByDataMapKey(withPositions, 'startingA.player1PositionShort')).toBe('S');
+      expect(getValueByDataMapKey(withPositions, 'startingA.player2PositionShort')).toBe('L');
     });
 
     test('позиция стартового/либеро не указана ("Не указано", "", null) → ""', () => {

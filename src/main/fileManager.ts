@@ -145,24 +145,13 @@ async function openMatch(filePath) {
       throw new Error('Ошибка чтения JSON файла. Файл поврежден или имеет неверный формат.');
     }
 
-    // Миграция позиций в рострах: "Другое"/"Не указано" → пустая строка (в vMix уходит "")
+    // Миграция позиций в рострах: старые/неизвестные значения → международный стандарт
+    const { migrateRosterPositions } = await import('../shared/playerPositions.js');
     if (match.teamA && Array.isArray(match.teamA.roster)) {
-      match.teamA.roster = match.teamA.roster.map(player => {
-        const pos = player.position;
-        if (pos === 'Другое' || pos === 'Не указано' || pos == null) {
-          return { ...player, position: '' };
-        }
-        return player;
-      });
+      match.teamA.roster = migrateRosterPositions(match.teamA.roster);
     }
     if (match.teamB && Array.isArray(match.teamB.roster)) {
-      match.teamB.roster = match.teamB.roster.map(player => {
-        const pos = player.position;
-        if (pos === 'Другое' || pos === 'Не указано' || pos == null) {
-          return { ...player, position: '' };
-        }
-        return player;
-      });
+      match.teamB.roster = migrateRosterPositions(match.teamB.roster);
     }
 
     // Применяем миграцию, если необходимо

@@ -18,6 +18,7 @@
  * - settings.json: app.getPath('userData')/settings.json (для записи)
  * - logos: app.getPath('userData')/logos (для записи)
  * - matches: process.resourcesPath/matches (extraResources, только чтение)
+ * - public: process.resourcesPath/public (extraResources, overlay-страницы и статика сервера)
  * - assets: process.resourcesPath/assets (extraResources)
  * - preload.cjs: app.getAppPath()/src/main/preload.cjs (в ASAR)
  */
@@ -143,6 +144,20 @@ export function getMatchesDir() {
   
   const projectRoot = getProjectRoot();
   return path.join(projectRoot, 'matches');
+}
+
+/**
+ * Получает путь к папке public (overlay-страницы, статика мобильного сервера)
+ *
+ * В dev: <корень проекта>/public
+ * В production: process.resourcesPath/public (extraResources, рядом с logos)
+ */
+export function getPublicDir() {
+  if (isProduction() && process.resourcesPath) {
+    return path.join(process.resourcesPath, 'public');
+  }
+  const projectRoot = getProjectRoot();
+  return path.join(projectRoot, 'public');
 }
 
 /**

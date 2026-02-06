@@ -572,6 +572,79 @@ function MobileAccessPage() {
         </div>
       )}
 
+      {/* Ссылки для vMix/OBS (Browser Source) */}
+      {isServerRunning && serverInfo && serverInfo.url && (
+        <div style={{
+          backgroundColor: 'var(--color-surface-muted)',
+          padding: '1.5rem',
+          borderRadius: '4px',
+          marginBottom: '1.5rem',
+        }}>
+          <h3 style={{ marginTop: 0 }}>Ссылки для vMix / OBS</h3>
+          <p style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
+            Добавьте в vMix или OBS как Browser Source. Размер: 1920×1080, включите прозрачный фон при необходимости.
+          </p>
+          {[
+            { path: '/overlay/scoreboard', label: 'Табло (счёт)' },
+            { path: '/overlay/intro', label: 'Начальный титр' },
+            { path: '/overlay/rosters', label: 'Составы' },
+          ].map(({ path, label }) => {
+            const url = serverInfo.url.replace(/\/$/, '') + path;
+            return (
+              <div
+                key={path}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  marginBottom: '0.75rem',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{
+                  flex: '1',
+                  minWidth: 200,
+                  backgroundColor: 'var(--color-surface)',
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '4px',
+                  border: '1px solid var(--color-border)',
+                  fontSize: '0.9rem',
+                  wordBreak: 'break-all',
+                }}>
+                  <span style={{ color: 'var(--color-text-secondary)', marginRight: '0.5rem' }}>{label}:</span>
+                  {url}
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      alert('Ссылка скопирована');
+                    } catch (e) {
+                      const ta = document.createElement('textarea');
+                      ta.value = url;
+                      ta.style.position = 'fixed';
+                      ta.style.opacity = '0';
+                      document.body.appendChild(ta);
+                      ta.select();
+                      try {
+                        document.execCommand('copy');
+                        alert('Ссылка скопирована');
+                      } catch (err) {
+                        alert('Не удалось скопировать');
+                      }
+                      document.body.removeChild(ta);
+                    }
+                  }}
+                >
+                  Копировать
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Инструкции */}
       <div style={{
         backgroundColor: 'var(--color-surface-muted)',
