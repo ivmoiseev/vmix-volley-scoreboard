@@ -87,6 +87,7 @@ export interface Statistics {
 
 export interface Match {
   matchId: string;
+  variant: 'indoor' | 'beach' | 'snow'; // Тип игры: зал, пляж, снежный
   tournament?: string; // Заголовок (название турнира)
   tournamentSubtitle?: string; // Подзаголовок (название турнира)
   location?: string; // Город, страна
@@ -116,6 +117,7 @@ export function createNewMatch(): Match {
   
   return {
     matchId: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : generateUUID(),
+    variant: 'indoor',
     tournament: '',
     tournamentSubtitle: '',
     location: '',

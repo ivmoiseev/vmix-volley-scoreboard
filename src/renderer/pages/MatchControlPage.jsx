@@ -19,10 +19,11 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Получаем матч из location.state, если initialMatch еще не установлен
-  // Это решает проблему гонки условий при первом создании матча
+  // Получаем матч из location.state при навигации (например, после сохранения настроек)
+  // ВАЖНО: matchFromState имеет приоритет — при переходе с state мы явно передаём актуальный матч,
+  // тогда как initialMatch от родителя может быть устаревшим (App ещё не успел обновиться)
   const matchFromState = location.state?.match;
-  const effectiveInitialMatch = initialMatch || matchFromState;
+  const effectiveInitialMatch = matchFromState || initialMatch;
 
   // Функция для форматирования даты в формат ДД.ММ.ГГГГ
   const formatDate = (dateStr) => {
@@ -417,6 +418,7 @@ function MatchControlPage({ match: initialMatch, onMatchChange }) {
           <SetsDisplay
             sets={match.sets}
             currentSet={match.currentSet}
+            match={match}
             onSetClick={(setNumber) => setEditingSetNumber(setNumber)}
           />
 

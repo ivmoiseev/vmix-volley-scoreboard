@@ -11,8 +11,6 @@ import {
   validateAutoSaveSettings,
   validateAutoUpdateSettings,
   validateVMixInput,
-  validateInputField,
-  FIELD_TYPES,
 } from '../../../src/main/utils/settingsValidator.ts';
 
 describe('settingsValidator', () => {
@@ -96,21 +94,21 @@ describe('settingsValidator', () => {
       expect(result.valid).toBe(true);
     });
 
-    test('должна валидировать структуру полей (fields) в инпутах', () => {
+    test('должна валидировать структуру полей (fields) в динамических инпутах', () => {
       const result = validateSettings({
         vmix: {
           host: 'localhost',
           port: 8088,
           inputs: {
-            currentScore: {
+            'uuid-1': {
               enabled: true,
-              inputIdentifier: 'Input7',
+              displayName: 'SCORE',
+              vmixTitle: 'SCORE',
               overlay: 1,
               fields: {
-                scoreA: {
-                  type: 'text',
-                  fieldIdentifier: 'ScoreA',
-                  enabled: true,
+                'Count_Team1.Text': {
+                  vmixFieldType: 'text',
+                  dataMapKey: 'currentSet.scoreA',
                 },
               },
             },
@@ -120,32 +118,21 @@ describe('settingsValidator', () => {
       expect(result.valid).toBe(true);
     });
 
-    test('должна проверять типы полей (text, image, color, fill, visibility)', () => {
+    test('должна проверять типы полей (text, color, image) в динамических инпутах', () => {
       const validResult = validateSettings({
         vmix: {
           host: 'localhost',
           port: 8088,
           inputs: {
-            currentScore: {
+            'uuid-1': {
               enabled: true,
-              inputIdentifier: 'Input7',
+              displayName: 'SCORE',
+              vmixTitle: 'SCORE',
               overlay: 1,
               fields: {
-                scoreA: {
-                  type: 'text',
-                  fieldIdentifier: 'ScoreA',
-                  enabled: true,
-                },
-                logo: {
-                  type: 'image',
-                  fieldIdentifier: 'Logo',
-                  enabled: true,
-                },
-                color: {
-                  type: 'fill',
-                  fieldIdentifier: 'Color',
-                  enabled: true,
-                },
+                textField: { vmixFieldType: 'text', dataMapKey: 'teamA.name' },
+                colorField: { vmixFieldType: 'color', dataMapKey: 'teamA.color' },
+                imageField: { vmixFieldType: 'image', dataMapKey: 'teamA.logoPath' },
               },
             },
           },
@@ -158,23 +145,20 @@ describe('settingsValidator', () => {
           host: 'localhost',
           port: 8088,
           inputs: {
-            currentScore: {
+            'uuid-1': {
               enabled: true,
-              inputIdentifier: 'Input7',
+              displayName: 'SCORE',
+              vmixTitle: 'SCORE',
               overlay: 1,
               fields: {
-                invalid: {
-                  type: 'invalid_type',
-                  fieldIdentifier: 'Invalid',
-                  enabled: true,
-                },
+                invalid: { vmixFieldType: 'invalid_type', dataMapKey: 'x' },
               },
             },
           },
         },
       });
       expect(invalidResult.valid).toBe(false);
-      expect(invalidResult.errors.some(e => e.includes('type'))).toBe(true);
+      expect(invalidResult.errors.some(e => e.includes('vmixFieldType'))).toBe(true);
     });
   });
 
@@ -230,14 +214,15 @@ describe('settingsValidator', () => {
       expect(result3.valid).toBe(true);
     });
 
-    test('должна валидировать инпуты', () => {
+    test('должна валидировать динамические инпуты', () => {
       const result = validateVMixSettings({
         host: 'localhost',
         port: 8088,
         inputs: {
-          currentScore: {
+          'uuid-1': {
             enabled: true,
-            inputIdentifier: 'Input7',
+            displayName: 'SCORE',
+            vmixTitle: 'SCORE',
             overlay: 1,
             fields: {},
           },
@@ -248,10 +233,11 @@ describe('settingsValidator', () => {
   });
 
   describe('validateVMixInput', () => {
-    test('должна валидировать корректный инпут', () => {
-      const result = validateVMixInput('currentScore', {
+    test('должна валидировать корректный динамический инпут', () => {
+      const result = validateVMixInput('uuid-1', {
         enabled: true,
-        inputIdentifier: 'Input7',
+        displayName: 'SCORE',
+        vmixTitle: 'SCORE',
         overlay: 1,
         fields: {},
       });
@@ -259,9 +245,10 @@ describe('settingsValidator', () => {
     });
 
     test('должна проверять enabled (boolean)', () => {
-      const result = validateVMixInput('currentScore', {
+      const result = validateVMixInput('uuid-1', {
         enabled: 'true', // Не boolean
-        inputIdentifier: 'Input7',
+        displayName: 'SCORE',
+        vmixTitle: 'SCORE',
         overlay: 1,
         fields: {},
       });
@@ -269,101 +256,69 @@ describe('settingsValidator', () => {
       expect(result.errors.some(e => e.includes('enabled'))).toBe(true);
     });
 
-    test('должна проверять inputIdentifier (непустая строка)', () => {
-      const result = validateVMixInput('currentScore', {
+    test('должна проверять displayName (непустая строка)', () => {
+      const result = validateVMixInput('uuid-1', {
         enabled: true,
-        inputIdentifier: '',
+        displayName: '',
+        vmixTitle: 'SCORE',
         overlay: 1,
         fields: {},
       });
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.includes('inputIdentifier'))).toBe(true);
+      expect(result.errors.some(e => e.includes('displayName'))).toBe(true);
+    });
+
+    test('должна проверять vmixTitle (непустая строка)', () => {
+      const result = validateVMixInput('uuid-1', {
+        enabled: true,
+        displayName: 'SCORE',
+        vmixTitle: '',
+        overlay: 1,
+        fields: {},
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some(e => e.includes('vmixTitle'))).toBe(true);
     });
 
     test('должна проверять overlay (число >= 1)', () => {
-      const result1 = validateVMixInput('currentScore', {
+      const result1 = validateVMixInput('uuid-1', {
         enabled: true,
-        inputIdentifier: 'Input7',
+        displayName: 'SCORE',
+        vmixTitle: 'SCORE',
         overlay: 0,
         fields: {},
       });
       expect(result1.valid).toBe(false);
       expect(result1.errors.some(e => e.includes('overlay'))).toBe(true);
 
-      const result2 = validateVMixInput('currentScore', {
+      const result2 = validateVMixInput('uuid-1', {
         enabled: true,
-        inputIdentifier: 'Input7',
+        displayName: 'SCORE',
+        vmixTitle: 'SCORE',
         overlay: 1,
         fields: {},
       });
       expect(result2.valid).toBe(true);
     });
 
-    test('должна валидировать fields', () => {
-      const result = validateVMixInput('currentScore', {
+    test('должна валидировать fields с vmixFieldType', () => {
+      const result = validateVMixInput('uuid-1', {
         enabled: true,
-        inputIdentifier: 'Input7',
+        displayName: 'SCORE',
+        vmixTitle: 'SCORE',
         overlay: 1,
         fields: {
-          scoreA: {
-            type: 'text',
-            fieldIdentifier: 'ScoreA',
-            enabled: true,
+          'Count_Team1.Text': {
+            vmixFieldType: 'text',
+            dataMapKey: 'currentSet.scoreA',
+          },
+          'Color_Team1.Fill.Color': {
+            vmixFieldType: 'color',
+            dataMapKey: 'teamA.color',
           },
         },
       });
       expect(result.valid).toBe(true);
-    });
-  });
-
-  describe('validateInputField', () => {
-    test('должна валидировать корректное поле', () => {
-      const result = validateInputField('scoreA', {
-        type: 'text',
-        fieldIdentifier: 'ScoreA',
-        enabled: true,
-      });
-      expect(result.valid).toBe(true);
-    });
-
-    test('должна проверять type (валидный тип)', () => {
-      const validTypes = Object.values(FIELD_TYPES);
-      for (const type of validTypes) {
-        const result = validateInputField('field', {
-          type,
-          fieldIdentifier: 'Field',
-          enabled: true,
-        });
-        expect(result.valid).toBe(true);
-      }
-
-      const invalidResult = validateInputField('field', {
-        type: 'invalid',
-        fieldIdentifier: 'Field',
-        enabled: true,
-      });
-      expect(invalidResult.valid).toBe(false);
-      expect(invalidResult.errors.some(e => e.includes('type'))).toBe(true);
-    });
-
-    test('должна проверять fieldIdentifier (непустая строка)', () => {
-      const result = validateInputField('field', {
-        type: 'text',
-        fieldIdentifier: '',
-        enabled: true,
-      });
-      expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.includes('fieldIdentifier'))).toBe(true);
-    });
-
-    test('должна проверять enabled (boolean)', () => {
-      const result = validateInputField('field', {
-        type: 'text',
-        fieldIdentifier: 'Field',
-        enabled: 'true', // Не boolean
-      });
-      expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.includes('enabled'))).toBe(true);
     });
   });
 

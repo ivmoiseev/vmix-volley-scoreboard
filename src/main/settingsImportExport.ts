@@ -9,6 +9,7 @@ import {
   validateMobileSettings,
   validateAutoSaveSettings,
   validateAutoUpdateSettings,
+  validateUISettings,
   type Settings 
 } from './utils/settingsValidator.ts';
 import fs from 'fs/promises';
@@ -106,12 +107,13 @@ export async function importSettings(filePath: string): Promise<ImportResult> {
   validateSection('mobile', importedData.mobile, validateMobileSettings);
   validateSection('autoSave', importedData.autoSave, validateAutoSaveSettings);
   validateSection('autoUpdate', importedData.autoUpdate, validateAutoUpdateSettings);
+  validateSection('ui', importedData.ui, validateUISettings);
 
   // Если общая валидация прошла успешно, все секции валидны
   if (validation.valid) {
     // Все секции валидны, можно импортировать все
     for (const key of Object.keys(importedData)) {
-      if (['vmix', 'mobile', 'autoSave', 'autoUpdate'].includes(key)) {
+      if (['vmix', 'mobile', 'autoSave', 'autoUpdate', 'ui'].includes(key)) {
         validSections.push(key);
       }
     }
@@ -136,7 +138,7 @@ export async function importSettings(filePath: string): Promise<ImportResult> {
   }
 
   // Проверяем наличие неизвестных секций
-  const knownSections = ['vmix', 'mobile', 'autoSave', 'autoUpdate'];
+  const knownSections = ['vmix', 'mobile', 'autoSave', 'autoUpdate', 'ui'];
   for (const key of Object.keys(importedData)) {
     if (!knownSections.includes(key)) {
       warnings.push(`Неизвестная секция "${key}" будет проигнорирована`);
@@ -198,6 +200,13 @@ export function mergeSettings(existing: Settings, imported: Settings): Settings 
     merged.autoUpdate = {
       ...existing.autoUpdate,
       ...imported.autoUpdate,
+    };
+  }
+
+  if (imported.ui) {
+    merged.ui = {
+      ...existing.ui,
+      ...imported.ui,
     };
   }
 

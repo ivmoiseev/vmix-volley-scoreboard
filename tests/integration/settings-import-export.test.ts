@@ -69,21 +69,21 @@ describe('Интеграция: импорт и экспорт настроек'
       vmix: {
         host: 'localhost',
         port: 8088,
+        inputOrder: ['uuid-1'],
         inputs: {
-          currentScore: {
+          'uuid-1': {
             enabled: true,
-            inputIdentifier: 'Input7',
+            displayName: 'SCORE',
+            vmixTitle: 'SCORE',
             overlay: 1,
             fields: {
-              scoreA: {
-                type: 'text',
-                fieldIdentifier: 'ScoreA',
-                enabled: true,
+              'Count_Team1.Text': {
+                vmixFieldType: 'text',
+                dataMapKey: 'currentSet.scoreA',
               },
-              scoreB: {
-                type: 'text',
-                fieldIdentifier: 'ScoreB',
-                enabled: true,
+              'Count_Team2.Text': {
+                vmixFieldType: 'text',
+                dataMapKey: 'currentSet.scoreB',
               },
             },
           },
@@ -160,16 +160,17 @@ describe('Интеграция: импорт и экспорт настроек'
       vmix: {
         host: 'newhost',
         port: 9999,
+        inputOrder: ['uuid-1'],
         inputs: {
-          currentScore: {
+          'uuid-1': {
             enabled: true,
-            inputIdentifier: 'Input7',
+            displayName: 'SCORE',
+            vmixTitle: 'SCORE',
             overlay: 1,
             fields: {
-              scoreA: {
-                type: 'text',
-                fieldIdentifier: 'ScoreA',
-                enabled: true,
+              'Count_Team1.Text': {
+                vmixFieldType: 'text',
+                dataMapKey: 'currentSet.scoreA',
               },
             },
           },
@@ -182,16 +183,17 @@ describe('Интеграция: импорт и экспорт настроек'
       vmix: {
         host: 'localhost',
         port: 8088,
+        inputOrder: ['uuid-1'],
         inputs: {
-          currentScore: {
+          'uuid-1': {
             enabled: true,
-            inputIdentifier: 'Input7',
+            displayName: 'SCORE',
+            vmixTitle: 'SCORE',
             overlay: 1,
             fields: {
-              teamA: {
-                type: 'text',
-                fieldIdentifier: 'TeamA',
-                enabled: true,
+              'Name_Team1.Text': {
+                vmixFieldType: 'text',
+                dataMapKey: 'teamA.name',
               },
             },
           },
@@ -235,28 +237,28 @@ describe('Интеграция: импорт и экспорт настроек'
     expect(savedSettings.autoUpdate).toBeDefined();
 
     // Поля в инпуте должны быть объединены
-    expect(savedSettings.vmix.inputs.currentScore.fields.scoreA).toBeDefined(); // Из импорта
-    expect(savedSettings.vmix.inputs.currentScore.fields.teamA).toBeDefined(); // Из существующих
+    expect(savedSettings.vmix.inputs['uuid-1'].fields['Count_Team1.Text']).toBeDefined(); // Из импорта
+    expect(savedSettings.vmix.inputs['uuid-1'].fields['Name_Team1.Text']).toBeDefined(); // Из существующих
   });
 
-  test('Импорт должен обрабатывать миграцию старых форматов', async () => {
+  test('Импорт динамических инпутов должен сохранять настройки', async () => {
     const { loadSettings, saveSettings } = settingsManager;
 
-    // Старый формат (если бы был такой)
-    const oldFormatSettings = {
+    const dynamicInputSettings = {
       vmix: {
         host: 'localhost',
         port: 8088,
+        inputOrder: ['uuid-1'],
         inputs: {
-          currentScore: {
+          'uuid-1': {
             enabled: true,
-            inputIdentifier: 'Input7',
+            displayName: 'SCORE',
+            vmixTitle: 'SCORE',
             overlay: 1,
             fields: {
-              scoreA: {
-                type: 'text',
-                fieldIdentifier: 'ScoreA',
-                enabled: true,
+              'Count_Team1.Text': {
+                vmixFieldType: 'text',
+                dataMapKey: 'currentSet.scoreA',
               },
             },
           },
@@ -268,12 +270,13 @@ describe('Интеграция: импорт и экспорт настроек'
       vmix: {
         host: 'oldhost',
         port: 8080,
+        inputOrder: [],
         inputs: {},
       },
     };
 
     await fs.mkdir(testDir, { recursive: true });
-    await fs.writeFile(importFile, JSON.stringify(oldFormatSettings, null, 2), 'utf-8');
+    await fs.writeFile(importFile, JSON.stringify(dynamicInputSettings, null, 2), 'utf-8');
 
     vi.mocked(loadSettings).mockResolvedValue(existingSettings);
     vi.mocked(saveSettings).mockResolvedValue(true);
@@ -287,6 +290,6 @@ describe('Интеграция: импорт и экспорт настроек'
 
     // Настройки должны быть объединены
     expect(savedSettings.vmix.host).toBe('localhost'); // Из импорта
-    expect(savedSettings.vmix.inputs.currentScore).toBeDefined(); // Из импорта
+    expect(savedSettings.vmix.inputs['uuid-1']).toBeDefined(); // Из импорта
   });
 });

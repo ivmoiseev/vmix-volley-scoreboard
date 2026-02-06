@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { SET_STATUS } from '../../shared/types/Match.js';
-import { isSetball, isMatchball, canFinishSet } from '../../shared/volleyballRules.js';
+import { getRules } from '../../shared/volleyballRules.js';
 import { migrateMatchToSetStatus } from '../../shared/matchMigration.js';
 import { SetService } from '../../shared/services/SetService.js';
 import { ScoreService } from '../../shared/services/ScoreService.js';
@@ -246,14 +246,15 @@ export function useMatch(initialMatch) {
             };
         });
     }, []);
-    const setballInfo = match?.currentSet && match.currentSet.status === SET_STATUS.IN_PROGRESS
-        ? isSetball(match.currentSet.scoreA, match.currentSet.scoreB, match.currentSet.setNumber)
+    const rules = match ? getRules(match) : null;
+    const setballInfo = match?.currentSet && match.currentSet.status === SET_STATUS.IN_PROGRESS && rules
+        ? rules.isSetball(match.currentSet.scoreA, match.currentSet.scoreB, match.currentSet.setNumber)
         : { isSetball: false, team: null };
-    const matchballInfo = match?.currentSet && match?.sets && match.currentSet.status === SET_STATUS.IN_PROGRESS
-        ? isMatchball(match.sets, match.currentSet.setNumber, match.currentSet.scoreA, match.currentSet.scoreB)
+    const matchballInfo = match?.currentSet && match?.sets && match.currentSet.status === SET_STATUS.IN_PROGRESS && rules
+        ? rules.isMatchball(match.sets, match.currentSet.setNumber, match.currentSet.scoreA, match.currentSet.scoreB)
         : { isMatchball: false, team: null };
-    const canFinish = match?.currentSet
-        ? canFinishSet(match.currentSet.scoreA, match.currentSet.scoreB, match.currentSet.setNumber)
+    const canFinish = match?.currentSet && rules
+        ? rules.canFinishSet(match.currentSet.scoreA, match.currentSet.scoreB, match.currentSet.setNumber)
         : false;
     const hasHistory = HistoryService.getHistorySize() > 0;
     return {

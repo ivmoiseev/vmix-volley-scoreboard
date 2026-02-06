@@ -74,14 +74,8 @@ export function useVMix(_match) {
     if (typeof inputConfig === "string") {
       return inputConfig;
     }
-    // Динамические инпуты: vmixTitle / vmixNumber; старый формат: inputIdentifier / name
-    return (
-      inputConfig?.vmixTitle ??
-      inputConfig?.vmixNumber ??
-      inputConfig?.inputIdentifier ??
-      inputConfig?.name ??
-      null
-    );
+    // vmixTitle / vmixNumber — идентификатор инпута в vMix
+    return inputConfig?.vmixTitle ?? inputConfig?.vmixNumber ?? null;
   }, []);
 
   const validateInputConfig = useCallback(
@@ -316,7 +310,7 @@ export function useVMix(_match) {
               const inputIdentifier =
                 typeof inputConfig === "string"
                   ? inputConfig
-                  : inputConfig.inputIdentifier || inputConfig.name;
+                  : inputConfig?.vmixTitle ?? inputConfig?.vmixNumber;
 
               if (!inputIdentifier) continue;
 

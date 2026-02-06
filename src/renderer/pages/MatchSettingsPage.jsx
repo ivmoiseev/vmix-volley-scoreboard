@@ -5,6 +5,8 @@ import { useVMix } from '../hooks/useVMix';
 import { useHeaderButtons } from '../components/Layout';
 import Button from '../components/Button';
 import { space, radius } from '../theme/tokens';
+import { VARIANTS } from '../../shared/volleyballRulesConfig.js';
+import { MatchDomain } from '../../shared/domain/MatchDomain.js';
 
 function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   const navigate = useNavigate();
@@ -19,10 +21,10 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   const { updateMatchData, connectionStatus, resetImageFieldsCache, updateReferee2Data } = useVMix(match);
   
   // Используем useRef для отслеживания matchId, чтобы не перезаписывать formData при изменении логотипов
-  // formData должен обновляться только при смене матча (когда matchId изменился)
   const lastMatchIdRef = useRef(null);
-  
+
   const [formData, setFormData] = useState({
+    variant: VARIANTS.INDOOR,
     tournament: '',
     tournamentSubtitle: '',
     location: '',
@@ -44,6 +46,11 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     lineJudge2: '',
     scorer: '',
   });
+
+  // Ref для актуального formData: кнопка «Сохранить» в хедере создаётся в useEffect и может захватывать
+  // устаревшее замыкание (пустой formData при первой загрузке) — handleSave читает formDataRef.current
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
 
   // Список популярных часовых поясов
   const timezones = [
@@ -113,22 +120,22 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     }
 
     // ВАЖНО: Обновляем formData только при смене матча (когда matchId изменился)
-    // Это предотвращает потерю несохраненных изменений в текстовых полях при изменении логотипов
+    // Используем matchId в зависимостях, а не match — иначе при получении нового объекта match
+    // с тем же matchId (например, при обновлении из useVMix или смене variant) эффект запускался бы
+    // и перезаписывал formData данными из match, теряя несохранённые правки в текстовых полях
     const currentMatchId = match.matchId;
     const lastMatchId = lastMatchIdRef.current;
-    
+
     // Если matchId изменился (новый матч) или это первая инициализация (lastMatchId === null)
     if (currentMatchId !== lastMatchId) {
-      // Обновляем ref для отслеживания текущего matchId
       lastMatchIdRef.current = currentMatchId;
-      
-      // Получаем часовой пояс по умолчанию из системы, если не указан в матче
-      const defaultTimezone = typeof Intl !== 'undefined' && Intl.DateTimeFormat 
-        ? Intl.DateTimeFormat().resolvedOptions().timeZone 
+
+      const defaultTimezone = typeof Intl !== 'undefined' && Intl.DateTimeFormat
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone
         : 'UTC';
-      
-      // Заполняем форму данными из матча только при смене матча
+
       setFormData({
+        variant: match.variant || VARIANTS.INDOOR,
         tournament: match.tournament || '',
         tournamentSubtitle: match.tournamentSubtitle || '',
         location: match.location || '',
@@ -151,8 +158,9 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
         scorer: match.officials?.scorer || '',
       });
     }
-    // Если matchId не изменился, НЕ обновляем formData - сохраняем несохраненные изменения пользователя
-  }, [match, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- намеренно используем match?.matchId вместо match:
+    // при смене типа игры (variant) или других обновлениях match с тем же matchId не должно перезаписывать formData
+  }, [match?.matchId, navigate]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -164,26 +172,26 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
   const handleSave = async () => {
     if (!match) return;
 
-    // ВАЖНО: Логируем текущее состояние match перед сохранением
-    console.log('[MatchSettingsPage handleSave] Текущий match перед сохранением:');
-    console.log(`  teamA.name: ${match.teamA?.name || 'N/A'}, logoPath: ${match.teamA?.logoPath || 'N/A'}, logoBase64: ${match.teamA?.logoBase64 ? 'есть' : 'нет'}`);
-    console.log(`  teamB.name: ${match.teamB?.name || 'N/A'}, logoPath: ${match.teamB?.logoPath || 'N/A'}, logoBase64: ${match.teamB?.logoBase64 ? 'есть' : 'нет'}`);
+    // Используем formDataRef — кнопка «Сохранить» в хедере создаётся в useEffect и может захватывать
+    // устаревшее замыкание (пустой formData при первой загрузке)
+    const fd = formDataRef.current;
 
     const updatedMatch = {
       ...match,
-      tournament: formData.tournament,
-      tournamentSubtitle: formData.tournamentSubtitle,
-      location: formData.location,
-      venue: formData.venue,
-      date: formData.date,
-      time: formData.time,
-      timezone: formData.timezone,
+      variant: fd.variant || VARIANTS.INDOOR,
+      tournament: fd.tournament,
+      tournamentSubtitle: fd.tournamentSubtitle,
+      location: fd.location,
+      venue: fd.venue,
+      date: fd.date,
+      time: fd.time,
+      timezone: fd.timezone,
       teamA: {
         ...match.teamA,
-        name: formData.teamAName,
-        color: formData.teamAColor,
-        liberoColor: formData.teamALiberoColor || undefined,
-        city: formData.teamACity,
+        name: fd.teamAName,
+        color: fd.teamAColor,
+        liberoColor: fd.teamALiberoColor || undefined,
+        city: fd.teamACity,
         // ВАЖНО: Сохраняем все поля логотипа из текущего match (который может быть обновлен после swapTeams)
         // После swap-teams logoPath уже обновлен с новыми уникальными именами файлов
         // Нужно сохранить эти актуальные logoPath, а не перезаписывать их
@@ -193,10 +201,10 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
       },
       teamB: {
         ...match.teamB,
-        name: formData.teamBName,
-        color: formData.teamBColor,
-        liberoColor: formData.teamBLiberoColor || undefined,
-        city: formData.teamBCity,
+        name: fd.teamBName,
+        color: fd.teamBColor,
+        liberoColor: fd.teamBLiberoColor || undefined,
+        city: fd.teamBCity,
         // ВАЖНО: Сохраняем все поля логотипа из текущего match (который может быть обновлен после swapTeams)
         // После swap-teams logoPath уже обновлен с новыми уникальными именами файлов
         // Нужно сохранить эти актуальные logoPath, а не перезаписывать их
@@ -205,11 +213,11 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
         logoBase64: match.teamB.logoBase64, // Используем актуальный logoBase64 из match
       },
       officials: {
-        referee1: formData.referee1,
-        referee2: formData.referee2,
-        lineJudge1: formData.lineJudge1,
-        lineJudge2: formData.lineJudge2,
-        scorer: formData.scorer,
+        referee1: fd.referee1,
+        referee2: fd.referee2,
+        lineJudge1: fd.lineJudge1,
+        lineJudge2: fd.lineJudge2,
+        scorer: fd.scorer,
       },
       updatedAt: new Date().toISOString(),
     };
@@ -304,9 +312,57 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
     return null;
   }
 
+  const variantOptions = [
+    { value: VARIANTS.INDOOR, label: 'Зал (до 5 партий, до 25 очков)' },
+    { value: VARIANTS.BEACH, label: 'Пляж (до 3 партий, до 21 очка)' },
+    { value: VARIANTS.SNOW, label: 'Снежный (до 3 партий, до 15 очков)' },
+  ];
+
   return (
     <div style={{ padding: space.md, maxWidth: '1000px', margin: '0 auto' }}>
       <h2>Настройки матча</h2>
+
+      {/* Тип игры */}
+      <div style={{
+        backgroundColor: 'var(--color-surface-muted)',
+        padding: space.lg,
+        borderRadius: radius.sm,
+        marginBottom: space.lg,
+      }}>
+        <h3 style={{ marginTop: 0 }}>Тип игры</h3>
+        <div>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+            Вариант волейбола
+          </label>
+          <select
+            value={formData.variant || VARIANTS.INDOOR}
+            onChange={(e) => handleInputChange('variant', e.target.value)}
+            disabled={MatchDomain.hasMatchStarted(match)}
+            title={MatchDomain.hasMatchStarted(match) ? 'Тип матча нельзя изменить после начала игры' : ''}
+            style={{
+              width: '100%',
+              maxWidth: '400px',
+              padding: '0.5rem',
+              fontSize: '1rem',
+              border: '1px solid var(--color-border)',
+              borderRadius: radius.sm,
+              opacity: MatchDomain.hasMatchStarted(match) ? 0.6 : 1,
+              cursor: MatchDomain.hasMatchStarted(match) ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {variantOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          {MatchDomain.hasMatchStarted(match) && (
+            <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
+              Тип матча нельзя изменить после начала игры
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Информация о турнире */}
       <div style={{
@@ -533,6 +589,7 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }) {
                     // Это необходимо, так как команды поменялись местами, и нужно обновить все поля формы
                     // matchId не меняется при swapTeams, поэтому useEffect не обновит formData автоматически
                     setFormData({
+                      variant: finalSwappedMatch.variant || VARIANTS.INDOOR,
                       tournament: finalSwappedMatch.tournament || '',
                       tournamentSubtitle: finalSwappedMatch.tournamentSubtitle || '',
                       location: finalSwappedMatch.location || '',

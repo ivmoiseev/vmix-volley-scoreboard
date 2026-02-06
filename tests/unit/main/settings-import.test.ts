@@ -414,22 +414,21 @@ describe('settingsImport', () => {
       vmix: {
         host: 'newhost',
         port: 9999,
+        inputOrder: ['uuid-1'],
         inputs: {
-          currentScore: {
+          'uuid-1': {
             enabled: true,
-            inputIdentifier: 'Input7',
+            displayName: 'SCORE',
+            vmixTitle: 'SCORE',
             overlay: 1,
             fields: {
-              scoreA: {
-                type: 'text',
-                fieldIdentifier: 'ScoreA',
-                enabled: true,
+              'Count_Team1.Text': {
+                vmixFieldType: 'text',
+                dataMapKey: 'currentSet.scoreA',
               },
-              // Новое поле, которого нет в существующих
-              scoreB: {
-                type: 'text',
-                fieldIdentifier: 'ScoreB',
-                enabled: true,
+              'Count_Team2.Text': {
+                vmixFieldType: 'text',
+                dataMapKey: 'currentSet.scoreB',
               },
             },
           },
@@ -441,22 +440,21 @@ describe('settingsImport', () => {
       vmix: {
         host: 'localhost',
         port: 8088,
+        inputOrder: ['uuid-1'],
         inputs: {
-          currentScore: {
+          'uuid-1': {
             enabled: true,
-            inputIdentifier: 'Input7',
+            displayName: 'SCORE',
+            vmixTitle: 'SCORE',
             overlay: 1,
             fields: {
-              scoreA: {
-                type: 'text',
-                fieldIdentifier: 'ScoreA',
-                enabled: false, // Существующее поле с другим значением
+              'Count_Team1.Text': {
+                vmixFieldType: 'text',
+                dataMapKey: 'old.scoreA',
               },
-              // Существующее поле, которого нет в импорте
-              teamA: {
-                type: 'text',
-                fieldIdentifier: 'TeamA',
-                enabled: true,
+              'Name_Team1.Text': {
+                vmixFieldType: 'text',
+                dataMapKey: 'teamA.name',
               },
             },
           },
@@ -474,18 +472,18 @@ describe('settingsImport', () => {
     await importSettings(testImportFile);
 
     const savedSettings = vi.mocked(saveSettings).mock.calls[0][0];
-    const savedFields = savedSettings.vmix.inputs.currentScore.fields;
+    const savedFields = savedSettings.vmix.inputs['uuid-1'].fields;
 
-    // scoreA должен быть обновлен (из импорта)
-    expect(savedFields.scoreA.enabled).toBe(true);
+    // Count_Team1.Text должен быть обновлен (из импорта)
+    expect(savedFields['Count_Team1.Text'].dataMapKey).toBe('currentSet.scoreA');
     
-    // scoreB должен быть добавлен (из импорта)
-    expect(savedFields.scoreB).toBeDefined();
-    expect(savedFields.scoreB.fieldIdentifier).toBe('ScoreB');
+    // Count_Team2.Text должен быть добавлен (из импорта)
+    expect(savedFields['Count_Team2.Text']).toBeDefined();
+    expect(savedFields['Count_Team2.Text'].dataMapKey).toBe('currentSet.scoreB');
     
-    // teamA должен быть сохранен (из существующих)
-    expect(savedFields.teamA).toBeDefined();
-    expect(savedFields.teamA.fieldIdentifier).toBe('TeamA');
+    // Name_Team1.Text должен быть сохранен (из существующих)
+    expect(savedFields['Name_Team1.Text']).toBeDefined();
+    expect(savedFields['Name_Team1.Text'].dataMapKey).toBe('teamA.name');
   });
 
   test('importSettings должен сохранять существующие поля, которых нет в импорте', async () => {
@@ -497,17 +495,17 @@ describe('settingsImport', () => {
       vmix: {
         host: 'newhost',
         port: 9999,
+        inputOrder: ['uuid-1'],
         inputs: {
-          currentScore: {
+          'uuid-1': {
             enabled: true,
-            inputIdentifier: 'Input7',
+            displayName: 'SCORE',
+            vmixTitle: 'SCORE',
             overlay: 1,
             fields: {
-              // Только одно поле в импорте
-              scoreA: {
-                type: 'text',
-                fieldIdentifier: 'ScoreA',
-                enabled: true,
+              'Count_Team1.Text': {
+                vmixFieldType: 'text',
+                dataMapKey: 'currentSet.scoreA',
               },
             },
           },
@@ -519,26 +517,25 @@ describe('settingsImport', () => {
       vmix: {
         host: 'localhost',
         port: 8088,
+        inputOrder: ['uuid-1'],
         inputs: {
-          currentScore: {
+          'uuid-1': {
             enabled: true,
-            inputIdentifier: 'Input7',
+            displayName: 'SCORE',
+            vmixTitle: 'SCORE',
             overlay: 1,
             fields: {
-              scoreA: {
-                type: 'text',
-                fieldIdentifier: 'ScoreA',
-                enabled: false,
+              'Count_Team1.Text': {
+                vmixFieldType: 'text',
+                dataMapKey: 'old.scoreA',
               },
-              teamA: {
-                type: 'text',
-                fieldIdentifier: 'TeamA',
-                enabled: true,
+              'Name_Team1.Text': {
+                vmixFieldType: 'text',
+                dataMapKey: 'teamA.name',
               },
-              teamB: {
-                type: 'text',
-                fieldIdentifier: 'TeamB',
-                enabled: true,
+              'Name_Team2.Text': {
+                vmixFieldType: 'text',
+                dataMapKey: 'teamB.name',
               },
             },
           },
@@ -556,13 +553,13 @@ describe('settingsImport', () => {
     await importSettings(testImportFile);
 
     const savedSettings = vi.mocked(saveSettings).mock.calls[0][0];
-    const savedFields = savedSettings.vmix.inputs.currentScore.fields;
+    const savedFields = savedSettings.vmix.inputs['uuid-1'].fields;
 
-    // scoreA должен быть обновлен
-    expect(savedFields.scoreA.enabled).toBe(true);
+    // Count_Team1.Text должен быть обновлен
+    expect(savedFields['Count_Team1.Text'].dataMapKey).toBe('currentSet.scoreA');
     
-    // teamA и teamB должны быть сохранены
-    expect(savedFields.teamA).toBeDefined();
-    expect(savedFields.teamB).toBeDefined();
+    // Name_Team1.Text и Name_Team2.Text должны быть сохранены
+    expect(savedFields['Name_Team1.Text']).toBeDefined();
+    expect(savedFields['Name_Team2.Text']).toBeDefined();
   });
 });

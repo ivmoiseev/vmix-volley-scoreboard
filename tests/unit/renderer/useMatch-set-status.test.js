@@ -5,14 +5,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SET_STATUS } from '../../../src/shared/types/Match.ts';
 import { calculateDuration } from '../../../src/shared/timeUtils.js';
-import { canFinishSet, getSetWinner } from '../../../src/shared/volleyballRules.js';
-
-// Мокируем зависимости
+// Мокируем volleyballRules - useMatch использует getRules(match)
+const mockCanFinishSet = vi.fn();
+const mockGetSetWinner = vi.fn();
 vi.mock('../../../src/shared/volleyballRules.js', () => ({
-  canFinishSet: vi.fn(),
-  getSetWinner: vi.fn(),
-  isSetball: vi.fn(),
-  isMatchball: vi.fn(),
+  getRules: vi.fn(() => ({
+    canFinishSet: mockCanFinishSet,
+    getSetWinner: mockGetSetWinner,
+    isSetball: vi.fn(() => ({ isSetball: false, team: null })),
+    isMatchball: vi.fn(() => ({ isMatchball: false, team: null })),
+    getConfig: () => ({ decidingSetNumber: 5, pointsToWinRegularSet: 25, pointsToWinDecidingSet: 15 }),
+  })),
 }));
 
 vi.mock('../../../src/shared/timeUtils.js', () => ({
@@ -21,9 +24,12 @@ vi.mock('../../../src/shared/timeUtils.js', () => ({
 
 describe('useMatch - Set Status Functions', () => {
   // Вспомогательная функция для создания тестового матча
+  const getSetWinner = (a, b) => (a > b ? 'A' : b > a ? 'B' : null);
+
   function createTestMatch(overrides = {}) {
     return {
       matchId: 'test-match',
+      variant: 'indoor',
       teamA: { name: 'Команда A' },
       teamB: { name: 'Команда B' },
       sets: [],
@@ -41,9 +47,8 @@ describe('useMatch - Set Status Functions', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // Настройка моков по умолчанию
-    canFinishSet.mockReturnValue(true);
-    getSetWinner.mockReturnValue('A');
+    mockCanFinishSet.mockReturnValue(true);
+    mockGetSetWinner.mockReturnValue('A');
     calculateDuration.mockReturnValue(45);
   });
 
@@ -148,13 +153,13 @@ describe('useMatch - Set Status Functions', () => {
         },
       });
 
-      canFinishSet.mockReturnValue(true);
-      getSetWinner.mockReturnValue('A');
+      mockCanFinishSet.mockReturnValue(true);
+      mockGetSetWinner.mockReturnValue('A');
 
       // Симуляция логики finishSet
       const { scoreA, scoreB, setNumber, startTime: setStartTime } = match.currentSet;
       
-      if (!canFinishSet(scoreA, scoreB, setNumber)) {
+      if (!mockCanFinishSet(scoreA, scoreB, setNumber)) {
         throw new Error('Партия не может быть завершена');
       }
 
@@ -201,8 +206,8 @@ describe('useMatch - Set Status Functions', () => {
         },
       });
 
-      canFinishSet.mockReturnValue(true);
-      getSetWinner.mockReturnValue('A');
+      mockCanFinishSet.mockReturnValue(true);
+      mockGetSetWinner.mockReturnValue('A');
 
       // Симуляция логики finishSet
       const { scoreA, scoreB, setNumber } = match.currentSet;
@@ -242,13 +247,13 @@ describe('useMatch - Set Status Functions', () => {
         },
       });
 
-      canFinishSet.mockReturnValue(false);
+      mockCanFinishSet.mockReturnValue(false);
 
       const { scoreA, scoreB, setNumber } = match.currentSet;
       
-      if (!canFinishSet(scoreA, scoreB, setNumber)) {
+      if (!mockCanFinishSet(scoreA, scoreB, setNumber)) {
         // Партия не может быть завершена
-        expect(canFinishSet).toHaveBeenCalledWith(scoreA, scoreB, setNumber);
+        expect(mockCanFinishSet).toHaveBeenCalledWith(scoreA, scoreB, setNumber);
         expect(match.currentSet.status).toBe(SET_STATUS.IN_PROGRESS);
       }
     });
@@ -299,8 +304,8 @@ describe('useMatch - Set Status Functions', () => {
         },
       });
 
-      canFinishSet.mockReturnValue(true);
-      getSetWinner.mockReturnValue('A');
+      mockCanFinishSet.mockReturnValue(true);
+      mockGetSetWinner.mockReturnValue('A');
 
       const currentStatus = match.currentSet.status || SET_STATUS.PENDING;
       
@@ -308,7 +313,7 @@ describe('useMatch - Set Status Functions', () => {
         // Должна вызываться finishSet
         const { scoreA, scoreB, setNumber } = match.currentSet;
         
-        if (canFinishSet(scoreA, scoreB, setNumber)) {
+        if (mockCanFinishSet(scoreA, scoreB, setNumber)) {
           const updatedMatch = {
             ...match,
             sets: [...match.sets, {

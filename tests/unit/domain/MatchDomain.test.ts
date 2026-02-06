@@ -8,6 +8,87 @@ import { SET_STATUS } from '../../../src/shared/types/Match.ts';
 import type { Match, Set } from '../../../src/shared/types/Match.ts';
 
 describe('MatchDomain', () => {
+  describe('hasMatchStarted', () => {
+    it('должен возвращать false для нового матча (партия не начата)', () => {
+      const match: Match = {
+        matchId: 'test',
+        teamA: { name: 'Team A', color: '#000' },
+        teamB: { name: 'Team B', color: '#fff' },
+        sets: [],
+        currentSet: {
+          setNumber: 1,
+          scoreA: 0,
+          scoreB: 0,
+          servingTeam: 'A',
+          status: SET_STATUS.PENDING,
+        },
+        statistics: {
+          enabled: false,
+          teamA: { attack: 0, block: 0, serve: 0, opponentErrors: 0 },
+          teamB: { attack: 0, block: 0, serve: 0, opponentErrors: 0 },
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      expect(MatchDomain.hasMatchStarted(match)).toBe(false);
+    });
+
+    it('должен возвращать true, если текущая партия в игре', () => {
+      const match: Match = {
+        matchId: 'test',
+        teamA: { name: 'Team A', color: '#000' },
+        teamB: { name: 'Team B', color: '#fff' },
+        sets: [],
+        currentSet: {
+          setNumber: 1,
+          scoreA: 10,
+          scoreB: 8,
+          servingTeam: 'A',
+          status: SET_STATUS.IN_PROGRESS,
+        },
+        statistics: {
+          enabled: false,
+          teamA: { attack: 0, block: 0, serve: 0, opponentErrors: 0 },
+          teamB: { attack: 0, block: 0, serve: 0, opponentErrors: 0 },
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      expect(MatchDomain.hasMatchStarted(match)).toBe(true);
+    });
+
+    it('должен возвращать true, если хотя бы одна партия завершена', () => {
+      const match: Match = {
+        matchId: 'test',
+        teamA: { name: 'Team A', color: '#000' },
+        teamB: { name: 'Team B', color: '#fff' },
+        sets: [
+          { setNumber: 1, scoreA: 25, scoreB: 20, completed: true, status: SET_STATUS.COMPLETED },
+        ],
+        currentSet: {
+          setNumber: 2,
+          scoreA: 0,
+          scoreB: 0,
+          servingTeam: 'A',
+          status: SET_STATUS.PENDING,
+        },
+        statistics: {
+          enabled: false,
+          teamA: { attack: 0, block: 0, serve: 0, opponentErrors: 0 },
+          teamB: { attack: 0, block: 0, serve: 0, opponentErrors: 0 },
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      expect(MatchDomain.hasMatchStarted(match)).toBe(true);
+    });
+
+    it('должен возвращать false для null и undefined', () => {
+      expect(MatchDomain.hasMatchStarted(null)).toBe(false);
+      expect(MatchDomain.hasMatchStarted(undefined)).toBe(false);
+    });
+  });
+
   describe('getMaxSetNumber', () => {
     it('должен возвращать максимальный номер партии', () => {
       const match: Match = {

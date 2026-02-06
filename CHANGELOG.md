@@ -9,6 +9,9 @@
 
 ### Добавлено
 
+- **MatchDomain.hasMatchStarted** — функция определения, начат ли матч (есть завершённые партии или текущая партия в игре)
+- **Блокировка смены варианта волейбола** — поле «Вариант волейбола» в настройках матча блокируется после начала игры с подсказкой
+
 - **Система дизайна (design tokens) и тёмная тема**
   - Design tokens: `src/shared/theme/tokens.js` (цвета светлой/тёмной темы, отступы, радиусы, типографика), реэкспорт в `src/renderer/theme/tokens.js`
   - Применение темы: `src/renderer/theme/applyTheme.js` — запись токенов в CSS-переменные на `document.documentElement`
@@ -31,11 +34,34 @@
 
 ### Исправлено
 
+- **Потеря данных в форме настроек матча** — добавлен `formDataRef` в MatchSettingsPage для корректного сохранения; кнопка «Сохранить» в хедере читает актуальные данные из ref
+- **Перезапись formData при обновлении match** — зависимость useEffect изменена с `[match, navigate]` на `[match?.matchId, navigate]`
+- **Переход на страницу матча после сохранения настроек** — порядок `effectiveInitialMatch` изменён на `matchFromState || initialMatch` для использования `finalMatch` из `location.state`
+- **Смена команд местами** — при swap teams сохраняется поле `variant` в formData
+
 - **Тесты MobileAccessPage**
   - Поиск кнопок через getByRole('button', { name: /запустить сервер/i }) и /остановить сервер/i вместо getByText (избежание множественных совпадений)
   - Мок getMobileServerInfo с полем `running: true`/`running: false` (компонент проверяет serverInfo.running)
   - Синхронизация моков с global.window.electronAPI в тестах «ошибки при генерации QR-кода», «QR из сохраненной сессии», «остановить сервер», «очищать QR-код»
   - Мок QRCodeCanvas без вызова getContext('2d') (в jsdom не реализован)
+
+### Документация
+
+- **Консолидация документации по вариантам волейбола** — создан единый документ `docs/development/volleyball-variants.md` (правила, архитектура, hasMatchStarted)
+- Удалены устаревшие: `volleyball-variants-implementation-guide.md`, `volleyball-variants-refactoring-plan.md`, `volleyball-variants-rules.md`
+- Обновлены ссылки в docs/README.md, development/README.md, app-description.md, score-and-set-status-logic-documentation.md
+- Обновлены cursor_rules.mdc — добавлен MatchDomain, ссылка на volleyball-variants.md
+
+- **Дизайн:** добавлен единый документ **docs/development/DESIGN.md** — актуальное описание системы дизайна (токены, темы, компоненты, оформление страниц)
+- **Структура UI:** обновлён docs/getting-started/ui-structure.md — меню «Вид» с пунктом «Переключить тему», ссылка на DESIGN.md
+- **Аудит и рефакторинг:** в docs/development/ui-ux-audit-report.md и design-refactoring-implementation-guide.md добавлены статус и ссылки на DESIGN.md
+- Удалены устаревшие docs/development/design-theme-and-score-fixes-plan.md и dark-theme-inputs-analysis.md (содержимое учтено в DESIGN.md)
+- Обновлены docs/README.md и docs/development/README.md — ссылки на DESIGN.md и актуальный список документов
+- Обновлены docs/development/README.md — раздел «Тесты рефакторинга инпутов vMix»
+- Обновлены docs/development/vmix-inputs-refactoring-implementation-guide.md — раздел 12.4 «Добавленные тесты»
+- Обновлены docs/testing/README.md — таблица новых и обновлённых тестов
+- Обновлены docs/architecture/ARCHITECTURE.md — vmix-overlay-utils.ts в main, getValueByDataMapKey.js в shared
+- Обновлён docs/README.md — дата последнего обновления 2026-02-06
 
 ### Изменено
 
@@ -49,19 +75,6 @@
   - **RosterManagementPage:** таблица состава и сетка расстановки — surface и color из темы
   - **VMixSettingsPage:** панели «Настройка инпутов» (список инпутов и настройки выбранного), модальное окно «Добавить инпут», VMixInputFieldsPanel — surface, цвет текста и подписей из темы
   - **Button:** явный opacity: 1 в baseStyle для обычного состояния; при disabled — opacity: 0.7 (тесты ScoreButtons приведены в соответствие)
-
-### Документация
-
-- **Дизайн:** добавлен единый документ **docs/development/DESIGN.md** — актуальное описание системы дизайна (токены, темы, компоненты, оформление страниц)
-- **Структура UI:** обновлён docs/getting-started/ui-structure.md — меню «Вид» с пунктом «Переключить тему», ссылка на DESIGN.md
-- **Аудит и рефакторинг:** в docs/development/ui-ux-audit-report.md и design-refactoring-implementation-guide.md добавлены статус и ссылки на DESIGN.md
-- Удалены устаревшие docs/development/design-theme-and-score-fixes-plan.md и dark-theme-inputs-analysis.md (содержимое учтено в DESIGN.md)
-- Обновлены docs/README.md и docs/development/README.md — ссылки на DESIGN.md и актуальный список документов
-- Обновлены docs/development/README.md — раздел «Тесты рефакторинга инпутов vMix»
-- Обновлены docs/development/vmix-inputs-refactoring-implementation-guide.md — раздел 12.4 «Добавленные тесты»
-- Обновлены docs/testing/README.md — таблица новых и обновлённых тестов
-- Обновлены docs/architecture/ARCHITECTURE.md — vmix-overlay-utils.ts в main, getValueByDataMapKey.js в shared
-- Обновлён docs/README.md — дата последнего обновления 2026-02-05
 
 ## [1.0.9] - 2026-01-23
 

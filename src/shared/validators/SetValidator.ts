@@ -6,7 +6,7 @@
 import { Set, CurrentSet, SET_STATUS } from '../types/Match.js';
 // Импортируем из JavaScript файла (потребуется типизация)
 // @ts-ignore - временно, пока не будет TypeScript версии
-import { canFinishSet } from '../volleyballRules.js';
+import { getRules } from '../volleyballRules.js';
 
 /**
  * Результат валидации
@@ -84,8 +84,10 @@ export class SetValidator {
     // Проверка 4: Счет для завершенных партий должен соответствовать правилам
     if (finalStatus === SET_STATUS.COMPLETED ||
         (set.status === SET_STATUS.COMPLETED && finalStatus !== SET_STATUS.PENDING)) {
-      if (!canFinishSet(finalScoreA, finalScoreB, set.setNumber)) {
-        const threshold = set.setNumber === 5 ? 15 : 25;
+      const rules = match ? getRules(match) : getRules({ variant: 'indoor' });
+      if (!rules.canFinishSet(finalScoreA, finalScoreB, set.setNumber)) {
+        const cfg = rules.getConfig();
+        const threshold = set.setNumber === cfg.decidingSetNumber ? cfg.pointsToWinDecidingSet : cfg.pointsToWinRegularSet;
         errors.push(
           `Счет не соответствует правилам завершения партии. ` +
           `Необходимо набрать ${threshold} очков с разницей минимум 2 очка.`

@@ -3,13 +3,16 @@ import { SET_STATUS } from '../../shared/types/Match';
 import { formatDuration } from '../../shared/timeUtils';
 // @ts-ignore - временно, пока не будет TypeScript версии
 import { SetDomain } from '../../shared/domain/SetDomain.js';
+import { getSetNumbers, isDecidingSet } from '../../shared/volleyballRules.js';
 import { space, radius } from '../theme/tokens';
 
-function SetsDisplay({ 
-  sets, 
+function SetsDisplay({
+  sets,
   currentSet,
-  onSetClick
+  match,
+  onSetClick,
 }) {
+  const setNumbers = match ? getSetNumbers(match) : [1, 2, 3, 4, 5];
   return (
     <div style={{
       backgroundColor: 'var(--color-surface-muted)',
@@ -18,8 +21,8 @@ function SetsDisplay({
       marginBottom: space.md,
     }}>
       <h3 style={{ marginTop: 0 }}>Счет по партиям:</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: space.sm }}>
-        {[1, 2, 3, 4, 5].map((setNum) => {
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${setNumbers.length}, 1fr)`, gap: space.sm }}>
+        {setNumbers.map((setNum) => {
           const set = sets.find(s => s.setNumber === setNum);
           // Используем Domain Layer для проверки, является ли это текущей партией
           const isCurrent = SetDomain.isCurrentSet(setNum, currentSet);
@@ -40,9 +43,12 @@ function SetsDisplay({
             color = 'white';
             // Показываем длительность, даже если она равна 0
             const duration = (set.duration !== null && set.duration !== undefined) ? formatDuration(set.duration) : '';
+            const setLabel = match && isDecidingSet(setNum, match)
+              ? `Партия ${setNum} (решающая)`
+              : `Партия ${setNum}`;
             content = (
               <>
-                <div style={{ fontSize: '0.8rem' }}>Партия {setNum}</div>
+                <div style={{ fontSize: '0.8rem' }}>{setLabel}</div>
                 <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
                   {set.scoreA} - {set.scoreB}
                 </div>
@@ -57,9 +63,12 @@ function SetsDisplay({
             // Текущая партия в игре
             backgroundColor = 'var(--color-primary)';
             color = 'white';
+            const setLabelInProgress = match && isDecidingSet(setNum, match)
+              ? `Партия ${setNum} (решающая)`
+              : `Партия ${setNum}`;
             content = (
               <>
-                <div style={{ fontSize: '0.8rem' }}>Партия {setNum}</div>
+                <div style={{ fontSize: '0.8rem' }}>{setLabelInProgress}</div>
                 <div style={{ fontSize: '1rem', fontWeight: 'bold' }}>В игре</div>
                 <div style={{ fontSize: '1rem' }}>
                   {currentSet.scoreA} - {currentSet.scoreB}
@@ -70,9 +79,12 @@ function SetsDisplay({
             // Партия не начата
             backgroundColor = 'var(--color-disabled)';
             color = 'var(--color-text-secondary)';
+            const setLabelPending = match && isDecidingSet(setNum, match)
+              ? `Партия ${setNum} (решающая)`
+              : `Партия ${setNum}`;
             content = (
               <>
-                <div style={{ fontSize: '0.8rem' }}>Партия {setNum}</div>
+                <div style={{ fontSize: '0.8rem' }}>{setLabelPending}</div>
                 <div style={{ fontSize: '1.2rem' }}>-</div>
               </>
             );
@@ -116,6 +128,10 @@ function SetsDisplay({
 
 // Кастомная функция сравнения для memo
 const areEqual = (prevProps, nextProps) => {
+  // Сравниваем variant (влияет на количество партий)
+  if (prevProps.match?.variant !== nextProps.match?.variant) {
+    return false;
+  }
   // Сравниваем количество партий и их содержимое
   if (prevProps.sets.length !== nextProps.sets.length) {
     return false; // Разное количество - нужно пересчитать

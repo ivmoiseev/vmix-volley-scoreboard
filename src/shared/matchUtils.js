@@ -14,6 +14,7 @@ function createNewMatch() {
 
   return {
     matchId: generateUUID(),
+    variant: "indoor",
     tournament: "",
     tournamentSubtitle: "",
     location: "",

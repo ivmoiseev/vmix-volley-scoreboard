@@ -1,8 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { app } from 'electron';
-import { getDefaultFieldsForInput, migrateInputToNewFormat } from './vmix-input-configs.ts';
-import { migrateVMixConfig } from './vmix-field-migration.ts';
 import { getSettingsPath, getDefaultSettingsPath } from './utils/pathUtils.ts';
 
 // Используем единую утилиту для определения путей
@@ -64,43 +62,13 @@ async function ensureSettingsFile() {
  * Возвращает настройки по умолчанию
  */
 function getDefaultSettings() {
-  // Определяем имена инпутов по умолчанию
-  const defaultInputNames = {
-    lineup: 'Input1',
-    statistics: 'Input2',
-    rosterTeamA: 'Input3',
-    rosterTeamB: 'Input4',
-    startingLineupTeamA: 'Input5',
-    startingLineupTeamB: 'Input6',
-    currentScore: 'Input7',
-    set1Score: 'Input8',
-    set2Score: 'Input9',
-    set3Score: 'Input10',
-    set4Score: 'Input11',
-    set5Score: 'Input12',
-    referee1: 'Input13',
-    referee2: 'Input14',
-  };
-
-  // Создаем конфигурацию инпутов с новой структурой
-  const inputs = {};
-  for (const [key, defaultName] of Object.entries(defaultInputNames)) {
-    const defaultFields = getDefaultFieldsForInput(key) || {};
-    inputs[key] = {
-      enabled: true,
-      inputIdentifier: defaultName,
-      overlay: 1,
-      fields: defaultFields,
-    };
-  }
-
   return {
     vmix: {
       host: 'localhost',
       port: 8088,
       connectionState: 'disconnected',
       inputOrder: [],
-      inputs,
+      inputs: {},
     },
     mobile: {
       enabled: false,
@@ -130,252 +98,36 @@ async function loadSettings() {
     const data = await fs.readFile(settingsPath, 'utf-8');
     const settings = JSON.parse(data);
     
-    // Миграция: если настройки в старом формате, конвертируем
-    if (settings.vmix && settings.vmix.inputs) {
-      let needsMigration = false;
-      
-      // Проверяем, нужно ли мигрировать
-      for (const key of Object.keys(settings.vmix.inputs)) {
-        const inputValue = settings.vmix.inputs[key];
-        // Если формат старый (строка или объект с name/overlay без fields/enabled)
-        if (typeof inputValue === 'string' || 
-            (inputValue && typeof inputValue === 'object' && 
-             !Object.prototype.hasOwnProperty.call(inputValue, 'enabled') && 
-             !Object.prototype.hasOwnProperty.call(inputValue, 'fields'))) {
-          needsMigration = true;
-          break;
+    // Оставляем только динамические инпуты (с displayName и vmixTitle)
+    if (settings.vmix && settings.vmix.inputs && typeof settings.vmix.inputs === 'object') {
+      const inputs = settings.vmix.inputs;
+      const filteredInputs: Record<string, unknown> = {};
+      for (const [key, input] of Object.entries(inputs)) {
+        const inp = input as Record<string, unknown>;
+        if (inp && typeof inp === 'object' && 
+            typeof inp.displayName === 'string' && inp.displayName.trim() !== '' &&
+            typeof inp.vmixTitle === 'string' && inp.vmixTitle.trim() !== '') {
+          filteredInputs[key] = input;
         }
       }
-
-      if (needsMigration) {
-        const migratedSettings = {
+      const inputOrder = Array.isArray(settings.vmix.inputOrder) 
+        ? settings.vmix.inputOrder.filter((id: string) => id in filteredInputs) 
+        : [];
+      if (Object.keys(filteredInputs).length !== Object.keys(inputs).length || 
+          JSON.stringify(inputOrder) !== JSON.stringify(settings.vmix.inputOrder || [])) {
+        const cleanedSettings = {
           ...settings,
           vmix: {
             ...settings.vmix,
-            inputs: Object.keys(settings.vmix.inputs).reduce((acc, key) => {
-              const value = settings.vmix.inputs[key];
-              
-              // Миграция старых ключей roster и startingLineup в новый формат
-              if (key === 'roster') {
-                // Преобразуем roster в rosterTeamA и rosterTeamB
-                acc['rosterTeamA'] = migrateInputToNewFormat(value, 'rosterTeamA');
-                acc['rosterTeamB'] = migrateInputToNewFormat(value, 'rosterTeamB');
-                // Если есть inputIdentifier, используем его, иначе создаем два разных
-                if (value && typeof value === 'object' && value.inputIdentifier) {
-                  acc['rosterTeamB'].inputIdentifier = value.inputIdentifier + '_B';
-                } else if (typeof value === 'string') {
-                  acc['rosterTeamA'].inputIdentifier = value;
-                  acc['rosterTeamB'].inputIdentifier = value + '_B';
-                }
-                return acc;
-              }
-              
-              if (key === 'startingLineup') {
-                // Преобразуем startingLineup в startingLineupTeamA и startingLineupTeamB
-                acc['startingLineupTeamA'] = migrateInputToNewFormat(value, 'startingLineupTeamA');
-                acc['startingLineupTeamB'] = migrateInputToNewFormat(value, 'startingLineupTeamB');
-                // Если есть inputIdentifier, используем его, иначе создаем два разных
-                if (value && typeof value === 'object' && value.inputIdentifier) {
-                  acc['startingLineupTeamB'].inputIdentifier = value.inputIdentifier + '_B';
-                } else if (typeof value === 'string') {
-                  acc['startingLineupTeamA'].inputIdentifier = value;
-                  acc['startingLineupTeamB'].inputIdentifier = value + '_B';
-                }
-                return acc;
-              }
-              
-              // Для остальных ключей просто мигрируем в новый формат
-              acc[key] = migrateInputToNewFormat(value, key);
-              return acc;
-            }, {}),
+            inputs: filteredInputs,
+            inputOrder,
           },
         };
-        // Удаляем старое поле overlay, если оно есть
-        delete migratedSettings.vmix.overlay;
-        await saveSettings(migratedSettings);
-        return migratedSettings;
-      }
-      
-      // Дополнительная миграция: если есть старые ключи roster/startingLineup, преобразуем их
-      if (settings.vmix && settings.vmix.inputs) {
-        let needsRosterMigration = false;
-        const newInputs = { ...settings.vmix.inputs };
-        
-        if (newInputs.roster && !newInputs.rosterTeamA) {
-          needsRosterMigration = true;
-          newInputs.rosterTeamA = migrateInputToNewFormat(newInputs.roster, 'rosterTeamA');
-          newInputs.rosterTeamB = migrateInputToNewFormat(newInputs.roster, 'rosterTeamB');
-          // Настраиваем разные inputIdentifier для команд
-          if (newInputs.roster.inputIdentifier) {
-            newInputs.rosterTeamA.inputIdentifier = newInputs.roster.inputIdentifier;
-            newInputs.rosterTeamB.inputIdentifier = newInputs.roster.inputIdentifier + '_B';
-          }
-          delete newInputs.roster;
-        }
-        
-        if (newInputs.startingLineup && !newInputs.startingLineupTeamA) {
-          needsRosterMigration = true;
-          newInputs.startingLineupTeamA = migrateInputToNewFormat(newInputs.startingLineup, 'startingLineupTeamA');
-          newInputs.startingLineupTeamB = migrateInputToNewFormat(newInputs.startingLineup, 'startingLineupTeamB');
-          // Настраиваем разные inputIdentifier для команд
-          if (newInputs.startingLineup.inputIdentifier) {
-            newInputs.startingLineupTeamA.inputIdentifier = newInputs.startingLineup.inputIdentifier;
-            newInputs.startingLineupTeamB.inputIdentifier = newInputs.startingLineup.inputIdentifier + '_B';
-          }
-          delete newInputs.startingLineup;
-        }
-        
-        if (needsRosterMigration) {
-          const migratedSettings = {
-            ...settings,
-            vmix: {
-              ...settings.vmix,
-              inputs: newInputs,
-            },
-          };
-          await saveSettings(migratedSettings);
-          return migratedSettings;
-        }
-      }
-
-      // Добавляем недостающие инпуты и поля из конфигурации по умолчанию
-      const defaultInputNames = {
-        lineup: 'Input1',
-        statistics: 'Input2',
-        rosterTeamA: 'Input3',
-        rosterTeamB: 'Input4',
-        startingLineupTeamA: 'Input5',
-        startingLineupTeamB: 'Input6',
-        currentScore: 'Input7',
-        set1Score: 'Input8',
-        set2Score: 'Input9',
-        set3Score: 'Input10',
-        set4Score: 'Input11',
-        set5Score: 'Input12',
-        referee1: 'Input13',
-        referee2: 'Input14',
-      };
-
-      let needsFieldsMigration = false;
-      const inputs = settings.vmix.inputs || {};
-
-      // Проверяем и добавляем недостающие инпуты
-      for (const [key, defaultName] of Object.entries(defaultInputNames)) {
-        if (!inputs[key]) {
-          needsFieldsMigration = true;
-          const defaultFields = getDefaultFieldsForInput(key) || {};
-          inputs[key] = {
-            enabled: true,
-            inputIdentifier: defaultName,
-            overlay: 1,
-            fields: defaultFields,
-          };
-        } else {
-          // Инпут существует, проверяем и дополняем его поля
-          const input = inputs[key];
-          const defaultFields = getDefaultFieldsForInput(key) || {};
-          const existingFields = input.fields || {};
-          
-          // Объединяем поля: сначала defaults, затем существующие (чтобы сохранить пользовательские настройки)
-          const mergedFields = { ...defaultFields };
-          for (const [fieldKey, existingField] of Object.entries(existingFields)) {
-            if (mergedFields[fieldKey]) {
-              // Поле есть в defaults - объединяем, сохраняя пользовательские настройки
-              mergedFields[fieldKey] = {
-                ...mergedFields[fieldKey], // defaults имеют приоритет для type
-                ...existingField,
-                // Переопределяем тип из defaults (важно для обновления типов)
-                type: mergedFields[fieldKey].type,
-                // Убеждаемся, что fieldIdentifier есть (если нет, используем из defaults)
-                fieldIdentifier: existingField.fieldIdentifier || mergedFields[fieldKey].fieldIdentifier,
-              };
-            } else {
-              // Поле отсутствует в defaults, но есть в существующих - добавляем как есть
-              mergedFields[fieldKey] = existingField;
-            }
-          }
-          
-          // Если добавились новые поля, отмечаем необходимость миграции
-          if (Object.keys(mergedFields).length > Object.keys(existingFields).length) {
-            needsFieldsMigration = true;
-            input.fields = mergedFields;
-          }
-          
-          // Убеждаемся, что у инпута есть все необходимые свойства
-          if (input.enabled === undefined) {
-            needsFieldsMigration = true;
-            input.enabled = true;
-          }
-          if (!input.inputIdentifier) {
-            needsFieldsMigration = true;
-            input.inputIdentifier = defaultName;
-          }
-          if (input.overlay === undefined) {
-            needsFieldsMigration = true;
-            input.overlay = 1;
-          }
-        }
-      }
-
-      if (needsFieldsMigration) {
-        const migratedSettings = {
-          ...settings,
-          vmix: {
-            ...settings.vmix,
-            inputs,
-          },
-        };
-        await saveSettings(migratedSettings);
-        // Применяем миграцию типов полей
-        const fieldTypesMigrated = migrateVMixConfig(migratedSettings.vmix);
-        if (fieldTypesMigrated !== migratedSettings.vmix) {
-          const finalMigrated = {
-            ...migratedSettings,
-            vmix: fieldTypesMigrated,
-          };
-          await saveSettings(finalMigrated);
-          return finalMigrated;
-        }
-        return migratedSettings;
+        await saveSettings(cleanedSettings);
+        return cleanedSettings;
       }
     }
-    
-    // Применяем миграцию типов полей для всех настроек
-    if (settings.vmix) {
-      const fieldTypesMigrated = migrateVMixConfig(settings.vmix);
-      // Проверяем, была ли миграция (сравниваем структуру)
-      let needsFieldTypesMigration = false;
-      if (fieldTypesMigrated.inputs) {
-        for (const [inputKey, inputConfig] of Object.entries(fieldTypesMigrated.inputs)) {
-          if (inputConfig.fields) {
-            for (const [fieldKey, field] of Object.entries(inputConfig.fields)) {
-              const originalField = settings.vmix?.inputs?.[inputKey]?.fields?.[fieldKey];
-              if (originalField) {
-                if (originalField.type === 'color' && field.type === 'fill') {
-                  needsFieldTypesMigration = true;
-                  break;
-                }
-                if (originalField.type === 'visibility' && field.type === 'text') {
-                  needsFieldTypesMigration = true;
-                  break;
-                }
-              }
-            }
-            if (needsFieldTypesMigration) break;
-          }
-        }
-      }
-      
-      if (needsFieldTypesMigration) {
-        const finalMigrated = {
-          ...settings,
-          vmix: fieldTypesMigrated,
-        };
-        await saveSettings(finalMigrated);
-        return finalMigrated;
-      }
-    }
-    
+
     return settings;
   } catch (error) {
     console.error('Ошибка при загрузке настроек:', error);

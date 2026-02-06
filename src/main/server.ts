@@ -12,6 +12,7 @@ import * as settingsManager from './settingsManager.ts';
 import * as domUtils from './utils/domUtils.ts';
 import { setupApiRoutes } from './server/api/MatchApiRoutes.ts';
 import { getLogosDir } from './utils/pathUtils.ts';
+import { getRules, RULES_CONFIGS, VARIANTS } from '../shared/volleyballRules.js';
 
 // Получаем __dirname для ES-модулей
 const __filename = fileURLToPath(import.meta.url);
@@ -647,6 +648,48 @@ class MobileServer {
   <script>
     ${domUtils.getSanitizationFunctions()}
     
+    const RULES_CONFIG = ${JSON.stringify(RULES_CONFIGS)};
+    function createRules(config) {
+      const isDecidingSet = (n) => n === config.decidingSetNumber;
+      const getSetballThreshold = (n) => isDecidingSet(n) ? config.setballThresholdDeciding : config.setballThresholdRegular;
+      const getFinishThreshold = (n) => isDecidingSet(n) ? config.pointsToWinDecidingSet : config.pointsToWinRegularSet;
+      return {
+        isSetball(scoreA, scoreB, setNumber) {
+          const t = getSetballThreshold(setNumber || 1);
+          const max = Math.max(scoreA, scoreB), min = Math.min(scoreA, scoreB);
+          if (max >= t && max - min >= 1 && scoreA !== scoreB)
+            return { isSetball: true, team: scoreA > scoreB ? 'A' : 'B' };
+          return { isSetball: false, team: null };
+        },
+        isMatchball(sets, curSet, scoreA, scoreB) {
+          const winsA = sets.filter(s => (s.completed || s.status === 'completed') && s.scoreA > s.scoreB).length;
+          const winsB = sets.filter(s => (s.completed || s.status === 'completed') && s.scoreB > s.scoreA).length;
+          const need = config.setsToWinMatch - 1;
+          if (winsA === need || winsB === need) {
+            const sb = this.isSetball(scoreA, scoreB, curSet);
+            if (sb.isSetball && ((sb.team === 'A' && winsA === need) || (sb.team === 'B' && winsB === need)))
+              return { isMatchball: true, team: sb.team };
+          }
+          return { isMatchball: false, team: null };
+        },
+        canFinishSet(scoreA, scoreB, setNumber) {
+          const finish = getFinishThreshold(setNumber || 1);
+          const tie = finish - 1;
+          const max = Math.max(scoreA, scoreB), min = Math.min(scoreA, scoreB);
+          return (max >= finish && max - min >= 2) || (max >= tie && min >= tie && max - min >= 2);
+        },
+        getConfig: () => config
+      };
+    }
+    function getRules(match) {
+      const v = match?.variant || '${VARIANTS.INDOOR}';
+      const c = RULES_CONFIG[v] || RULES_CONFIG['${VARIANTS.INDOOR}'];
+      return createRules(c);
+    }
+    function isDecidingSet(setNumber, match) {
+      return getRules(match).getConfig().decidingSetNumber === setNumber;
+    }
+    
     const sessionId = '${sessionId}';
     let matchData = null;
     let updateInterval = null;
@@ -796,7 +839,8 @@ class MobileServer {
           finishBtn.onclick = () => finishSet();
           
           // Для завершения партии проверяем canFinish
-          const canFinish = canFinishSet(
+          const rules = getRules(matchData);
+          const canFinish = rules.canFinishSet(
             matchData.currentSet.scoreA, 
             matchData.currentSet.scoreB, 
             matchData.currentSet.setNumber
@@ -854,8 +898,9 @@ class MobileServer {
       const setNumber = matchData.currentSet.setNumber;
       
       // Получаем информацию о сетболе/матчболе
-      const setballInfo = getSetballInfo(scoreA, scoreB, setNumber);
-      const matchballInfo = getMatchballInfo(setNumber, scoreA, scoreB);
+      const rules = getRules(matchData);
+      const setballInfo = rules.isSetball(scoreA, scoreB, setNumber);
+      const matchballInfo = rules.isMatchball(matchData.sets, setNumber, scoreA, scoreB);
       
       // Индикатор для команды A
       if ((matchballInfo.isMatchball && matchballInfo.team === 'A') || 
@@ -878,93 +923,7 @@ class MobileServer {
       }
     }
 
-    function getSetballInfo(scoreA, scoreB, setNumber) {
-      // Порог для сетбола: 24 в обычных сетах, 14 в 5-м сете
-      const setballThreshold = setNumber === 5 ? 14 : 24;
-      
-      const maxScore = Math.max(scoreA, scoreB);
-      const minScore = Math.min(scoreA, scoreB);
-      
-      // Сетбол: команда на сетболе, если она набрала пороговое значение или больше
-      // и ведет минимум на 1 очко
-      // НО НЕ когда счет равный (24:24 или 14:14) - там сетбола нет
-      if (maxScore >= setballThreshold && (maxScore - minScore) >= 1) {
-        // Если счет равный (24:24, 25:25, 14:14 и т.д.) - сетбола нет
-        if (scoreA === scoreB) {
-          return {
-            isSetball: false,
-            team: null
-          };
-        }
-        
-        // Команда на сетболе, если она ведет
-        return {
-          isSetball: true,
-          team: scoreA > scoreB ? 'A' : 'B'
-        };
-      }
-      
-      return {
-        isSetball: false,
-        team: null
-      };
-    }
-
-    function getMatchballInfo(setNumber, scoreA, scoreB) {
-      const winsA = matchData.sets.filter(s => s.completed && s.scoreA > s.scoreB).length;
-      const winsB = matchData.sets.filter(s => s.completed && s.scoreB > s.scoreA).length;
-      
-      // Матчбол возможен, если одна из команд уже выиграла 2 сета
-      // и находится на сетболе в текущем сете
-      if (winsA === 2 || winsB === 2) {
-        const setballInfo = getSetballInfo(scoreA, scoreB, setNumber);
-        if (setballInfo.isSetball) {
-          // Проверяем, какая команда на сетболе и ведет ли она по сетам
-          if (setballInfo.team === 'A' && winsA === 2) {
-            return {
-              isMatchball: true,
-              team: 'A'
-            };
-          }
-          if (setballInfo.team === 'B' && winsB === 2) {
-            return {
-              isMatchball: true,
-              team: 'B'
-            };
-          }
-        }
-      }
-      
-      return {
-        isMatchball: false,
-        team: null
-      };
-    }
-
-    function canFinishSet(scoreA, scoreB, setNumber) {
-      const maxScore = Math.max(scoreA, scoreB);
-      const minScore = Math.min(scoreA, scoreB);
-      
-      // Пороги для завершения сета: 25 в обычных сетах, 15 в 5-м сете
-      const finishThreshold = setNumber === 5 ? 15 : 25;
-      const tieThreshold = setNumber === 5 ? 14 : 24;
-      
-      // Если одна команда набрала пороговое значение и разница минимум 2
-      if (maxScore >= finishThreshold && (maxScore - minScore) >= 2) {
-        return true;
-      }
-      
-      // Если счет достиг порога тай-брейка (24:24 или 14:14), игра продолжается до разницы в 2
-      if (maxScore >= tieThreshold && minScore >= tieThreshold) {
-        if ((maxScore - minScore) >= 2) {
-          return true;
-        }
-      }
-      
-      return false;
-    }
-
-    function createSetItem(set, setNumber, currentSetNum, currentSet) {
+    function createSetItem(set, setNumber, currentSetNum, currentSet, match) {
       const setItem = document.createElement('div');
       setItem.className = 'set-item';
 
@@ -979,9 +938,14 @@ class MobileServer {
         setItem.classList.add('current');
       }
       
+      // Подпись партии: для решающей добавляем «(решающая)»
+      const setLabel = match && isDecidingSet(setNumber, match)
+        ? \`Партия \${setNumber} (решающая)\`
+        : \`Партия \${setNumber}\`;
+      
       // Создаем содержимое элемента
       const setNumberEl = document.createElement('div');
-      setNumberEl.textContent = \`Партия \${setNumber}\`;
+      setTextContentSafe(setNumberEl, setLabel);
       
       const scoreEl = document.createElement('div');
       if (isCompleted) {
@@ -1026,10 +990,10 @@ class MobileServer {
       }
       
       const currentSetNum = matchData.currentSet.setNumber;
-      
-      for (let i = 1; i <= 5; i++) {
+      const setNumbers = getRules(matchData).getConfig().maxSets;
+      for (let i = 1; i <= setNumbers; i++) {
         const set = matchData.sets ? matchData.sets.find(s => s && s.setNumber === i) : null;
-        const setItem = createSetItem(set, i, currentSetNum, matchData.currentSet);
+        const setItem = createSetItem(set, i, currentSetNum, matchData.currentSet, matchData);
         setsList.appendChild(setItem);
       }
     }
@@ -1202,8 +1166,10 @@ class MobileServer {
 
     async function finishSet() {
       const setNumber = matchData.currentSet.setNumber;
-      if (!canFinishSet(matchData.currentSet.scoreA, matchData.currentSet.scoreB, setNumber)) {
-        const threshold = setNumber === 5 ? 15 : 25;
+      const rules = getRules(matchData);
+      if (!rules.canFinishSet(matchData.currentSet.scoreA, matchData.currentSet.scoreB, setNumber)) {
+        const cfg = rules.getConfig();
+        const threshold = setNumber === cfg.decidingSetNumber ? cfg.pointsToWinDecidingSet : cfg.pointsToWinRegularSet;
         alert(\`Партия не может быть завершена. Необходимо набрать \${threshold} очков с разницей минимум 2 очка.\`);
         return;
       }

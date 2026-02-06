@@ -7,8 +7,6 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SET_STATUS } from '../../../src/shared/types/Match.js';
 import type { Match } from '../../../src/shared/types/Match.js';
-// Статические импорты для модулей, мокируемых через vi.mock()
-import * as volleyballRules from '../../../src/shared/volleyballRules.js';
 import * as setValidation from '../../../src/shared/setValidation.js';
 import { SetService } from '../../../src/shared/services/SetService.js';
 import { ScoreService } from '../../../src/shared/services/ScoreService.js';
@@ -48,11 +46,15 @@ vi.mock('../../../src/shared/services/HistoryService.js', () => ({
   },
 }));
 
-// Мокируем JavaScript модули
+// Мокируем volleyballRules - useMatch использует getRules(match)
+const mockCanFinishSet = vi.fn(() => false);
 vi.mock('../../../src/shared/volleyballRules.js', () => ({
-  isSetball: vi.fn(() => ({ isSetball: false, team: null })),
-  isMatchball: vi.fn(() => ({ isMatchball: false, team: null })),
-  canFinishSet: vi.fn(() => false),
+  getRules: vi.fn(() => ({
+    isSetball: vi.fn(() => ({ isSetball: false, team: null })),
+    isMatchball: vi.fn(() => ({ isMatchball: false, team: null })),
+    canFinishSet: mockCanFinishSet,
+    getConfig: () => ({ maxSets: 5 }),
+  })),
 }));
 
 vi.mock('../../../src/shared/matchMigration.js', () => ({
@@ -71,6 +73,7 @@ vi.mock('../../../src/shared/setValidation.js', () => ({
 describe('useMatch', () => {
   const createTestMatch = (overrides: Partial<Match> = {}): Match => ({
     matchId: 'test-match',
+    variant: 'indoor',
     teamA: { name: 'Команда A', color: '#000' },
     teamB: { name: 'Команда B', color: '#fff' },
     sets: [],
@@ -757,9 +760,7 @@ describe('useMatch', () => {
         },
       });
 
-      // Мокаем canFinishSet для этого теста
-      // Используем статический импорт, так как модуль мокируется через vi.mock()
-      volleyballRules.canFinishSet.mockReturnValueOnce(true);
+      mockCanFinishSet.mockReturnValueOnce(true);
 
       const { result } = renderHook(() => useMatch(match));
 

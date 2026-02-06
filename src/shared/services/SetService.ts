@@ -8,7 +8,7 @@ import { SetDomain } from '../domain/SetDomain.js';
 import { SetStateMachine } from '../domain/SetStateMachine.js';
 import { SetValidator } from '../validators/SetValidator.js';
 // @ts-ignore - временно, пока не будет TypeScript версии
-import { canFinishSet, getSetWinner } from '../volleyballRules.js';
+import { getRules } from '../volleyballRules.js';
 // @ts-ignore - временно, пока не будет TypeScript версии
 import { calculateDuration } from '../timeUtils.js';
 
@@ -87,8 +87,10 @@ export class SetService {
 
     // 2. Проверка правил завершения
     const { scoreA, scoreB, setNumber, startTime } = match.currentSet;
-    if (!canFinishSet(scoreA, scoreB, setNumber)) {
-      const threshold = setNumber === 5 ? 15 : 25;
+    const rules = getRules(match);
+    if (!rules.canFinishSet(scoreA, scoreB, setNumber)) {
+      const cfg = rules.getConfig();
+      const threshold = setNumber === cfg.decidingSetNumber ? cfg.pointsToWinDecidingSet : cfg.pointsToWinRegularSet;
       throw new Error(
         `Партия не может быть завершена. Необходимо набрать ${threshold} очков с разницей минимум 2 очка.`
       );
@@ -113,7 +115,7 @@ export class SetService {
     };
 
     // 6. Определяем победителя для следующей партии (подача)
-    const winner = getSetWinner(scoreA, scoreB);
+    const winner = rules.getSetWinner(scoreA, scoreB);
     // Если winner null (не должно происходить при корректном счете), используем команду A по умолчанию
     const servingTeam: 'A' | 'B' = winner || 'A';
 

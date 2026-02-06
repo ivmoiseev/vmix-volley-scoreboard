@@ -11,60 +11,29 @@ export interface ValidationResult {
   errors: string[];
 }
 
-/**
- * Типы полей в инпутах vMix
- */
-export const FIELD_TYPES = {
-  TEXT: 'text',
-  IMAGE: 'image',
-  COLOR: 'color',
-  FILL: 'fill',
-  VISIBILITY: 'visibility',
-} as const;
+/** Типы полей для динамических инпутов vMix */
+export const DYNAMIC_FIELD_TYPES = ['text', 'color', 'image'] as const;
 
-export type FieldType = typeof FIELD_TYPES[keyof typeof FIELD_TYPES];
+export type DynamicFieldType = typeof DYNAMIC_FIELD_TYPES[number];
 
 /**
- * Валидные имена инпутов vMix
+ * Структура поля динамического инпута vMix
  */
-export const VALID_INPUT_KEYS = [
-  'lineup',
-  'statistics',
-  'rosterTeamA',
-  'rosterTeamB',
-  'startingLineupTeamA',
-  'startingLineupTeamB',
-  'currentScore',
-  'set1Score',
-  'set2Score',
-  'set3Score',
-  'set4Score',
-  'set5Score',
-  'referee1',
-  'referee2',
-] as const;
-
-export type InputKey = typeof VALID_INPUT_KEYS[number];
-
-/**
- * Структура поля в инпуте
- */
-export interface InputField {
-  type: FieldType;
-  fieldIdentifier: string;
-  enabled: boolean;
-  fieldName?: string; // Опционально, для обратной совместимости
-  visible?: boolean; // Опционально, для некоторых типов полей
+export interface DynamicInputField {
+  vmixFieldType: DynamicFieldType;
+  dataMapKey?: string;
+  customValue?: string;
 }
 
 /**
- * Структура инпута vMix
+ * Структура динамического инпута vMix
  */
 export interface VMixInput {
   enabled: boolean;
-  inputIdentifier: string;
+  displayName: string;
+  vmixTitle: string;
   overlay: number;
-  fields: Record<string, InputField>;
+  fields: Record<string, DynamicInputField>;
 }
 
 /**
@@ -257,7 +226,7 @@ export function validateVMixSettings(vmix: any): ValidationResult {
 }
 
 /**
- * Валидирует отдельный инпут vMix
+ * Валидирует отдельный инпут vMix (только динамический формат)
  */
 export function validateVMixInput(inputKey: string, input: any): ValidationResult {
   const errors: string[] = [];
@@ -274,14 +243,17 @@ export function validateVMixInput(inputKey: string, input: any): ValidationResul
     errors.push('enabled должен быть boolean');
   }
 
-  // Проверяем inputIdentifier
-  if (typeof input.inputIdentifier !== 'string' || input.inputIdentifier.trim() === '') {
-    errors.push('inputIdentifier должен быть непустой строкой');
-  }
-
   // Проверяем overlay
   if (typeof input.overlay !== 'number' || input.overlay < 1) {
     errors.push('overlay должен быть числом >= 1');
+  }
+
+  // displayName и vmixTitle обязательны
+  if (typeof input.displayName !== 'string' || input.displayName.trim() === '') {
+    errors.push('displayName должен быть непустой строкой');
+  }
+  if (typeof input.vmixTitle !== 'string' || input.vmixTitle.trim() === '') {
+    errors.push('vmixTitle должен быть непустой строкой');
   }
 
   // Проверяем fields
@@ -289,7 +261,6 @@ export function validateVMixInput(inputKey: string, input: any): ValidationResul
     if (typeof input.fields !== 'object' || Array.isArray(input.fields)) {
       errors.push('fields должен быть объектом');
     } else {
-      // Валидируем каждое поле
       for (const [fieldKey, fieldValue] of Object.entries(input.fields)) {
         const fieldResult = validateInputField(fieldKey, fieldValue);
         if (!fieldResult.valid) {
@@ -306,9 +277,9 @@ export function validateVMixInput(inputKey: string, input: any): ValidationResul
 }
 
 /**
- * Валидирует отдельное поле в инпуте
+ * Валидирует поле инпута (формат vmixFieldType, dataMapKey, customValue)
  */
-export function validateInputField(fieldKey: string, field: any): ValidationResult {
+function validateInputField(fieldKey: string, field: any): ValidationResult {
   const errors: string[] = [];
 
   if (!field || typeof field !== 'object') {
@@ -318,24 +289,19 @@ export function validateInputField(fieldKey: string, field: any): ValidationResu
     };
   }
 
-  // Проверяем type
-  if (typeof field.type !== 'string') {
-    errors.push('type должен быть строкой');
-  } else {
-    const validTypes = Object.values(FIELD_TYPES);
-    if (!validTypes.includes(field.type as FieldType)) {
-      errors.push(`type должен быть одним из: ${validTypes.join(', ')}`);
-    }
+  // vmixFieldType обязателен
+  if (typeof field.vmixFieldType !== 'string') {
+    errors.push('vmixFieldType должен быть строкой');
+  } else if (!DYNAMIC_FIELD_TYPES.includes(field.vmixFieldType as DynamicFieldType)) {
+    errors.push(`vmixFieldType должен быть одним из: ${DYNAMIC_FIELD_TYPES.join(', ')}`);
   }
 
-  // Проверяем fieldIdentifier
-  if (typeof field.fieldIdentifier !== 'string' || field.fieldIdentifier.trim() === '') {
-    errors.push('fieldIdentifier должен быть непустой строкой');
+  // dataMapKey и customValue опциональны, но если есть — должны быть строками
+  if (field.dataMapKey !== undefined && typeof field.dataMapKey !== 'string') {
+    errors.push('dataMapKey должен быть строкой');
   }
-
-  // Проверяем enabled
-  if (typeof field.enabled !== 'boolean') {
-    errors.push('enabled должен быть boolean');
+  if (field.customValue !== undefined && typeof field.customValue !== 'string') {
+    errors.push('customValue должен быть строкой');
   }
 
   return {

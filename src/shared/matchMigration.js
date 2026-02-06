@@ -17,7 +17,12 @@ function migrateMatchToSetStatus(match) {
   }
   
   const migrated = { ...match };
-  
+
+  // Добавляем variant для старых матчей (если отсутствует)
+  if (!migrated.variant || !['indoor', 'beach', 'snow'].includes(migrated.variant)) {
+    migrated.variant = 'indoor';
+  }
+
   // Миграция завершенных партий
   if (Array.isArray(match.sets)) {
     migrated.sets = match.sets.map(set => {

@@ -1,4 +1,4 @@
-import { canFinishSet } from './volleyballRules';
+import { getRules } from './volleyballRules.js';
 import { SET_STATUS } from './types/Match';
 
 /**
@@ -29,11 +29,12 @@ export function validateSetUpdate(set, updates, currentSetNumber, match = null) 
   // Проверка 2: Счет для завершенных партий должен соответствовать правилам
   if (finalStatus === SET_STATUS.COMPLETED || 
       (set.status === SET_STATUS.COMPLETED && finalStatus !== SET_STATUS.PENDING)) {
-    if (!canFinishSet(finalScoreA, finalScoreB, set.setNumber)) {
-      const threshold = set.setNumber === 5 ? 15 : 25;
+    const rules = match ? getRules(match) : getRules({ variant: 'indoor' });
+    if (!rules.canFinishSet(finalScoreA, finalScoreB, set.setNumber)) {
+      const cfg = rules.getConfig();
+      const threshold = set.setNumber === cfg.decidingSetNumber ? cfg.pointsToWinDecidingSet : cfg.pointsToWinRegularSet;
       errors.push(
-        `Счет не соответствует правилам завершения партии. ` +
-        `Необходимо набрать ${threshold} очков с разницей минимум 2 очка.`
+        `Счет не соответствует правилам завершения партии. Необходимо набрать ${threshold} очков с разницей минимум 2 очка.`
       );
     }
   }

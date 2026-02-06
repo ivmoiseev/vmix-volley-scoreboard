@@ -4,11 +4,33 @@
  */
 
 import type { Match, Set } from '../types/Match.js';
+import { SET_STATUS } from '../types/Match.js';
 
 /**
  * Domain класс для работы с матчем
  */
 export class MatchDomain {
+  /**
+   * Проверяет, начался ли матч (первая партия активна или хотя бы одна партия завершена)
+   *
+   * @param match - Матч
+   * @returns true, если матч уже идёт или хотя бы одна партия сыграна
+   *
+   * @example
+   * ```typescript
+   * if (MatchDomain.hasMatchStarted(match)) {
+   *   // Блокировать смену типа матча
+   * }
+   * ```
+   */
+  static hasMatchStarted(match: Match | null | undefined): boolean {
+    if (!match?.currentSet) return false;
+    return (
+      (match.sets?.length ?? 0) > 0 ||
+      match.currentSet.status === SET_STATUS.IN_PROGRESS
+    );
+  }
+
   /**
    * Получает максимальный номер партии из завершенных партий
    * 

@@ -33,8 +33,6 @@ alwaysApply: true
 - @src/main/server.js - HTTP сервер для мобильного доступа (Express)
 - @src/main/vmix-client.js - клиент для работы с vMix HTTP API
 - @src/main/vmix-config.js - конфигурация vMix (обертка над settingsManager)
-- @src/main/vmix-input-configs.js - конфигурации полей по умолчанию для инпутов
-- @src/main/vmix-field-migration.js - функции миграции конфигураций полей vMix (конвертация старых типов в новые)
 - @src/main/settingsManager.js - менеджер глобальных настроек (`settings.json`)
 - @src/main/fileManager.js - управление файлами матчей (создание, открытие, сохранение)
 - @src/main/logoManager.js - управление логотипами команд (загрузка, сохранение, очистка)
@@ -67,7 +65,9 @@ alwaysApply: true
 
 - @src/shared/types/Match.ts - TypeScript типы для структуры матча
 - @src/shared/matchUtils.js - утилиты для работы с матчами
-- @src/shared/volleyballRules.js - правила волейбола (логика счета, партий, сетбола, матчбола)
+- @src/shared/volleyballRules.js - правила волейбола (фабрика правил createRules, getRules(match), getSetNumbers, isDecidingSet; поддержка indoor/beach/snow)
+- @src/shared/volleyballRulesConfig.js - конфигурации правил по вариантам (VARIANTS, RULES_CONFIGS)
+- @src/shared/domain/MatchDomain.ts - доменная логика матча (hasMatchStarted — блокировка смены варианта после начала игры)
 - @src/shared/errorHandler.js - централизованная обработка ошибок
 - @src/shared/vmix-field-utils.js - общие утилиты для работы с полями vMix (используются в main и renderer)
 
@@ -315,7 +315,9 @@ alwaysApply: true
 
 ### Правила волейбола
 
-- Логика реализована в @src/shared/volleyballRules.js
+- Логика реализована в @src/shared/volleyballRules.js и @src/shared/volleyballRulesConfig.js
+- См. @docs/development/volleyball-variants.md — правила и архитектура вариантов (зал/пляж/снежный)
+- Используйте `getRules(match)` для получения правил по `match.variant` (indoor/beach/snow)
 - Автоматическое определение сетбола и матчбола
 - Поддержка различных форматов матчей (до 3/5 партий)
 

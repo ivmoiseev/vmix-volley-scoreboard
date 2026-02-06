@@ -1387,20 +1387,18 @@ ipcMain.handle("vmix:show-overlay", async (event, inputKey) => {
       return { success: false, error: `Инпут не найден в конфигурации (ключ: ${inputKey}). Проверьте настройки vMix.` };
     }
 
-    // Поддержка нового формата (vmixTitle) и старого (inputIdentifier/name)
     const inputIdentifier =
       typeof inputConfig === "string"
         ? inputConfig
         : (inputConfig as Record<string, unknown>).vmixTitle ||
-          (inputConfig as Record<string, unknown>).inputIdentifier ||
-          (inputConfig as Record<string, unknown>).name;
+          (inputConfig as Record<string, unknown>).vmixNumber;
     const overlay =
       typeof inputConfig === "object" && inputConfig !== null && (inputConfig as Record<string, unknown>).overlay != null
         ? (inputConfig as Record<string, unknown>).overlay
         : config.overlay || 1;
 
     if (!inputIdentifier) {
-      return { success: false, error: "У инпута не задан vmixTitle / имя в vMix." };
+      return { success: false, error: "У инпута не задан vmixTitle / vmixNumber." };
     }
 
     const client = getVMixClient(config.host, config.port);
