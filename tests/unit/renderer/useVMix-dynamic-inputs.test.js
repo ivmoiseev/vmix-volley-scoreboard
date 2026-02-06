@@ -13,6 +13,9 @@ describe('useVMix — динамические инпуты и валидаци�
   let mockGetVMixInputFields;
   let mockUpdateVMixInputFields;
 
+  let mockTestVMixConnection;
+  let mockOnVMixConnectionChanged;
+
   beforeEach(() => {
     mockGetVMixConfig = vi.fn().mockResolvedValue({
       host: 'localhost',
@@ -33,6 +36,7 @@ describe('useVMix — динамические инпуты и валидаци�
         },
       },
     });
+    mockTestVMixConnection = vi.fn().mockResolvedValue({ success: true });
     mockShowVMixOverlay = vi.fn().mockResolvedValue({ success: true });
     mockGetVMixInputFields = vi.fn().mockResolvedValue({
       success: true,
@@ -42,13 +46,15 @@ describe('useVMix — динамические инпуты и валидаци�
       ],
     });
     mockUpdateVMixInputFields = vi.fn().mockResolvedValue({ success: true });
+    mockOnVMixConnectionChanged = vi.fn(() => () => {});
 
     window.electronAPI = {
       getVMixConfig: mockGetVMixConfig,
       setVMixConfig: vi.fn(),
-      testVMixConnection: vi.fn().mockResolvedValue({ success: true }),
+      testVMixConnection: mockTestVMixConnection,
       vmixConnect: vi.fn().mockResolvedValue({ success: true }),
       vmixDisconnect: vi.fn().mockResolvedValue({ success: true }),
+      onVMixConnectionChanged: mockOnVMixConnectionChanged,
       showVMixOverlay: mockShowVMixOverlay,
       hideVMixOverlay: vi.fn().mockResolvedValue({ success: true }),
       getVMixOverlayState: vi.fn().mockResolvedValue({ overlays: {} }),
@@ -213,6 +219,48 @@ describe('useVMix — динамические инпуты и валидаци�
     },
     15000
   );
+
+  test('при connectionState "disconnected" testVMixConnection не вызывается при загрузке', async () => {
+    mockGetVMixConfig.mockResolvedValue({
+      host: 'localhost',
+      port: 8088,
+      connectionState: 'disconnected',
+      inputOrder: [],
+      inputs: {},
+    });
+
+    renderHook(() => useVMix(null));
+
+    await waitFor(() => {
+      expect(mockGetVMixConfig).toHaveBeenCalled();
+    });
+
+    expect(mockTestVMixConnection).not.toHaveBeenCalled();
+  });
+
+  test('при событии vmix-connection-changed вызывается loadConfig (getVMixConfig снова)', async () => {
+    let connectionChangedCallback;
+    mockOnVMixConnectionChanged.mockImplementation((cb) => {
+      connectionChangedCallback = cb;
+      return () => {};
+    });
+
+    const { result } = renderHook(() => useVMix(null));
+
+    await waitFor(() => {
+      expect(mockGetVMixConfig).toHaveBeenCalled();
+    });
+    const firstCallCount = mockGetVMixConfig.mock.calls.length;
+
+    expect(typeof connectionChangedCallback).toBe('function');
+    act(() => {
+      connectionChangedCallback();
+    });
+
+    await waitFor(() => {
+      expect(mockGetVMixConfig.mock.calls.length).toBeGreaterThan(firstCallCount);
+    });
+  });
 
   test('без подключения showOverlay возвращает ошибку (или «Инпут не настроен» если инпут не найден)', async () => {
     mockGetVMixConfig.mockResolvedValue({

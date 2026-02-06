@@ -52,6 +52,8 @@ export function useVMix(_match) {
   // Например: { referee1: "coachTeamA" }
   const activeButtonRef = useRef({});
 
+  const loadConfigRef = useRef(null);
+
   // Обновляем refs при изменении состояния
   useEffect(() => {
     vmixConfigRef.current = vmixConfig;
@@ -398,6 +400,17 @@ export function useVMix(_match) {
     loadConfig();
   }, []);
 
+  // Слушаем смену подключения (Подключить/Отключить на странице настроек vMix)
+  useEffect(() => {
+    loadConfigRef.current = loadConfig;
+  });
+  useEffect(() => {
+    const remove = window.electronAPI?.onVMixConnectionChanged?.(() => {
+      loadConfigRef.current?.();
+    });
+    return () => remove?.();
+  }, []);
+
   // Обновляем состояние оверлеев периодически
   useEffect(() => {
     if (vmixConfig && connectionStatus.connected) {
@@ -426,15 +439,27 @@ export function useVMix(_match) {
 
         setVMixConfig(config);
 
+        // Источник истины для «подключено» — сохранённое состояние (Подключить/Отключить в настройках vMix)
+        const connectedByConfig = config.connectionState === "connected";
+        setConnectionStatus({
+          connected: connectedByConfig,
+          message: connectedByConfig
+            ? "Подключено"
+            : config.connectionState === "disconnected"
+              ? "Отключено"
+              : "Не подключено",
+        });
+
         // Если конфигурация изменилась (особенно структура инпутов), сбрасываем кэш
-        // Это важно, так как структура полей может измениться
         if (configChanged) {
           resetLastSentValues();
-          // Очищаем активные кнопки при изменении конфигурации
           activeButtonRef.current = {};
         }
 
-        checkConnection(config.host, config.port);
+        // Проверяем доступность vMix только если в настройках выбрано «подключено»
+        if (connectedByConfig) {
+          checkConnection(config.host, config.port);
+        }
       }
     } catch (error) {
       console.error("Ошибка при загрузке настроек vMix:", error);
@@ -456,9 +481,7 @@ export function useVMix(_match) {
 
       if (result.success) {
         updateOverlayStates();
-        // При переподключении сбрасываем кэш, чтобы синхронизировать данные
         resetLastSentValues();
-        // Очищаем активные кнопки при переподключении
         activeButtonRef.current = {};
       }
     } catch {

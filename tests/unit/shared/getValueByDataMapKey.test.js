@@ -140,7 +140,7 @@ describe('getValueByDataMapKey', () => {
     });
   });
 
-  describe('ростер: rosterA/rosterB.playerN Number/Name', () => {
+  describe('ростер: rosterA/rosterB.playerN Number/Name/Position', () => {
     test('rosterA.player1Number, rosterA.player1Name и т.д.', () => {
       expect(getValueByDataMapKey(baseMatch, 'rosterA.player1Number')).toBe('1');
       expect(getValueByDataMapKey(baseMatch, 'rosterA.player1Name')).toBe('Игрок 1');
@@ -150,17 +150,68 @@ describe('getValueByDataMapKey', () => {
       expect(getValueByDataMapKey(baseMatch, 'rosterB.player1Name')).toBe('Игрок 10');
     });
 
+    test('rosterA.playerNPosition возвращает позицию или "" если не указана', () => {
+      const withPosition = {
+        ...baseMatch,
+        teamA: {
+          ...baseMatch.teamA,
+          roster: [
+            { number: 1, name: 'Игрок 1', position: 'Нападающий', isStarter: true },
+            { number: 2, name: 'Игрок 2', position: '', isStarter: true },
+          ],
+        },
+      };
+      expect(getValueByDataMapKey(withPosition, 'rosterA.player1Position')).toBe('Нападающий');
+      expect(getValueByDataMapKey(withPosition, 'rosterA.player2Position')).toBe('');
+    });
+
+    test('позиция не указана (пустая строка, null, "Не указано") → в vMix уходит ""', () => {
+      const rosterEmpty = [{ number: 1, name: 'Игрок 1', position: '', isStarter: true }];
+      const rosterNull = [{ number: 1, name: 'Игрок 1', position: null, isStarter: true }];
+      const rosterNeUkazano = [{ number: 1, name: 'Игрок 1', position: 'Не указано', isStarter: true }];
+      expect(getValueByDataMapKey({ ...baseMatch, teamA: { ...baseMatch.teamA, roster: rosterEmpty } }, 'rosterA.player1Position')).toBe('');
+      expect(getValueByDataMapKey({ ...baseMatch, teamA: { ...baseMatch.teamA, roster: rosterNull } }, 'rosterA.player1Position')).toBe('');
+      expect(getValueByDataMapKey({ ...baseMatch, teamA: { ...baseMatch.teamA, roster: rosterNeUkazano } }, 'rosterA.player1Position')).toBe('');
+    });
+
     test('возвращает пустую строку при отсутствии игрока в ростер', () => {
       const noRoster = { ...baseMatch, teamA: { ...baseMatch.teamA, roster: [] } };
       expect(getValueByDataMapKey(noRoster, 'rosterA.player1Number')).toBe('');
       expect(getValueByDataMapKey(noRoster, 'rosterA.player1Name')).toBe('');
+      expect(getValueByDataMapKey(noRoster, 'rosterA.player1Position')).toBe('');
     });
   });
 
-  describe('стартовый состав: startingA/startingB.playerN, libero', () => {
+  describe('стартовый состав: startingA/startingB.playerN, libero, Position', () => {
     test('startingA.player1Number/Name по startingLineupOrder', () => {
       expect(getValueByDataMapKey(baseMatch, 'startingA.player1Number')).toBe('1');
       expect(getValueByDataMapKey(baseMatch, 'startingA.player1Name')).toBe('Игрок 1');
+    });
+
+    test('startingA.playerNPosition и libero1Position: значение или "" если не указано', () => {
+      const withPositions = {
+        ...baseMatch,
+        teamA: {
+          ...baseMatch.teamA,
+          roster: [
+            { number: 1, name: 'Игрок 1', position: 'Связующий', isStarter: true },
+            { number: 2, name: 'Игрок 2', position: '', isStarter: true },
+          ],
+          startingLineupOrder: [0, 1],
+        },
+      };
+      expect(getValueByDataMapKey(withPositions, 'startingA.player1Position')).toBe('Связующий');
+      expect(getValueByDataMapKey(withPositions, 'startingA.player2Position')).toBe('');
+    });
+
+    test('позиция стартового/либеро не указана ("Не указано", "", null) → ""', () => {
+      const rosterNeUkazano = [
+        { number: 1, name: 'Игрок 1', position: 'Не указано', isStarter: true },
+        { number: 2, name: 'Игрок 2', position: '', isStarter: true },
+      ];
+      const m = { ...baseMatch, teamA: { ...baseMatch.teamA, roster: rosterNeUkazano, startingLineupOrder: [0, 1] } };
+      expect(getValueByDataMapKey(m, 'startingA.player1Position')).toBe('');
+      expect(getValueByDataMapKey(m, 'startingA.player2Position')).toBe('');
     });
 
     test('liberoN Number/Name и liberoNBackground', () => {
@@ -219,6 +270,26 @@ describe('getValueByDataMapKey', () => {
 
     test('пустой ключ после trim не ломает', () => {
       expect(getValueByDataMapKey(baseMatch, '  teamA.name  ')).toBe('Команда A');
+    });
+
+    test('расширенная статистика (statistics.teamA/B.*)', () => {
+      const withStats = {
+        ...baseMatch,
+        statistics: {
+          enabled: true,
+          teamA: { attack: 45, block: 8, serve: 5, opponentErrors: 12 },
+          teamB: { attack: 38, block: 6, serve: 4, opponentErrors: 10 },
+        },
+      };
+      expect(getValueByDataMapKey(withStats, 'statistics.teamA.attack')).toBe('45');
+      expect(getValueByDataMapKey(withStats, 'statistics.teamA.block')).toBe('8');
+      expect(getValueByDataMapKey(withStats, 'statistics.teamA.serve')).toBe('5');
+      expect(getValueByDataMapKey(withStats, 'statistics.teamA.opponentErrors')).toBe('12');
+      expect(getValueByDataMapKey(withStats, 'statistics.teamB.attack')).toBe('38');
+      expect(getValueByDataMapKey(withStats, 'statistics.teamB.block')).toBe('6');
+      expect(getValueByDataMapKey(withStats, 'statistics.teamB.serve')).toBe('4');
+      expect(getValueByDataMapKey(withStats, 'statistics.teamB.opponentErrors')).toBe('10');
+      expect(getValueByDataMapKey(baseMatch, 'statistics.teamA.attack')).toBe('');
     });
   });
 });

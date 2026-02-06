@@ -12,8 +12,6 @@
 - **[Аудит UI/UX](ui-ux-audit-report.md)** - анализ пользовательского интерфейса и рекомендации по улучшению дизайна (разрешение 1366×768); статус реализации см. в DESIGN.md
 - **[Инструкции по рефакторингу дизайна](design-refactoring-implementation-guide.md)** - пошаговый рефакторинг (этапы выполнены); текущее состояние — в DESIGN.md
 - **[Руководство по рефакторингу](REFACTORING_GUIDE.md)** - подробный план рефакторинга и улучшения кода
-- **[План рефакторинга: работа с инпутами vMix](vmix-inputs-refactoring-plan.md)** - план перехода к динамической настройке инпутов (подключение, GT-инпуты из API, сопоставление полей с vmix-data-map)
-- **[Инструкции по реализации рефакторинга vMix](vmix-inputs-refactoring-implementation-guide.md)** - пошаговые инструкции для программистов: разбивка на этапы, TDD (Red–Green–Refactor), тесты и файлы для изменения
 
 ### Миграции и улучшения
 - **[Руководство по миграции на Vitest](vitest-migration-guide.md)** - пошаговая инструкция по миграции с Jest на Vitest
@@ -26,7 +24,11 @@
 - **[Рефакторинг: Управление счетом и состояниями партий - Руководство](score-and-set-status-refactoring-implementation-guide.md)** - руководство по реализации рефакторинга с пошаговыми инструкциями
 
 ### Данные и интеграция vMix
-- **[Карта данных для vMix](vmix-data-map.md)** - полная карта данных приложения для отправки в vMix (источники, поля, типы)
+- **[Текущий функционал: интеграция с vMix и настройка инпутов](vmix-current-functionality.md)** — единое описание подключения, настроек инпутов/полей, отправки данных, оверлеев и remap
+- **[Карта данных для vMix](vmix-data-map.md)** — полная карта данных приложения для отправки в vMix (источники, поля, типы)
+
+### Планы и руководства по новому функционалу
+- **[План: HTML-страницы оверлеев для vMix/OBS (Browser Source)](overlay-pages-browser-source-plan.md)** — план внедрения страниц scoreboard, intro, rosters (1920×1080, прозрачный фон) через мобильный сервер
 
 ### Документация логики
 - **[Логика управления счетом и состояниями партий](score-and-set-status-logic-documentation.md)** - подробная документация всей логики управления счетом, начисления счета, смены состояний партий
@@ -60,9 +62,9 @@ development/
 ├── score-and-set-status-logic-documentation.md # Документация логики управления счетом и партиями
 ├── volleyball-variants.md                     # Правила и архитектура вариантов волейбола (зал/пляж/снежный)
 ├── score-and-set-status-refactoring-implementation-guide.md # Руководство по реализации рефакторинга
-├── vmix-inputs-refactoring-plan.md        # План рефакторинга работы с инпутами vMix
-├── vmix-inputs-refactoring-implementation-guide.md # Инструкции по реализации (TDD, этапы)
+├── vmix-current-functionality.md          # Текущий функционал: интеграция с vMix и настройка инпутов
 ├── vmix-data-map.md                      # Карта данных приложения для vMix
+├── overlay-pages-browser-source-plan.md   # План: HTML-страницы оверлеев для vMix/OBS (Browser Source)
 ├── multi-process-architecture-analysis.md # Анализ многопроцессной архитектуры
 ├── architecture-diagrams.md               # Диаграммы архитектуры
 └── auto-updates-setup.md                 # Настройка автоматических обновлений

@@ -6,13 +6,14 @@ import { getContrastTextColor } from '../utils/colorContrast';
 import Button from '../components/Button';
 import { space, radius } from '../theme/tokens';
 
-const POSITIONS = [
-  'Не указано',
-  'Нападающий',
-  'Связующий',
-  'Доигровщик',
-  'Центральный блокирующий',
-  'Либеро',
+// Первый вариант — «не указано», в данных хранится пустая строка, в vMix уходит ""
+const POSITION_OPTIONS = [
+  { value: '', label: '— Не указано —' },
+  { value: 'Нападающий', label: 'Нападающий' },
+  { value: 'Связующий', label: 'Связующий' },
+  { value: 'Доигровщик', label: 'Доигровщик' },
+  { value: 'Центральный блокирующий', label: 'Центральный блокирующий' },
+  { value: 'Либеро', label: 'Либеро' },
 ];
 
 function RosterManagementPage({ match: propMatch, onMatchChange }) {
@@ -107,7 +108,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
     const newPlayer = {
       number: nextNumber,
       name: '',
-      position: POSITIONS[0],
+      position: '',
       isStarter: false,
     };
 
@@ -786,7 +787,7 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                   </td>
                   <td style={{ padding: '0.75rem' }}>
                     <select
-                      value={player.position}
+                      value={player.position ?? ''}
                       onChange={(e) => handlePlayerChange(index, 'position', e.target.value)}
                       style={{
                         width: '100%',
@@ -795,8 +796,8 @@ function RosterManagementPage({ match: propMatch, onMatchChange }) {
                         borderRadius: '4px',
                       }}
                     >
-                      {POSITIONS.map(pos => (
-                        <option key={pos} value={pos}>{pos}</option>
+                      {POSITION_OPTIONS.map(opt => (
+                        <option key={opt.value || '__empty__'} value={opt.value}>{opt.label}</option>
                       ))}
                     </select>
                   </td>

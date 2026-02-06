@@ -126,18 +126,6 @@ function VMixOverlayButtons({
           Добавьте инпуты в настройках vMix (раздел «Настройка инпутов»).
         </p>
       )}
-      {!connectionStatus.connected && (
-        <p
-          style={{
-            marginTop: space.sm,
-            fontSize: typography.small,
-            color: 'var(--color-danger)',
-            textAlign: 'center',
-          }}
-        >
-          vMix не подключен
-        </p>
-      )}
     </div>
   );
 }

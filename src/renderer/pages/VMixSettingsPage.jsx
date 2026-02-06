@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useHeaderButtons } from "../components/Layout";
-import { removeInputFromVMixConfig } from "../../shared/vmixConfigUtils";
+import { removeInputFromVMixConfig, tryApplyVMixInputRemapByKey } from "../../shared/vmixConfigUtils";
 import VMixInputFieldsPanel from "../components/VMixInputFieldsPanel";
 import Button from "../components/Button";
 import { space, radius } from "../theme/tokens";
@@ -67,10 +67,12 @@ function VMixSettingsPage() {
       const savedConfig = await window.electronAPI.getVMixConfig();
       if (savedConfig) {
         setConfig(savedConfig);
+        // Состояние кнопок только из сохранённых настроек (Подключить/Отключить)
+        const connected = savedConfig.connectionState === "connected";
         setConnectionStatus((prev) => ({
           ...prev,
-          connected: savedConfig.connectionState === "connected",
-          message: savedConfig.connectionState === "connected" ? "Подключено" : "",
+          connected,
+          message: connected ? "Подключено" : "",
         }));
       }
     } catch (error) {
@@ -89,17 +91,18 @@ function VMixSettingsPage() {
     setConnectionStatus((prev) => ({ ...prev, testing: true, message: "Проверка подключения..." }));
     try {
       if (!window.electronAPI) {
-        setConnectionStatus({ connected: false, testing: false, message: "Electron API недоступен" });
+        setConnectionStatus((prev) => ({ ...prev, testing: false, message: "Electron API недоступен" }));
         return;
       }
       const result = await window.electronAPI.testVMixConnection(config.host, config.port);
-      setConnectionStatus({
-        connected: !!result.success,
+      // Тест только проверяет доступность API; состояние «подключено» не меняем — его задаёт кнопка «Подключить»
+      setConnectionStatus((prev) => ({
+        ...prev,
         testing: false,
         message: result.success ? "Подключение успешно!" : (result.error || "Не удалось подключиться к vMix"),
-      });
+      }));
     } catch (error) {
-      setConnectionStatus({ connected: false, testing: false, message: "Ошибка: " + error.message });
+      setConnectionStatus((prev) => ({ ...prev, testing: false, message: "Ошибка: " + error.message }));
     }
   };
 
@@ -112,6 +115,7 @@ function VMixSettingsPage() {
       }
       const result = await window.electronAPI.vmixConnect(config.host, config.port);
       if (result.success) {
+        setConfig((prev) => ({ ...prev, connectionState: "connected" }));
         setConnectionStatus({ connected: true, testing: false, message: "Подключено" });
       } else {
         setConnectionStatus({ connected: false, testing: false, message: result.error || "Ошибка подключения" });
@@ -126,6 +130,7 @@ function VMixSettingsPage() {
       if (window.electronAPI?.vmixDisconnect) {
         await window.electronAPI.vmixDisconnect();
       }
+      setConfig((prev) => ({ ...prev, connectionState: "disconnected" }));
       setConnectionStatus({ connected: false, testing: false, message: "" });
     } catch (error) {
       setConnectionStatus({ connected: false, testing: false, message: "Ошибка: " + error.message });
@@ -136,6 +141,8 @@ function VMixSettingsPage() {
   // Динамические инпуты (новая структура: inputOrder + inputs с displayName/vmixTitle)
   const [selectedDynamicInputId, setSelectedDynamicInputId] = useState(null);
   const [showAddInputModal, setShowAddInputModal] = useState(false);
+  const [showRemapModal, setShowRemapModal] = useState(false);
+  const [remapFormSelectedGT, setRemapFormSelectedGT] = useState(null);
   const [gtInputs, setGtInputs] = useState([]);
   const [addFormDisplayName, setAddFormDisplayName] = useState("");
   const [addFormSelectedGT, setAddFormSelectedGT] = useState(null);
@@ -159,6 +166,33 @@ function VMixSettingsPage() {
       else setGtInputs([]);
     });
   }, [showAddInputModal]);
+
+  // Загрузка GT-инпутов только при сохранённом состоянии «подключено» (без вызова vMix API при отключении)
+  useEffect(() => {
+    const shouldLoad = config.connectionState === "connected" && window.electronAPI?.getVMixGTInputs;
+    if (!shouldLoad) return;
+    window.electronAPI.getVMixGTInputs().then((res) => {
+      if (!res?.success || !Array.isArray(res.inputs)) {
+        setGtInputs((prev) => (prev.length ? prev : []));
+        return;
+      }
+      setGtInputs(res.inputs);
+      setConfig((prev) => {
+        const { config: nextConfig, updatedCount, updatedInputIds } = tryApplyVMixInputRemapByKey(prev, res.inputs);
+        if (updatedCount > 0 && window.electronAPI?.clearVMixInputFieldsCache) {
+          for (const id of updatedInputIds) {
+            const inp = nextConfig.inputs?.[id];
+            if (inp) {
+              if (inp.vmixTitle) window.electronAPI.clearVMixInputFieldsCache(inp.vmixTitle);
+              if (inp.vmixKey) window.electronAPI.clearVMixInputFieldsCache(inp.vmixKey);
+              if (inp.vmixNumber != null) window.electronAPI.clearVMixInputFieldsCache(String(inp.vmixNumber));
+            }
+          }
+        }
+        return updatedCount > 0 ? nextConfig : prev;
+      });
+    });
+  }, [config.connectionState]);
 
   const handleAddDynamicInput = () => {
     if (!addFormDisplayName.trim() || !addFormSelectedGT) return;
@@ -250,6 +284,50 @@ function VMixSettingsPage() {
     setDragOverInputId(null);
   };
 
+  // При открытии модального «Повторно сопоставить» подгружаем GT-инпуты
+  useEffect(() => {
+    if (!showRemapModal || !window.electronAPI?.getVMixGTInputs) return;
+    window.electronAPI.getVMixGTInputs().then((res) => {
+      if (res?.success && Array.isArray(res.inputs)) setGtInputs(res.inputs);
+    });
+  }, [showRemapModal]);
+
+  // Синхронизируем выбор в модальном «Повторно сопоставить» с текущим инпутом и списком GT
+  useEffect(() => {
+    if (!showRemapModal || !selectedDynamicInputId) return;
+    const inputConfig = config.inputs?.[selectedDynamicInputId];
+    if (!inputConfig?.vmixKey) {
+      setRemapFormSelectedGT(null);
+      return;
+    }
+    const found = gtInputs.find((i) => i.key === inputConfig.vmixKey);
+    setRemapFormSelectedGT(found || null);
+  }, [showRemapModal, selectedDynamicInputId, config.inputs, gtInputs]);
+
+  const handleRemapApply = () => {
+    if (!selectedDynamicInputId || !remapFormSelectedGT) return;
+    const gt = remapFormSelectedGT;
+    setConfig((prev) => ({
+      ...prev,
+      inputs: {
+        ...prev.inputs,
+        [selectedDynamicInputId]: {
+          ...prev.inputs[selectedDynamicInputId],
+          vmixTitle: gt.title,
+          vmixKey: gt.key,
+          vmixNumber: gt.number,
+        },
+      },
+    }));
+    if (window.electronAPI?.clearVMixInputFieldsCache) {
+      if (gt.title) window.electronAPI.clearVMixInputFieldsCache(gt.title);
+      if (gt.key) window.electronAPI.clearVMixInputFieldsCache(gt.key);
+      if (gt.number != null) window.electronAPI.clearVMixInputFieldsCache(String(gt.number));
+    }
+    setShowRemapModal(false);
+    setRemapFormSelectedGT(null);
+  };
+
   return (
     <div style={{ padding: "1rem", maxWidth: "1000px", margin: "0 auto" }}>
 
@@ -339,7 +417,10 @@ function VMixSettingsPage() {
             {connectionStatus.message && (
               <span
                 style={{
-                  color: connectionStatus.connected ? "var(--color-success)" : "var(--color-danger)",
+                  color:
+                    connectionStatus.connected || connectionStatus.message === "Подключение успешно!"
+                      ? "var(--color-success)"
+                      : "var(--color-danger)",
                   fontWeight: "bold",
                 }}
               >
@@ -350,7 +431,7 @@ function VMixSettingsPage() {
         </div>
       </div>
 
-      {/* Настройка инпутов (динамические инпуты по списку GT из vMix) */}
+      {/* Настройка инпутов (динамические инпуты по списку GT из vMix). При отключённом vMix — только чтение, как при недоступности. */}
       <div
         style={{
           backgroundColor: "var(--color-surface-muted)",
@@ -379,6 +460,7 @@ function VMixSettingsPage() {
               type="button"
               variant="success"
               onClick={() => setShowAddInputModal(true)}
+              disabled={!connectionStatus.connected}
               style={{ width: "100%", marginBottom: "0.5rem" }}
             >
               Добавить инпут
@@ -395,11 +477,11 @@ function VMixSettingsPage() {
                 return (
                   <div
                     key={item.id}
-                    draggable
-                    onDragStart={(e) => handleInputDragStart(e, item.id)}
-                    onDragOver={(e) => handleInputDragOver(e, item.id)}
+                    draggable={connectionStatus.connected}
+                    onDragStart={(e) => connectionStatus.connected && handleInputDragStart(e, item.id)}
+                    onDragOver={(e) => connectionStatus.connected && handleInputDragOver(e, item.id)}
                     onDragLeave={handleInputDragLeave}
-                    onDrop={(e) => handleInputDrop(e, item.id)}
+                    onDrop={(e) => connectionStatus.connected && handleInputDrop(e, item.id)}
                     onDragEnd={handleInputDragEnd}
                     onClick={() => setSelectedDynamicInputId(item.id)}
                     style={{
@@ -445,8 +527,30 @@ function VMixSettingsPage() {
                 border: "1px solid var(--color-border)",
               }}
             >
-              <h4 style={{ marginTop: 0, color: "var(--color-text)" }}>Настройки инпута</h4>
-              <div style={{ display: "grid", gap: "0.75rem", marginBottom: "1rem" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+                <h4 style={{ margin: 0, color: "var(--color-text)" }}>Настройки инпута</h4>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--color-text)", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={config.inputs[selectedDynamicInputId].enabled !== false}
+                    onChange={(e) =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        inputs: {
+                          ...prev.inputs,
+                          [selectedDynamicInputId]: {
+                            ...prev.inputs[selectedDynamicInputId],
+                            enabled: e.target.checked,
+                          },
+                        },
+                      }))
+                    }
+                    disabled={!connectionStatus.connected}
+                  />
+                  Включить инпут
+                </label>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "1rem", marginBottom: "1rem" }}>
                 <div>
                   <label style={{ display: "block", marginBottom: "0.25rem", fontWeight: "bold", color: "var(--color-text)" }}>Отображаемое имя</label>
                   <input
@@ -464,29 +568,9 @@ function VMixSettingsPage() {
                         },
                       }))
                     }
+                    readOnly={!connectionStatus.connected}
                     style={{ width: "100%", padding: "0.5rem", border: "1px solid var(--color-border)", borderRadius: radius.sm }}
                   />
-                </div>
-                <div>
-                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--color-text)" }}>
-                    <input
-                      type="checkbox"
-                      checked={config.inputs[selectedDynamicInputId].enabled !== false}
-                      onChange={(e) =>
-                        setConfig((prev) => ({
-                          ...prev,
-                          inputs: {
-                            ...prev.inputs,
-                            [selectedDynamicInputId]: {
-                              ...prev.inputs[selectedDynamicInputId],
-                              enabled: e.target.checked,
-                            },
-                          },
-                        }))
-                      }
-                    />
-                    Включить инпут
-                  </label>
                 </div>
                 <div>
                   <label style={{ display: "block", marginBottom: "0.25rem", fontWeight: "bold", color: "var(--color-text)" }}>Оверлей</label>
@@ -504,31 +588,117 @@ function VMixSettingsPage() {
                         },
                       }))
                     }
-                    style={{ padding: "0.5rem", border: "1px solid var(--color-border)", borderRadius: radius.sm }}
+                    disabled={!connectionStatus.connected}
+                    style={{ padding: "0.5rem", border: "1px solid var(--color-border)", borderRadius: radius.sm, minWidth: "120px" }}
                   >
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
                       <option key={n} value={n}>Оверлей {n}</option>
                     ))}
                   </select>
                 </div>
-                <Button type="button" variant="danger" onClick={handleDeleteDynamicInput}>
-                  Удалить инпут
-                </Button>
               </div>
-              <p style={{ fontSize: "0.9rem", color: "var(--color-text-secondary)" }}>
-                Инпут vMix: <strong>{config.inputs[selectedDynamicInputId].vmixTitle}</strong>
-              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem", minWidth: 0 }}>
+                <span
+                  title={config.inputs[selectedDynamicInputId].vmixTitle}
+                  style={{
+                    fontSize: "0.9rem",
+                    color: "var(--color-text-secondary)",
+                    minWidth: 0,
+                    flex: "1 1 0",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Инпут vMix: <strong style={{ color: "var(--color-text)" }}>{config.inputs[selectedDynamicInputId].vmixTitle}</strong>
+                </span>
+                <span style={{ flexShrink: 0, display: "flex", gap: "0.5rem" }}>
+                  <Button type="button" variant="secondary" onClick={() => setShowRemapModal(true)} disabled={!connectionStatus.connected}>
+                    Повторно сопоставить
+                  </Button>
+                  <Button type="button" variant="danger" onClick={handleDeleteDynamicInput} disabled={!connectionStatus.connected}>
+                    Удалить инпут
+                  </Button>
+                </span>
+              </div>
               <VMixInputFieldsPanel
                 inputId={selectedDynamicInputId}
                 inputConfig={config.inputs[selectedDynamicInputId]}
                 config={config}
                 onFieldChange={handleFieldChange}
-                readOnly={false}
+                readOnly={!connectionStatus.connected}
               />
             </div>
           )}
         </div>
       </div>
+
+      {/* Модальное окно: Повторно сопоставить */}
+      {showRemapModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "var(--color-overlay)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => { setShowRemapModal(false); setRemapFormSelectedGT(null); }}
+        >
+          <div
+            style={{
+              backgroundColor: "var(--color-surface)",
+              color: "var(--color-text)",
+              padding: space.lg,
+              borderRadius: radius.md,
+              minWidth: "360px",
+              maxWidth: "90%",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0, color: "var(--color-text)" }}>Повторно сопоставить</h3>
+            <div style={{ display: "grid", gap: "1rem", marginBottom: "1rem" }}>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold", color: "var(--color-text)" }}>Инпут vMix (GT)</label>
+                <select
+                  value={remapFormSelectedGT ? remapFormSelectedGT.key : ""}
+                  onChange={(e) => {
+                    const gt = gtInputs.find((i) => i.key === e.target.value);
+                    setRemapFormSelectedGT(gt || null);
+                  }}
+                  style={{ width: "100%", padding: "0.5rem", border: "1px solid var(--color-border)", borderRadius: radius.sm }}
+                >
+                  <option value="">— Выберите инпут —</option>
+                  {gtInputs.map((inp) => (
+                    <option key={inp.key} value={inp.key}>
+                      {inp.title || inp.shortTitle || inp.number}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => { setShowRemapModal(false); setRemapFormSelectedGT(null); }}
+              >
+                Отмена
+              </Button>
+              <Button
+                type="button"
+                variant="success"
+                onClick={handleRemapApply}
+                disabled={!remapFormSelectedGT}
+              >
+                Применить
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Модальное окно: Добавить инпут */}
       {showAddInputModal && (

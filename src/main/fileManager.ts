@@ -145,19 +145,21 @@ async function openMatch(filePath) {
       throw new Error('Ошибка чтения JSON файла. Файл поврежден или имеет неверный формат.');
     }
 
-    // Миграция: заменяем позицию "Другое" на "Не указано" в рострах команд
+    // Миграция позиций в рострах: "Другое"/"Не указано" → пустая строка (в vMix уходит "")
     if (match.teamA && Array.isArray(match.teamA.roster)) {
       match.teamA.roster = match.teamA.roster.map(player => {
-        if (player.position === 'Другое') {
-          return { ...player, position: 'Не указано' };
+        const pos = player.position;
+        if (pos === 'Другое' || pos === 'Не указано' || pos == null) {
+          return { ...player, position: '' };
         }
         return player;
       });
     }
     if (match.teamB && Array.isArray(match.teamB.roster)) {
       match.teamB.roster = match.teamB.roster.map(player => {
-        if (player.position === 'Другое') {
-          return { ...player, position: 'Не указано' };
+        const pos = player.position;
+        if (pos === 'Другое' || pos === 'Не указано' || pos == null) {
+          return { ...player, position: '' };
         }
         return player;
       });

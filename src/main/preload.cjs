@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVMixOverlayState: () => ipcRenderer.invoke('vmix:get-overlay-state'),
   getVMixGTInputs: () => ipcRenderer.invoke('vmix:getGTInputs'),
   getVMixInputFields: (inputNumberOrKey, forceRefresh) => ipcRenderer.invoke('vmix:getInputFields', inputNumberOrKey, forceRefresh),
+  clearVMixInputFieldsCache: (inputIdentifier) => ipcRenderer.invoke('vmix:clearInputFieldsCache', inputIdentifier),
   
   // Mobile server management
   startMobileServer: (port) => ipcRenderer.invoke('mobile:start-server', port),
@@ -84,6 +85,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = () => callback();
     ipcRenderer.on('refresh-vmix', handler);
     return () => ipcRenderer.removeListener('refresh-vmix', handler);
+  },
+  onVMixConnectionChanged: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on('vmix-connection-changed', handler);
+    return () => ipcRenderer.removeListener('vmix-connection-changed', handler);
   },
   onAutoSaveSettingsChanged: (callback) => {
     const handler = (event, enabled) => callback(enabled);

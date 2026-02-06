@@ -22,13 +22,13 @@ function WelcomePage() {
       if (!window.electronAPI) {
         return;
       }
-
       const config = await window.electronAPI.getVMixConfig();
-      if (config && config.host) {
-        const result = await window.electronAPI.testVMixConnection(config.host, config.port);
+      if (config) {
+        // Статус только из сохранённых настроек (Подключить/Отключить), без проверки по сети
+        const connected = config.connectionState === 'connected';
         setVMixStatus({
-          connected: result.success,
-          message: result.success ? 'Подключено' : 'Не подключено',
+          connected,
+          message: connected ? 'Подключено' : 'Не подключено',
         });
       }
     } catch (error) {

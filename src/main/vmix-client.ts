@@ -607,6 +607,17 @@ function getVMixClient(host, port) {
   return vmixClientInstance;
 }
 
+/**
+ * Инвалидирует кэш полей инпута по идентификатору (vmixTitle, vmixKey или vmixNumber).
+ * Вызывается после смены сопоставления инпута с vMix, чтобы при следующем getInputFields подтянулась актуальная структура.
+ * Конфиг полей (config.inputs[id].fields) не меняется — только кэш в main.
+ */
+export function clearInputFieldsCache(inputIdentifier: string): void {
+  if (inputIdentifier != null && inputIdentifier !== '') {
+    fieldsCacheByInput.delete(String(inputIdentifier));
+  }
+}
+
 export {
   VMixClient,
   getVMixClient,

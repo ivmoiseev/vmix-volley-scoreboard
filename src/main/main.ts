@@ -12,7 +12,7 @@ import fs from "fs";
 import http from "http";
 import * as documentationViewer from "./documentation-viewer.ts";
 import * as fileManager from "./fileManager.ts";
-import { getVMixClient } from "./vmix-client.ts";
+import { getVMixClient, clearInputFieldsCache } from "./vmix-client.ts";
 import * as vmixConfig from "./vmix-config.ts";
 import { getMobileServer } from "./server.ts";
 import * as settingsManager from "./settingsManager.ts";
@@ -124,6 +124,8 @@ function createWindow() {
   const windowOptions = {
     width: 1200,
     height: 800,
+    minWidth: 1280,
+    minHeight: 600,
     title: windowTitle,
     // Показываем окно только после загрузки
     show: false,
@@ -478,7 +480,8 @@ app.whenReady().then(async () => {
     );
   }
 
-  // Восстанавливаем подключение к vMix при запуске, если было сохранено состояние «подключено»
+  // При старте: если в настройках «Отключено» — считаем отключённым; если «Подключено» — проверяем
+  // доступность vMix; при недоступности переводим в «Отключено» и сохраняем; при доступности — считаем включённым.
   try {
     const vmixSettings = await settingsManager.getVMixSettings();
     if (vmixSettings?.connectionState === "connected" && vmixSettings?.host && vmixSettings?.port) {
@@ -1287,6 +1290,7 @@ ipcMain.handle("vmix:connect", async (event, host, port) => {
     if (result.success) {
       const newConfig = { ...config, host: h, port: p, connectionState: "connected" };
       await settingsManager.setVMixSettings(newConfig);
+      if (mainWindow) mainWindow.webContents.send("vmix-connection-changed");
     }
     return result;
   } catch (error) {
@@ -1301,6 +1305,7 @@ ipcMain.handle("vmix:disconnect", async () => {
     const config = await vmixConfig.getVMixConfig();
     const newConfig = { ...config, connectionState: "disconnected" };
     await settingsManager.setVMixSettings(newConfig);
+    if (mainWindow) mainWindow.webContents.send("vmix-connection-changed");
     return { success: true };
   } catch (error) {
     const friendlyError = errorHandler.handleError(error, "vmix:disconnect");
@@ -1458,6 +1463,15 @@ ipcMain.handle("vmix:getInputFields", async (event, inputNumberOrKey, forceRefre
     return await client.getInputFields(inputNumberOrKey, forceRefresh);
   } catch (error) {
     return { success: false, error: error.message, fields: [] };
+  }
+});
+
+ipcMain.handle("vmix:clearInputFieldsCache", async (event, inputIdentifier) => {
+  try {
+    clearInputFieldsCache(inputIdentifier);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
 });
 

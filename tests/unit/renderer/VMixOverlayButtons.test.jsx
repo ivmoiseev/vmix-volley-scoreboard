@@ -148,20 +148,4 @@ describe('VMixOverlayButtons', () => {
     expect(btn).toBeDisabled();
   });
 
-  test('при неподключённом vMix показывается предупреждение', () => {
-    const config = {
-      inputOrder: ['id1'],
-      inputs: {
-        id1: { displayName: 'Плашка', vmixTitle: 'T', enabled: true },
-      },
-    };
-    render(
-      <VMixOverlayButtons
-        {...defaultProps}
-        vmixConfig={config}
-        connectionStatus={{ connected: false }}
-      />
-    );
-    expect(screen.getByText(/vMix не подключен/)).toBeInTheDocument();
-  });
 });
