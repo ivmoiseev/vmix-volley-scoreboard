@@ -9,6 +9,11 @@
 
 ### Добавлено
 
+- **Блокировка кнопок плашек при одной плашке в эфире (один vMix-инпут)**
+  - В useVMix добавлена функция `isAnotherOverlayOnAirForSameInput(inputKey)`: возвращает true, если другая плашка из той же группы (тот же оверлей и тот же vMix-инпут) в эфире. Недоступными делаются только кнопки, ссылающиеся на тот же vMix-инпут; кнопки плашек на другие инпуты остаются доступными.
+  - VMixOverlayButtons: опциональный проп `isAnotherOverlayOnAirForSameInput`; кнопка отключается при «другая плашка в эфире» и неактивной текущей; подсказка «Другая плашка этого инпута в эфире».
+  - Тесты: в useVMix-overlay-same-input — проверки isAnotherOverlayOnAirForSameInput (в т.ч. кейс с тремя плашками и разными инпутами); в VMixOverlayButtons — кнопка disabled и tooltip при моке «другая в эфире».
+
 - **Overlay-страницы (intro, rosters): дизайн и API**
   - Intro: центрированный синий прямоугольник с градиентной полоской сверху (как scoreboard); турнир, подзаголовок, блок команд (логотипы слева/справа от названий, под названием — город), место проведения, дата/время (ДД.ММ.ГГГГ ЧЧ:ММ, без часового пояса). Фон страницы прозрачный.
   - Rosters: центрированный синий прямоугольник с градиентной полоской; две симметричные колонки, таблица **№ / Поз. / Имя**; колонка «Поз.» — международные сокращения (OH, MB, OPP, S, L) из `positionShort` в API. Размеры без `transform: scale`, до 14 игроков в 1080px; увеличенная ширина блоков и колонок с именами; неразрывный пробел перед * у стартовых.
@@ -61,6 +66,8 @@
   - Мок QRCodeCanvas без вызова getContext('2d') (в jsdom не реализован)
 
 ### Документация
+
+- **Плашки vMix (несколько конфигов на один инпут):** в docs/development/vmix-overlay-same-input-refactoring.md зафиксированы изменения по блокировке кнопок (isAnotherOverlayOnAirForSameInput, VMixOverlayButtons, только тот же vMix-инпут); удалена инструкция vmix-overlay-disable-same-input-instruction.md.
 
 - **Overlay и vMix:** в docs/development/overlay-pages-browser-source-plan.md добавлен раздел «Текущая реализация» (intro, rosters, API), обновлены разделы 6.2–6.3 и чек-лист. В vmix-current-functionality.md — подраздел 6.1 (API для страниц overlay), уточнён 5.3 (дата ДД.ММ.ГГГГ, formatMatchDate), ссылка на overlay-pages-browser-source-plan в разделе 9. В vmix-data-map.md ранее обновлено описание поля date (формат в vMix — ДД.ММ.ГГГГ).
 

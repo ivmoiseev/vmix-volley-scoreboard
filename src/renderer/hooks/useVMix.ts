@@ -53,7 +53,14 @@ export function useVMix(_match: Match | null) {
   // Например: { referee1: "coachTeamA" }
   const activeButtonRef = useRef({});
 
+  // Последний показанный по нашей инициативе inputKey в разрезе оверлея (1–8).
+  // Нужно, когда несколько конфиг-инпутов сопоставлены с одним vMix-инпутом.
+  const lastShownInputKeyByOverlay = useRef<Record<number, string>>({});
+
   const loadConfigRef = useRef(null);
+
+  const matchRef = useRef<Match | null>(null);
+  matchRef.current = _match;
 
   // Обновляем refs при изменении состояния
   useEffect(() => {
@@ -96,6 +103,46 @@ export function useVMix(_match: Match | null) {
       return { valid: true, inputIdentifier };
     },
     [getInputIdentifier]
+  );
+
+  /**
+   * Список inputKey из конфига с данным оверлеем и vMix-инпутом (для различения при нескольких конфигах на один инпут).
+   */
+  const getInputKeysForOverlayAndVmixInput = useCallback(
+    (
+      config: { inputOrder?: string[]; inputs?: Record<string, unknown>; overlay?: number },
+      map: Record<string, { number: string; key?: string; title?: string; shortTitle?: string }> | null,
+      overlayNumber: number,
+      overlayInputValue: string
+    ): string[] => {
+      if (!config?.inputs || !map) return [];
+      const findInMap = (id: string) => {
+        const trimmed = String(id).trim();
+        if (/^\d+$/.test(trimmed)) return map[trimmed] || null;
+        for (const [_num, data] of Object.entries(map)) {
+          if (data.key && data.key.toLowerCase() === trimmed.toLowerCase()) return data;
+          if (data.title && data.title.toLowerCase() === trimmed.toLowerCase()) return data;
+          if (data.shortTitle && data.shortTitle.toLowerCase() === trimmed.toLowerCase()) return data;
+        }
+        return null;
+      };
+      const overlayInputData = findInMap(overlayInputValue);
+      if (!overlayInputData) return [];
+      const inputOrder = Array.isArray(config.inputOrder) ? config.inputOrder : Object.keys(config.inputs);
+      const list: string[] = [];
+      for (const inputKey of inputOrder) {
+        const inputConfig = config.inputs[inputKey];
+        if (!inputConfig || typeof inputConfig !== "object") continue;
+        const ov = (inputConfig as { overlay?: number }).overlay ?? config.overlay ?? 1;
+        if (ov !== overlayNumber) continue;
+        const inputIdentifier = (inputConfig as { vmixTitle?: string; vmixNumber?: string }).vmixTitle ?? (inputConfig as { vmixNumber?: string }).vmixNumber;
+        if (inputIdentifier == null) continue;
+        const configInputData = findInMap(String(inputIdentifier));
+        if (configInputData && configInputData.number === overlayInputData.number) list.push(inputKey);
+      }
+      return list;
+    },
+    []
   );
 
   const normalizeColor = useCallback((color, defaultValue = "#000000") => {
@@ -374,11 +421,26 @@ export function useVMix(_match: Match | null) {
                   delete activeButtonRef.current[inputKey];
                 }
               } else {
-                // Инпут активен в vMix и это именно наш инпут
-                // Если активная кнопка не установлена, значит инпут был активирован через vMix напрямую
-                if (!activeButtonRef.current[inputKey]) {
-                  // Устанавливаем специальный маркер для обозначения внешней активации
-                  activeButtonRef.current[inputKey] = "__EXTERNAL__";
+                // Несколько конфиг-инпутов на один vMix-инпут: активной считаем только lastShown или первую по порядку
+                const competingKeys = getInputKeysForOverlayAndVmixInput(
+                  currentConfig,
+                  tempInputsMap,
+                  overlay,
+                  overlayInputValue
+                );
+                if (competingKeys.length > 1) {
+                  const allowedKey = lastShownInputKeyByOverlay.current[overlay] ?? competingKeys[0];
+                  isOurInputActive = inputKey === allowedKey;
+                }
+                if (!isOurInputActive) {
+                  if (activeButtonRef.current[inputKey]) {
+                    delete activeButtonRef.current[inputKey];
+                  }
+                } else {
+                  // Инпут активен в vMix и это именно наш инпут
+                  if (!activeButtonRef.current[inputKey]) {
+                    activeButtonRef.current[inputKey] = "__EXTERNAL__";
+                  }
                 }
               }
             }
@@ -388,7 +450,7 @@ export function useVMix(_match: Match | null) {
     } catch (error) {
       console.error("Ошибка при обновлении состояния оверлеев:", error);
     }
-  }, [isVMixReady]);
+  }, [isVMixReady, getInputKeysForOverlayAndVmixInput]);
 
   const scheduleOverlayUpdate = useCallback(() => {
     setTimeout(() => {
@@ -455,6 +517,7 @@ export function useVMix(_match: Match | null) {
         if (configChanged) {
           resetLastSentValues();
           activeButtonRef.current = {};
+          lastShownInputKeyByOverlay.current = {};
         }
 
         // Проверяем доступность vMix только если в настройках выбрано «подключено»
@@ -484,6 +547,7 @@ export function useVMix(_match: Match | null) {
         updateOverlayStates();
         resetLastSentValues();
         activeButtonRef.current = {};
+        lastShownInputKeyByOverlay.current = {};
       }
     } catch {
       setConnectionStatus({
@@ -522,6 +586,170 @@ export function useVMix(_match: Match | null) {
   );
 
   /**
+   * Обновляет один динамический инпут vMix (поля, цвета, видимость, картинки).
+   * Вызывается из updateDynamicInputs (цикл) и из showOverlay перед показом плашки.
+   */
+  const updateSingleDynamicInput = useCallback(
+    async (inputId: string, matchData: Match | null, forceUpdate = true): Promise<void> => {
+      if (!isVMixReady()) return;
+      if (matchData == null) return;
+      const config = vmixConfigRef.current;
+      const inputConfig = config?.inputs?.[inputId];
+      if (!inputConfig) return;
+      const vmixTitle = inputConfig.vmixTitle ?? inputConfig.vmixNumber;
+      if (!vmixTitle) return;
+
+      const fieldsConfig = inputConfig.fields || {};
+      const fields = {};
+      const colorFields = {};
+      const visibilityFields = {};
+      const imageFields = {};
+      const textColorFields = {};
+
+      let vmixFieldsList: { name?: string; type?: string }[] = [];
+      try {
+        const fieldsResult = await window.electronAPI.getVMixInputFields(vmixTitle, false);
+        if (fieldsResult?.success && Array.isArray(fieldsResult.fields)) {
+          vmixFieldsList = fieldsResult.fields;
+        }
+      } catch (_) {
+        // без списка полей отправим только сопоставленные
+      }
+
+      for (const f of vmixFieldsList) {
+        if (f?.type === "text") {
+          const fieldName = f.name;
+          const mapping = fieldsConfig[fieldName];
+          if (mapping && (mapping.dataMapKey != null || mapping.customValue != null)) {
+            const rawValue =
+              mapping.customValue != null && mapping.customValue !== ""
+                ? String(mapping.customValue)
+                : mapping.dataMapKey
+                  ? getValueByDataMapKey(matchData, mapping.dataMapKey)
+                  : undefined;
+            fields[fieldName] = rawValue != null ? String(rawValue) : "";
+          } else {
+            fields[fieldName] = "";
+          }
+        }
+      }
+
+      for (const [fieldName, mapping] of Object.entries(fieldsConfig)) {
+        if (!mapping || (mapping.dataMapKey == null && mapping.customValue == null)) continue;
+        const rawValue =
+          mapping.customValue != null && mapping.customValue !== ""
+            ? String(mapping.customValue)
+            : mapping.dataMapKey
+              ? getValueByDataMapKey(matchData, mapping.dataMapKey)
+              : undefined;
+        const dataMapKey = mapping.dataMapKey || "";
+        const isVisibility =
+          dataMapKey === "visibility.pointA" || dataMapKey === "visibility.pointB";
+        const vmixFieldType = mapping.vmixFieldType || "text";
+
+        if (isVisibility) {
+          visibilityFields[fieldName] = { visible: Boolean(rawValue), fieldConfig: {} };
+          continue;
+        }
+        const value = rawValue != null ? String(rawValue) : "";
+        if (vmixFieldType === "color") {
+          colorFields[fieldName] = value;
+        } else if (vmixFieldType === "image") {
+          imageFields[fieldName] = value;
+        } else if (!(fieldName in fields)) {
+          fields[fieldName] = value;
+        }
+      }
+
+      const lastSent = lastSentValuesRef.current[inputId];
+      if (lastSent?.fields && typeof lastSent.fields === "object") {
+        for (const key of Object.keys(lastSent.fields)) {
+          if (!(key in fields)) fields[key] = "";
+        }
+      }
+
+      const lastSentSafe = lastSent || {
+        fields: {},
+        colorFields: {},
+        visibilityFields: {},
+        imageFields: {},
+        textColorFields: {},
+      };
+
+      let fieldsToSend = fields;
+      let colorFieldsToSend = colorFields;
+      let visibilityFieldsToSend = visibilityFields;
+      let imageFieldsToSend = imageFields;
+      if (!forceUpdate) {
+        fieldsToSend = filterChangedFields(fields, lastSentSafe.fields);
+        colorFieldsToSend = filterChangedColorFields(colorFields, lastSentSafe.colorFields);
+        visibilityFieldsToSend = filterChangedVisibilityFields(
+          visibilityFields,
+          lastSentSafe.visibilityFields
+        );
+        imageFieldsToSend = filterChangedImageFields(imageFields, lastSentSafe.imageFields);
+      }
+
+      const hasAny =
+        Object.keys(fieldsToSend).length > 0 ||
+        Object.keys(colorFieldsToSend).length > 0 ||
+        Object.keys(visibilityFieldsToSend).length > 0 ||
+        Object.keys(imageFieldsToSend).length > 0;
+      if (!hasAny && !forceUpdate) return;
+
+      try {
+        const result = await window.electronAPI.updateVMixInputFields(
+          vmixTitle,
+          fieldsToSend,
+          colorFieldsToSend,
+          visibilityFieldsToSend,
+          imageFieldsToSend,
+          textColorFields
+        );
+        if (result?.success) {
+          updateLastSentValues(
+            inputId,
+            fieldsToSend,
+            colorFieldsToSend,
+            visibilityFieldsToSend,
+            imageFieldsToSend,
+            textColorFields
+          );
+        } else if (result && !result.skipped) {
+          console.error(`[useVMix] Динамический инпут ${inputId}:`, result.error);
+        }
+      } catch (err) {
+        console.error(`[useVMix] Ошибка обновления динамического инпута ${inputId}:`, err);
+      }
+    },
+    [
+      isVMixReady,
+      filterChangedFields,
+      filterChangedColorFields,
+      filterChangedVisibilityFields,
+      filterChangedImageFields,
+      updateLastSentValues,
+    ]
+  );
+
+  /**
+   * Обновляет динамические инпуты vMix (из config.inputOrder) по сопоставлениям
+   * dataMapKey/customValue и getValueByDataMapKey.
+   */
+  const updateDynamicInputs = useCallback(
+    async (matchData, forceUpdate = false) => {
+      if (!isVMixReady()) return;
+      const config = vmixConfigRef.current;
+      const inputOrder = Array.isArray(config?.inputOrder) ? config.inputOrder : [];
+      if (inputOrder.length === 0) return;
+      for (const inputId of inputOrder) {
+        await updateSingleDynamicInput(inputId, matchData, forceUpdate);
+      }
+    },
+    [isVMixReady, updateSingleDynamicInput]
+  );
+
+  /**
    * Показывает плашку в оверлее
    */
   const showOverlay = useCallback(
@@ -537,10 +765,23 @@ export function useVMix(_match: Match | null) {
           return { success: false, error: validation.error };
         }
 
+        const matchData = matchRef.current;
+        if (matchData) {
+          try {
+            await updateSingleDynamicInput(inputKey, matchData, true);
+          } catch (err) {
+            console.error("[useVMix] Ошибка обновления полей перед показом:", err);
+          }
+        }
+
         const result = await window.electronAPI.showVMixOverlay(inputKey);
 
         if (result.success) {
-          // Сохраняем активную кнопку для этого инпута
+          const overlay =
+            (typeof inputConfig === "object" && inputConfig !== null && (inputConfig as { overlay?: number }).overlay != null)
+              ? (inputConfig as { overlay?: number }).overlay
+              : (vmixConfig as { overlay?: number })?.overlay ?? 1;
+          lastShownInputKeyByOverlay.current[overlay] = inputKey;
           if (buttonKey) {
             activeButtonRef.current[inputKey] = buttonKey;
           }
@@ -552,7 +793,7 @@ export function useVMix(_match: Match | null) {
         return { success: false, error: (error as Error).message };
       }
     },
-    [vmixConfig, isVMixReady, validateInputConfig, scheduleOverlayUpdate]
+    [vmixConfig, isVMixReady, validateInputConfig, scheduleOverlayUpdate, updateSingleDynamicInput]
   );
 
   /**
@@ -601,11 +842,13 @@ export function useVMix(_match: Match | null) {
         // Матч сменился - сбрасываем кэш и активные кнопки
         resetLastSentValues();
         activeButtonRef.current = {};
+        lastShownInputKeyByOverlay.current = {};
         currentMatchIdRef.current = matchData.matchId;
       } else if (!matchData) {
         // Матч был сброшен
         currentMatchIdRef.current = null;
         activeButtonRef.current = {};
+        lastShownInputKeyByOverlay.current = {};
       }
 
       if (updateMatchDataDebouncedRef.current) {
@@ -613,167 +856,6 @@ export function useVMix(_match: Match | null) {
       }
     },
     [resetLastSentValues]
-  );
-
-  /**
-   * Обновляет динамические инпуты vMix (из config.inputOrder) по сопоставлениям
-   * dataMapKey/customValue и getValueByDataMapKey.
-   */
-  const updateDynamicInputs = useCallback(
-    async (matchData, forceUpdate = false) => {
-      if (!isVMixReady()) return;
-      const config = vmixConfigRef.current;
-      const inputOrder = Array.isArray(config?.inputOrder) ? config.inputOrder : [];
-      if (inputOrder.length === 0) return;
-
-      for (const inputId of inputOrder) {
-        const inputConfig = config.inputs?.[inputId];
-        if (!inputConfig) continue;
-        const vmixTitle = inputConfig.vmixTitle ?? inputConfig.vmixNumber;
-        if (!vmixTitle) continue;
-
-        const fieldsConfig = inputConfig.fields || {};
-        const fields = {};
-        const colorFields = {};
-        const visibilityFields = {};
-        const imageFields = {};
-        const textColorFields = {};
-
-        // Получаем список всех полей инпута из vMix (кэш в main), чтобы для несопоставленных
-        // текстовых полей отправлять пустую строку — иначе vMix показывает дефолтные значения шаблона
-        let vmixFieldsList = [];
-        try {
-          const fieldsResult = await window.electronAPI.getVMixInputFields(vmixTitle, false);
-          if (fieldsResult?.success && Array.isArray(fieldsResult.fields)) {
-            vmixFieldsList = fieldsResult.fields;
-          }
-        } catch (_) {
-          // Игнорируем: без списка полей отправим только сопоставленные
-        }
-
-        // Для каждого текстового поля vMix: либо значение из сопоставления, либо ""
-        for (const f of vmixFieldsList) {
-          if (f?.type === "text") {
-            const fieldName = f.name;
-            const mapping = fieldsConfig[fieldName];
-            if (mapping && (mapping.dataMapKey != null || mapping.customValue != null)) {
-              const rawValue =
-                mapping.customValue != null && mapping.customValue !== ""
-                  ? String(mapping.customValue)
-                  : mapping.dataMapKey
-                    ? getValueByDataMapKey(matchData, mapping.dataMapKey)
-                    : undefined;
-              fields[fieldName] = rawValue != null ? String(rawValue) : "";
-            } else {
-              fields[fieldName] = "";
-            }
-          }
-        }
-
-        // Сопоставленные поля типов color, image, visibility (и текстовые, не попавшие в список vMix)
-        for (const [fieldName, mapping] of Object.entries(fieldsConfig)) {
-          if (!mapping || (mapping.dataMapKey == null && mapping.customValue == null)) continue;
-          const rawValue =
-            mapping.customValue != null && mapping.customValue !== ""
-              ? String(mapping.customValue)
-              : mapping.dataMapKey
-                ? getValueByDataMapKey(matchData, mapping.dataMapKey)
-                : undefined;
-          const dataMapKey = mapping.dataMapKey || "";
-          const isVisibility =
-            dataMapKey === "visibility.pointA" || dataMapKey === "visibility.pointB";
-          const vmixFieldType = mapping.vmixFieldType || "text";
-
-          if (isVisibility) {
-            visibilityFields[fieldName] = {
-              visible: Boolean(rawValue),
-              fieldConfig: {},
-            };
-            continue;
-          }
-          const value = rawValue != null ? String(rawValue) : "";
-          if (vmixFieldType === "color") {
-            colorFields[fieldName] = value;
-          } else if (vmixFieldType === "image") {
-            imageFields[fieldName] = value;
-          } else if (!(fieldName in fields)) {
-            // текстовое поле, которого не было в vmixFieldsList — подставляем значение
-            fields[fieldName] = value;
-          }
-        }
-
-        const lastSent = lastSentValuesRef.current[inputId];
-        // Поля, которые раньше отправляли, но сейчас сняты с сопоставления — отправляем "",
-        // иначе vMix продолжит показывать старый текст
-        if (lastSent?.fields && typeof lastSent.fields === "object") {
-          for (const key of Object.keys(lastSent.fields)) {
-            if (!(key in fields)) fields[key] = "";
-          }
-        }
-
-        const lastSentSafe = lastSent || {
-          fields: {},
-          colorFields: {},
-          visibilityFields: {},
-          imageFields: {},
-          textColorFields: {},
-        };
-
-        let fieldsToSend = fields;
-        let colorFieldsToSend = colorFields;
-        let visibilityFieldsToSend = visibilityFields;
-        let imageFieldsToSend = imageFields;
-        if (!forceUpdate) {
-          fieldsToSend = filterChangedFields(fields, lastSentSafe.fields);
-          colorFieldsToSend = filterChangedColorFields(colorFields, lastSentSafe.colorFields);
-          visibilityFieldsToSend = filterChangedVisibilityFields(
-            visibilityFields,
-            lastSentSafe.visibilityFields
-          );
-          imageFieldsToSend = filterChangedImageFields(imageFields, lastSentSafe.imageFields);
-        }
-
-        const hasAny =
-          Object.keys(fieldsToSend).length > 0 ||
-          Object.keys(colorFieldsToSend).length > 0 ||
-          Object.keys(visibilityFieldsToSend).length > 0 ||
-          Object.keys(imageFieldsToSend).length > 0;
-        if (!hasAny && !forceUpdate) continue;
-
-        try {
-          const result = await window.electronAPI.updateVMixInputFields(
-            vmixTitle,
-            fieldsToSend,
-            colorFieldsToSend,
-            visibilityFieldsToSend,
-            imageFieldsToSend,
-            textColorFields
-          );
-          if (result?.success) {
-            updateLastSentValues(
-              inputId,
-              fieldsToSend,
-              colorFieldsToSend,
-              visibilityFieldsToSend,
-              imageFieldsToSend,
-              textColorFields
-            );
-          } else if (result && !result.skipped) {
-            console.error(`[useVMix] Динамический инпут ${inputId}:`, result.error);
-          }
-        } catch (err) {
-          console.error(`[useVMix] Ошибка обновления динамического инпута ${inputId}:`, err);
-        }
-      }
-    },
-    [
-      isVMixReady,
-      filterChangedFields,
-      filterChangedColorFields,
-      filterChangedVisibilityFields,
-      filterChangedImageFields,
-      updateLastSentValues,
-    ]
   );
 
   // Инициализируем debounced функцию для обновления данных
@@ -1014,6 +1096,20 @@ export function useVMix(_match: Match | null) {
         }
       }
 
+      // Несколько конфиг-инпутов на один vMix-инпут: активной считаем только lastShown или первую по порядку
+      if (isInputActive) {
+        const competingKeys = getInputKeysForOverlayAndVmixInput(
+          vmixConfig as { inputOrder?: string[]; inputs?: Record<string, unknown>; overlay?: number },
+          inputsMap as Record<string, { number: string; key?: string; title?: string; shortTitle?: string }>,
+          overlay,
+          overlayInputValue
+        );
+        if (competingKeys.length > 1) {
+          const allowedKey = lastShownInputKeyByOverlay.current[overlay] ?? competingKeys[0];
+          isInputActive = inputKey === allowedKey;
+        }
+      }
+
       // Если инпут неактивен, очищаем активную кнопку
       if (!isInputActive) {
         if (activeButtonRef.current[inputKey]) {
@@ -1080,7 +1176,48 @@ export function useVMix(_match: Match | null) {
       // Но это используется только для внутренних проверок
       return true;
     },
-    [vmixConfig, overlayStates, getInputIdentifier, findInputInMap, inputsMap]
+    [vmixConfig, overlayStates, getInputIdentifier, findInputInMap, inputsMap, getInputKeysForOverlayAndVmixInput]
+  );
+
+  /**
+   * Возвращает true, если для данного inputKey другая плашка из той же группы
+   * (тот же vMix-инпут и оверлей) сейчас в эфире. Используется для блокировки кнопок:
+   * пока одна плашка в эфире, остальные кнопки на тот же инпут недоступны.
+   */
+  const isAnotherOverlayOnAirForSameInput = useCallback(
+    (inputKey: string): boolean => {
+      if (!vmixConfig || !overlayStates || !inputsMap) return false;
+
+      const inputConfig = (vmixConfig as { inputs?: Record<string, unknown> }).inputs?.[inputKey];
+      if (!inputConfig) return false;
+
+      const overlay =
+        (typeof inputConfig === "object" && (inputConfig as { overlay?: number }).overlay) ||
+        (vmixConfig as { overlay?: number })?.overlay ||
+        1;
+
+      const overlayState = overlayStates[overlay];
+      if (!overlayState || overlayState.active !== true) return false;
+
+      const overlayInputValue = overlayState.input ? String(overlayState.input).trim() : null;
+      if (!overlayInputValue) return false;
+
+      const competingKeys = getInputKeysForOverlayAndVmixInput(
+        vmixConfig as { inputOrder?: string[]; inputs?: Record<string, unknown>; overlay?: number },
+        inputsMap as Record<string, { number: string; key?: string; title?: string; shortTitle?: string }>,
+        overlay,
+        overlayInputValue
+      );
+
+      // Блокируем только кнопки, которые ссылаются на тот же vMix-инпут (входят в competingKeys)
+      if (competingKeys.length <= 1 || !competingKeys.includes(inputKey)) return false;
+
+      for (const k of competingKeys) {
+        if (k !== inputKey && isOverlayActive(k, null)) return true;
+      }
+      return false;
+    },
+    [vmixConfig, overlayStates, inputsMap, getInputKeysForOverlayAndVmixInput, isOverlayActive]
   );
 
   return {
@@ -1092,6 +1229,7 @@ export function useVMix(_match: Match | null) {
     hideOverlay,
     updateMatchData,
     isOverlayActive,
+    isAnotherOverlayOnAirForSameInput,
     checkConnection,
     resetImageFieldsCache,
   };

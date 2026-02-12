@@ -15,6 +15,8 @@ export interface VMixOverlayButtonsProps {
   onShowOverlay: (inputKey: string, buttonKey?: string | null) => Promise<{ success: boolean; error?: string }>;
   onHideOverlay: (inputKey: string) => Promise<{ success: boolean; error?: string }>;
   isOverlayActive: (inputKey: string, buttonKey?: string | null) => boolean;
+  /** Если другая плашка того же vMix-инпута в эфире — блокирует кнопку «Показать». */
+  isAnotherOverlayOnAirForSameInput?: (inputKey: string) => boolean;
 }
 
 export default function VMixOverlayButtons({
@@ -23,6 +25,7 @@ export default function VMixOverlayButtons({
   onShowOverlay,
   onHideOverlay,
   isOverlayActive,
+  isAnotherOverlayOnAirForSameInput,
 }: VMixOverlayButtonsProps) {
   const handleButtonClick = async (buttonConfig: { key: string; inputKey: string }) => {
     const buttonKey = buttonConfig.key;
@@ -91,11 +94,17 @@ export default function VMixOverlayButtons({
             const inputConfig = vmixConfig?.inputs?.[btn.inputKey];
             const isInputEnabled = inputConfig && inputConfig.enabled !== false;
             const isVMixConnected = connectionStatus.connected;
-            const disabled = !isVMixConnected || !isInputEnabled;
+            const anotherOnAir = isAnotherOverlayOnAirForSameInput?.(btn.inputKey) === true;
+            const disabled =
+              !isVMixConnected ||
+              !isInputEnabled ||
+              (anotherOnAir && !active);
             const tooltipText = disabled
               ? !isVMixConnected
                 ? 'vMix не подключен'
-                : 'Инпут отключен в настройках'
+                : !isInputEnabled
+                  ? 'Инпут отключен в настройках'
+                  : 'Другая плашка этого инпута в эфире'
               : active
                 ? 'Скрыть плашку'
                 : 'Показать плашку';

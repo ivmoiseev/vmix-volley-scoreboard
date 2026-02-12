@@ -148,4 +148,32 @@ describe('VMixOverlayButtons', () => {
     expect(btn).toBeDisabled();
   });
 
+  test('кнопка недоступна и с подсказкой, когда другая плашка того же инпута в эфире', () => {
+    const config = {
+      inputOrder: ['ref1', 'ref2'],
+      inputs: {
+        ref1: { displayName: 'Первый судья', vmixTitle: 'TITLES', enabled: true },
+        ref2: { displayName: 'Второй судья', vmixTitle: 'TITLES', enabled: true },
+      },
+    };
+    const isOverlayActive = vi.fn((inputKey: string) => inputKey === 'ref1');
+    const isAnotherOverlayOnAirForSameInput = vi.fn((inputKey: string) => inputKey === 'ref2');
+
+    render(
+      <VMixOverlayButtons
+        {...defaultProps}
+        vmixConfig={config}
+        connectionStatus={{ connected: true }}
+        isOverlayActive={isOverlayActive}
+        isAnotherOverlayOnAirForSameInput={isAnotherOverlayOnAirForSameInput}
+      />
+    );
+
+    const btn1 = screen.getByRole('button', { name: /Первый судья/ });
+    const btn2 = screen.getByRole('button', { name: /Второй судья/ });
+
+    expect(btn1).not.toBeDisabled();
+    expect(btn2).toBeDisabled();
+    expect(btn2).toHaveAttribute('title', 'Другая плашка этого инпута в эфире');
+  });
 });

@@ -76,6 +76,7 @@ function MatchControlPage({ match: initialMatch, onMatchChange }: MatchControlPa
     showOverlay,
     hideOverlay,
     isOverlayActive,
+    isAnotherOverlayOnAirForSameInput,
   } = useVMix(match);
   
   // Вычисляем данные для модального окна с помощью useMemo, чтобы избежать бесконечных ре-рендеров
@@ -974,6 +975,7 @@ function MatchControlPage({ match: initialMatch, onMatchChange }: MatchControlPa
             onShowOverlay={showOverlay}
             onHideOverlay={hideOverlay}
             isOverlayActive={isOverlayActive}
+            isAnotherOverlayOnAirForSameInput={isAnotherOverlayOnAirForSameInput}
           />
 
           {/* Статус подключения к vMix */}

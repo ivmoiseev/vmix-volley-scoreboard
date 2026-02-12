@@ -1,15 +1,17 @@
-chore(ts): завершение миграции на TypeScript и актуализация документации
+feat(vmix): блокировка кнопок плашек при одной плашке в эфире (тот же vMix-инпут)
 
-Миграция на TypeScript:
-- Исправлен тест App-loadMatch: путь к App.tsx с расширением (APP_FILE), все три теста проходят
-- Моки: tests/__mocks__/Match.js и Match.mjs заменены на Match.ts (типизированный SET_STATUS)
-- Импорт в useMatch.test.ts: useMatch.js → useMatch (без расширения)
-- vite.config.js: пороги покрытия volleyballRules.ts, matchUtils.ts; убран vmix-field-utils.js из optimizeDeps
+Поведение:
+- Когда несколько плашек ссылаются на один инпут в vMix и одна в эфире — остальные кнопки «Показать» для этого инпута недоступны; кнопка активной плашки доступна для «Скрыть плашку».
+- Блокируются только кнопки, ссылающиеся на тот же vMix-инпут; плашки на другие инпуты остаются доступными.
+
+Код:
+- useVMix: функция isAnotherOverlayOnAirForSameInput(inputKey), проверка competingKeys.includes(inputKey).
+- VMixOverlayButtons: проп isAnotherOverlayOnAirForSameInput, disabled = … || (anotherOnAir && !active), tooltip «Другая плашка этого инпута в эфире».
+- MatchControlPage: передача isAnotherOverlayOnAirForSameInput из хука в VMixOverlayButtons.
+
+Тесты:
+- useVMix-overlay-same-input: isAnotherOverlayOnAirForSameInput при ref1 в эфире (ref2 true, ref1 false), при неактивном оверлее, при трёх плашках (other на инпут 14 — false).
+- VMixOverlayButtons: кнопка disabled и title при isAnotherOverlayOnAirForSameInput(true для второго инпута).
 
 Документация:
-- typescript-migration-plan.md: раздел 1 «Текущее состояние» — миграция завершена; в фазе 7 добавлен пункт про моки; чек-лист отмечен выполненным
-- ARCHITECTURE.md: диаграмма и структура проекта приведены к .ts/.tsx; все ссылки на модули (main.ts, server.ts, App.tsx, useMatch.ts и др.) и preload.cjs обновлены
-- docs/README.md: ссылка на план миграции TypeScript, дата 2026-02-07
-- docs/development/README.md: план миграции отмечен как завершённый; расширения тестов в разделе «Тесты рефакторинга инпутов vMix» — .ts/.tsx
-
-CHANGELOG: в [Unreleased] добавлены разделы «Миграция на TypeScript» и «Документация».
+- vmix-overlay-same-input-refactoring.md: раздел про блокировку кнопок, тесты, принятое решение; удалена vmix-overlay-disable-same-input-instruction.md.
