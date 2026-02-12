@@ -32,6 +32,7 @@
 - **[Настройка автоматических обновлений](development/auto-updates-setup.md)** - руководство по настройке системы автоматических обновлений
 - **[Руководство по миграции на Vitest](development/vitest-migration-guide.md)** - пошаговая инструкция по миграции с Jest на Vitest
 - **[План внедрения импорта/экспорта настроек](development/settings-import-export-plan.md)** - описание реализации функционала импорта/экспорта настроек
+- **[План миграции на TypeScript](development/typescript-migration-plan.md)** - завершённая миграция: src и тесты на TypeScript (.ts/.tsx)
 - **[Варианты волейбола (зал, пляж, снежный)](development/volleyball-variants.md)** - правила счёта и архитектура реализации
 - **[Защита от декомпиляции](development/obfuscation-and-protection.md)** - варианты защиты Electron приложения от декомпиляции
 
@@ -106,4 +107,4 @@ docs/
 
 ---
 
-*Последнее обновление: 2026-02-06*
+*Последнее обновление: 2026-02-07*

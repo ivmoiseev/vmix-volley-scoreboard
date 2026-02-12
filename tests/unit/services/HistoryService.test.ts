@@ -2,7 +2,7 @@
  * Тесты для HistoryService
  */
 
-import { HistoryService, Action } from '../../../src/shared/services/HistoryService.ts';
+import { HistoryService, Action } from '../../../src/shared/services/HistoryService';
 
 describe('HistoryService', () => {
   beforeEach(() => {

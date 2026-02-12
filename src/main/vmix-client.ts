@@ -1,6 +1,6 @@
 import axios from 'axios';
 import xml2js from 'xml2js';
-import errorHandler from '../shared/errorHandler.js';
+import errorHandler from '../shared/errorHandler';
 
 /**
  * Клиент для работы с vMix HTTP API

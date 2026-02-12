@@ -14,6 +14,8 @@
 - **[Руководство по рефакторингу](REFACTORING_GUIDE.md)** - подробный план рефакторинга и улучшения кода
 
 ### Миграции и улучшения
+- **[План миграции на TypeScript](typescript-migration-plan.md)** - ✅ завершён: весь src и тесты на TypeScript (.ts/.tsx), чек-лист выполнен
+- **[Shared: один источник истины (TS)](shared-js-ts-duplication.md)** - состояние после устранения дубликатов JS/TS в shared
 - **[Руководство по миграции на Vitest](vitest-migration-guide.md)** - пошаговая инструкция по миграции с Jest на Vitest
 - **[Очистка структуры проекта](project-structure-cleanup.md)** - описание удаления Jest, дублирующихся папок и упрощения структуры сборки
 
@@ -74,9 +76,9 @@ development/
 
 Добавлены юнит-тесты для функционала рефакторинга инпутов vMix (этапы 5–8 инструкции):
 
-- **Shared:** `tests/unit/shared/getValueByDataMapKey.test.js` — извлечение значений по ключам dataMapCatalog
+- **Shared:** `tests/unit/shared/getValueByDataMapKey.test.ts` — извлечение значений по ключам dataMapCatalog
 - **Main:** `src/main/vmix-overlay-utils.ts` (вынесено из main.ts), `tests/unit/main/vmix-overlay-utils.test.ts` — URL логотипов, поиск конфига инпута
-- **Renderer:** `tests/unit/renderer/VMixOverlayButtons.test.jsx`, `VMixInputFieldsPanel.test.jsx`, `useVMix-dynamic-inputs.test.js`, `VMixSettingsPage.test.jsx`
+- **Renderer:** `tests/unit/renderer/VMixOverlayButtons.test.tsx`, `VMixInputFieldsPanel.test.tsx`, `useVMix-dynamic-inputs.test.ts`, `VMixSettingsPage.test.tsx`
 - **MobileAccessPage:** исправлены тесты (getByRole для кнопок, `running: true` в моках, синхронизация с `window.electronAPI`)
 
 ## 📚 Связанная документация

@@ -3,14 +3,14 @@
  * Оркестрация операций с партиями, использование Domain Layer и Validator Layer
  */
 
-import { Match, Set, SET_STATUS } from '../types/Match.js';
-import { SetDomain } from '../domain/SetDomain.js';
-import { SetStateMachine } from '../domain/SetStateMachine.js';
-import { SetValidator } from '../validators/SetValidator.js';
+import { Match, Set, SET_STATUS } from '../types/Match';
+import { SetDomain } from '../domain/SetDomain';
+import { SetStateMachine } from '../domain/SetStateMachine';
+import { SetValidator } from '../validators/SetValidator';
 // @ts-ignore - временно, пока не будет TypeScript версии
-import { getRules } from '../volleyballRules.js';
+import { getRules } from '../volleyballRules';
 // @ts-ignore - временно, пока не будет TypeScript версии
-import { calculateDuration } from '../timeUtils.js';
+import { calculateDuration } from '../timeUtils';
 
 /**
  * Сервис для работы с партиями

@@ -4,15 +4,13 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { Match } from '../../shared/types/Match.js';
-import { SET_STATUS } from '../../shared/types/Match.js';
-// @ts-ignore - временно, пока не будет TypeScript версии
-import { isSetball, isMatchball, canFinishSet } from '../../shared/volleyballRules.js';
-// @ts-ignore - временно, пока не будет TypeScript версии
-import { migrateMatchToSetStatus } from '../../shared/matchMigration.js';
-import { SetService } from '../../shared/services/SetService.js';
-import { ScoreService } from '../../shared/services/ScoreService.js';
-import { HistoryService } from '../../shared/services/HistoryService.js';
+import type { Match } from '../../shared/types/Match';
+import { SET_STATUS } from '../../shared/types/Match';
+import { getRules } from '../../shared/volleyballRules';
+import { migrateMatchToSetStatus } from '../../shared/matchMigration';
+import { SetService } from '../../shared/services/SetService';
+import { ScoreService } from '../../shared/services/ScoreService';
+import { HistoryService } from '../../shared/services/HistoryService';
 
 /**
  * Хук для управления состоянием матча
@@ -377,23 +375,22 @@ export function useMatch(initialMatch: Match | null) {
   }, []);
 
   // Вычисляемые значения (с проверкой на null)
-  // Сетбол показывается только для партии, которая идет (IN_PROGRESS)
+  const rules = match ? getRules(match) : null;
   const setballInfo =
-    match?.currentSet && match.currentSet.status === SET_STATUS.IN_PROGRESS
-      ? isSetball(match.currentSet.scoreA, match.currentSet.scoreB, match.currentSet.setNumber)
+    match?.currentSet && match.currentSet.status === SET_STATUS.IN_PROGRESS && rules
+      ? rules.isSetball(match.currentSet.scoreA, match.currentSet.scoreB, match.currentSet.setNumber)
       : { isSetball: false, team: null };
-  // Матчбол показывается только для партии, которая идет (IN_PROGRESS)
   const matchballInfo =
-    match?.currentSet && match?.sets && match.currentSet.status === SET_STATUS.IN_PROGRESS
-      ? isMatchball(
+    match?.currentSet && match?.sets && match.currentSet.status === SET_STATUS.IN_PROGRESS && rules
+      ? rules.isMatchball(
           match.sets,
           match.currentSet.setNumber,
           match.currentSet.scoreA,
           match.currentSet.scoreB
         )
       : { isMatchball: false, team: null };
-  const canFinish = match?.currentSet
-    ? canFinishSet(match.currentSet.scoreA, match.currentSet.scoreB, match.currentSet.setNumber)
+  const canFinish = match?.currentSet && rules
+    ? rules.canFinishSet(match.currentSet.scoreA, match.currentSet.scoreB, match.currentSet.setNumber)
     : false;
 
   // Получаем размер истории

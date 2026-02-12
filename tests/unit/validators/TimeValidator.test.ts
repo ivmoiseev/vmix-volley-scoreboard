@@ -2,7 +2,7 @@
  * Тесты для TimeValidator
  */
 
-import { TimeValidator } from '../../../src/shared/validators/TimeValidator.ts';
+import { TimeValidator } from '../../../src/shared/validators/TimeValidator';
 
 describe('TimeValidator', () => {
   describe('validateTimeOverlap', () => {

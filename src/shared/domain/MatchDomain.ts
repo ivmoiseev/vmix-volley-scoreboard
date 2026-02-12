@@ -3,8 +3,8 @@
  * Чистая бизнес-логика без зависимостей от UI
  */
 
-import type { Match, Set } from '../types/Match.js';
-import { SET_STATUS } from '../types/Match.js';
+import type { Match, Set } from '../types/Match';
+import { SET_STATUS } from '../types/Match';
 
 /**
  * Domain класс для работы с матчем

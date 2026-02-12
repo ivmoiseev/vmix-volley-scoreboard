@@ -1,16 +1,15 @@
-feat(overlay): intro/rosters — дизайн, API (matchDate, city, positionShort), форматирование даты для vMix
+chore(ts): завершение миграции на TypeScript и актуализация документации
 
-Overlay-страницы:
-- Intro: центрированный синий блок с градиентной полоской; турнир, команды (логотипы + названия + города), место, дата/время (ДД.ММ.ГГГГ ЧЧ:ММ, без timezone)
-- Rosters: центрированный синий блок с полоской; колонка Поз. (OH/MB/OPP/S/L), симметричные колонки, ширина под 14 игроков без scale; неразрывный пробел перед * у стартовых
-- API GET /api/overlay/match: matchDate, date в формате ДД.ММ.ГГГГ, city в командах, positionShort в roster (getPositionAbbreviation)
-
-Форматирование даты:
-- getValueByDataMapKey: ключ date возвращает ДД.ММ.ГГГГ; formatMatchDate экспортирована
-- MatchControlPage: использует formatMatchDate для отображения даты (без дублирования логики)
-- vmix-data-map.md: обновлено описание поля date (формат в vMix)
+Миграция на TypeScript:
+- Исправлен тест App-loadMatch: путь к App.tsx с расширением (APP_FILE), все три теста проходят
+- Моки: tests/__mocks__/Match.js и Match.mjs заменены на Match.ts (типизированный SET_STATUS)
+- Импорт в useMatch.test.ts: useMatch.js → useMatch (без расширения)
+- vite.config.js: пороги покрытия volleyballRules.ts, matchUtils.ts; убран vmix-field-utils.js из optimizeDeps
 
 Документация:
-- overlay-pages-browser-source-plan.md — раздел «Текущая реализация», обновлены 6.2–6.3, чек-лист
-- vmix-current-functionality.md — 6.1 API overlay, 5.3 дата/formatMatchDate, ссылка на overlay-plan
-- CHANGELOG: раздел [Unreleased] дополнен
+- typescript-migration-plan.md: раздел 1 «Текущее состояние» — миграция завершена; в фазе 7 добавлен пункт про моки; чек-лист отмечен выполненным
+- ARCHITECTURE.md: диаграмма и структура проекта приведены к .ts/.tsx; все ссылки на модули (main.ts, server.ts, App.tsx, useMatch.ts и др.) и preload.cjs обновлены
+- docs/README.md: ссылка на план миграции TypeScript, дата 2026-02-07
+- docs/development/README.md: план миграции отмечен как завершённый; расширения тестов в разделе «Тесты рефакторинга инпутов vMix» — .ts/.tsx
+
+CHANGELOG: в [Unreleased] добавлены разделы «Миграция на TypeScript» и «Документация».

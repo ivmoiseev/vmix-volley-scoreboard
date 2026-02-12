@@ -2,10 +2,9 @@
  * Тесты для SetDomain
  */
 
-import { SetDomain } from '../../../src/shared/domain/SetDomain.ts';
-import { SET_STATUS } from '../../../src/shared/types/Match.ts';
-// Импортируем типы для использования в аннотациях
-import type { Set, CurrentSet, Match } from '../../../src/shared/types/Match.ts';
+import { SetDomain } from '../../../src/shared/domain/SetDomain';
+import { SET_STATUS } from '../../../src/shared/types/Match';
+import type { Set, CurrentSet, Match } from '../../../src/shared/types/Match';
 
 describe('SetDomain', () => {
   describe('isCurrentSet', () => {

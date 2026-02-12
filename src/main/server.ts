@@ -6,16 +6,16 @@ import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createRequire } from 'module';
-import errorHandler from '../shared/errorHandler.js';
-import { light as lightTheme, dark as darkTheme } from '../shared/theme/tokens.js';
+import errorHandler from '../shared/errorHandler';
+import { light as lightTheme, dark as darkTheme } from '../shared/theme/tokens';
 import * as settingsManager from './settingsManager.ts';
 import * as domUtils from './utils/domUtils.ts';
 import path from 'path';
 import { setupApiRoutes } from './server/api/MatchApiRoutes.ts';
 import { getLogosDir, getPublicDir } from './utils/pathUtils.ts';
-import { getRules, RULES_CONFIGS, VARIANTS } from '../shared/volleyballRules.js';
-import { getValueByDataMapKey } from '../shared/getValueByDataMapKey.js';
-import { getPositionAbbreviation } from '../shared/playerPositions.js';
+import { getRules, RULES_CONFIGS, VARIANTS } from '../shared/volleyballRules';
+import { getValueByDataMapKey } from '../shared/getValueByDataMapKey';
+import { getPositionAbbreviation } from '../shared/playerPositions';
 
 // Получаем __dirname для ES-модулей
 const __filename = fileURLToPath(import.meta.url);

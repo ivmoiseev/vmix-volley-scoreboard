@@ -111,7 +111,7 @@ describe('fileManager', () => {
   describe('saveMatch', () => {
     test('должен сохранять матч в файл с указанным путем', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
-      const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
+      const { createNewMatch } = await import('../../../src/shared/matchUtils');
       
       const match = createNewMatch();
       const filePath = path.join(testMatchesDir, 'test-match.json');
@@ -133,7 +133,7 @@ describe('fileManager', () => {
 
     test('должен сохранять матч в файл без указанного пути (использует стандартный путь)', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
-      const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
+      const { createNewMatch } = await import('../../../src/shared/matchUtils');
       
       const match = createNewMatch();
       const expectedPath = path.join(testMatchesDir, `match_${match.matchId}.json`);
@@ -154,7 +154,7 @@ describe('fileManager', () => {
 
     test('должен создавать папку matches, если она не существует', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
-      const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
+      const { createNewMatch } = await import('../../../src/shared/matchUtils');
       
       const match = createNewMatch();
       const filePath = path.join(testMatchesDir, 'test-match.json');
@@ -174,7 +174,7 @@ describe('fileManager', () => {
 
     test('должен обновлять updatedAt при сохранении', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
-      const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
+      const { createNewMatch } = await import('../../../src/shared/matchUtils');
       
       const match = createNewMatch();
       const oldUpdatedAt = match.updatedAt;
@@ -197,7 +197,7 @@ describe('fileManager', () => {
 
     test('должен использовать path.join корректно (критично для production - исправление бага)', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
-      const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
+      const { createNewMatch } = await import('../../../src/shared/matchUtils');
       
       const match = createNewMatch();
       const filePath = path.join(testMatchesDir, 'test-match.json');
@@ -234,7 +234,7 @@ describe('fileManager', () => {
 
     test('должен обрабатывать логотипы при сохранении (если есть logoBase64)', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
-      const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
+      const { createNewMatch } = await import('../../../src/shared/matchUtils');
       const logoManager = await import('../../../src/main/logoManager.ts');
       
       const match = createNewMatch();
@@ -252,7 +252,7 @@ describe('fileManager', () => {
 
     test('должен использовать существующие logoPath, если файл существует', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
-      const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
+      const { createNewMatch } = await import('../../../src/shared/matchUtils');
       const logoManager = await import('../../../src/main/logoManager.ts');
       
       const match = createNewMatch();
@@ -277,7 +277,7 @@ describe('fileManager', () => {
   describe('saveMatchDialog', () => {
     test('должен показывать диалог сохранения и сохранять матч', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
-      const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
+      const { createNewMatch } = await import('../../../src/shared/matchUtils');
       
       const match = createNewMatch();
       const selectedPath = path.join(testMatchesDir, 'test-match-dialog.json');
@@ -304,7 +304,7 @@ describe('fileManager', () => {
 
     test('должен возвращать null, если диалог отменен', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
-      const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
+      const { createNewMatch } = await import('../../../src/shared/matchUtils');
       
       const match = createNewMatch();
 
@@ -321,7 +321,7 @@ describe('fileManager', () => {
 
     test('должен использовать path.join для defaultPath в диалоге (критично для production - исправление бага)', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
-      const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
+      const { createNewMatch } = await import('../../../src/shared/matchUtils');
       
       const match = createNewMatch();
       const selectedPath = path.join(testMatchesDir, 'test-match-dialog.json');
@@ -360,7 +360,7 @@ describe('fileManager', () => {
   describe('openMatch', () => {
     test('должен открывать матч из файла', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
-      const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
+      const { createNewMatch } = await import('../../../src/shared/matchUtils');
       
       const match = createNewMatch();
       const filePath = path.join(testMatchesDir, 'test-open-match.json');
@@ -398,7 +398,7 @@ describe('fileManager', () => {
 
     test('при открытии матча мигрирует позиции игроков: "Другое"/"Не указано"→"", "Нападающий"→"Доигровщик"', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
-      const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
+      const { createNewMatch } = await import('../../../src/shared/matchUtils');
 
       const match = createNewMatch();
       match.teamA.roster = [
@@ -426,7 +426,7 @@ describe('fileManager', () => {
   describe('openMatchDialog', () => {
     test('должен показывать диалог открытия и открывать матч', async () => {
       const fileManager = await import('../../../src/main/fileManager.ts');
-      const { createNewMatch } = await import('../../../src/shared/matchUtils.js');
+      const { createNewMatch } = await import('../../../src/shared/matchUtils');
       
       const match = createNewMatch();
       const filePath = path.join(testMatchesDir, 'test-open-dialog.json');

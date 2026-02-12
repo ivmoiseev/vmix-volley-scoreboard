@@ -2,10 +2,9 @@
  * Тесты для SetStateMachine
  */
 
-import { SetStateMachine } from '../../../src/shared/domain/SetStateMachine.ts';
-import { SET_STATUS } from '../../../src/shared/types/Match.ts';
-// Импортируем типы для использования в аннотациях
-import type { TransitionContext } from '../../../src/shared/domain/SetStateMachine.ts';
+import { SetStateMachine } from '../../../src/shared/domain/SetStateMachine';
+import { SET_STATUS } from '../../../src/shared/types/Match';
+import type { TransitionContext } from '../../../src/shared/domain/SetStateMachine';
 
 describe('SetStateMachine', () => {
   describe('canTransition', () => {

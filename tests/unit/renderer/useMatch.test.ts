@@ -5,17 +5,17 @@
 
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SET_STATUS } from '../../../src/shared/types/Match.js';
-import type { Match } from '../../../src/shared/types/Match.js';
-import * as setValidation from '../../../src/shared/setValidation.js';
-import { SetService } from '../../../src/shared/services/SetService.js';
-import { ScoreService } from '../../../src/shared/services/ScoreService.js';
-import { HistoryService } from '../../../src/shared/services/HistoryService.js';
-import { useMatch } from '../../../src/renderer/hooks/useMatch.js';
+import { SET_STATUS } from '../../../src/shared/types/Match';
+import type { Match } from '../../../src/shared/types/Match';
+import * as setValidation from '../../../src/shared/setValidation';
+import { SetService } from '../../../src/shared/services/SetService';
+import { ScoreService } from '../../../src/shared/services/ScoreService';
+import { HistoryService } from '../../../src/shared/services/HistoryService';
+import { useMatch } from '../../../src/renderer/hooks/useMatch';
 
 // Мокируем Service Layer для ESM модулей
 // В Vitest vi.mock() работает для всех модулей, включая TypeScript ESM
-vi.mock('../../../src/shared/services/SetService.js', () => ({
+vi.mock('../../../src/shared/services/SetService', () => ({
   SetService: {
     startSet: vi.fn(),
     finishSet: vi.fn(),
@@ -23,7 +23,7 @@ vi.mock('../../../src/shared/services/SetService.js', () => ({
   },
 }));
 
-vi.mock('../../../src/shared/services/ScoreService.js', () => ({
+vi.mock('../../../src/shared/services/ScoreService', () => ({
   ScoreService: {
     changeScore: vi.fn(),
     changeServingTeam: vi.fn(),
@@ -34,7 +34,7 @@ vi.mock('../../../src/shared/services/ScoreService.js', () => ({
 // Используем глобальный объект для хранения истории между вызовами
 const historyStore = { actions: [] as any[] };
 
-vi.mock('../../../src/shared/services/HistoryService.js', () => ({
+vi.mock('../../../src/shared/services/HistoryService', () => ({
   HistoryService: {
     addAction: vi.fn((action) => {
       historyStore.actions.push(action);
@@ -48,7 +48,7 @@ vi.mock('../../../src/shared/services/HistoryService.js', () => ({
 
 // Мокируем volleyballRules - useMatch использует getRules(match)
 const mockCanFinishSet = vi.fn(() => false);
-vi.mock('../../../src/shared/volleyballRules.js', () => ({
+vi.mock('../../../src/shared/volleyballRules', () => ({
   getRules: vi.fn(() => ({
     isSetball: vi.fn(() => ({ isSetball: false, team: null })),
     isMatchball: vi.fn(() => ({ isMatchball: false, team: null })),
@@ -57,13 +57,13 @@ vi.mock('../../../src/shared/volleyballRules.js', () => ({
   })),
 }));
 
-vi.mock('../../../src/shared/matchMigration.js', () => ({
+vi.mock('../../../src/shared/matchMigration', () => ({
   migrateMatchToSetStatus: vi.fn((match) => match),
 }));
 
 // Мокируем setValidation - по умолчанию возвращает успешную валидацию
 // Для конкретных тестов можно переопределить через vi.spyOn
-vi.mock('../../../src/shared/setValidation.js', () => ({
+vi.mock('../../../src/shared/setValidation', () => ({
   validateSetUpdate: vi.fn((set, updates, currentSetNumber, match) => ({
     valid: true,
     errors: [],

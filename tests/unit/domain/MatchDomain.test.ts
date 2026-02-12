@@ -2,10 +2,9 @@
  * Тесты для MatchDomain
  */
 
-import { MatchDomain } from '../../../src/shared/domain/MatchDomain.ts';
-import { SET_STATUS } from '../../../src/shared/types/Match.ts';
-// Импортируем типы для использования в аннотациях
-import type { Match, Set } from '../../../src/shared/types/Match.ts';
+import { MatchDomain } from '../../../src/shared/domain/MatchDomain';
+import { SET_STATUS } from '../../../src/shared/types/Match';
+import type { Match, Set } from '../../../src/shared/types/Match';
 
 describe('MatchDomain', () => {
   describe('hasMatchStarted', () => {

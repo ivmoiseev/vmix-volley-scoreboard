@@ -3,10 +3,8 @@
  * Валидация данных партий и бизнес-правил
  */
 
-import { Set, CurrentSet, SET_STATUS } from '../types/Match.js';
-// Импортируем из JavaScript файла (потребуется типизация)
-// @ts-ignore - временно, пока не будет TypeScript версии
-import { getRules } from '../volleyballRules.js';
+import { Set, CurrentSet, SET_STATUS } from '../types/Match';
+import { getRules } from '../volleyballRules';
 
 /**
  * Результат валидации

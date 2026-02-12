@@ -2,9 +2,9 @@
  * Тесты для ScoreService
  */
 
-import { ScoreService } from '../../../src/shared/services/ScoreService.ts';
-import { SET_STATUS } from '../../../src/shared/types/Match.ts';
-import type { Match } from '../../../src/shared/types/Match.ts';
+import { ScoreService } from '../../../src/shared/services/ScoreService';
+import { SET_STATUS } from '../../../src/shared/types/Match';
+import type { Match } from '../../../src/shared/types/Match';
 
 describe('ScoreService', () => {
   const createTestMatch = (): Match => ({

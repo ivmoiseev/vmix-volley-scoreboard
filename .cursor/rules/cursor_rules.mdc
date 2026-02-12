@@ -63,14 +63,18 @@ alwaysApply: true
 
 ### Shared (`src/shared/`)
 
-- @src/shared/types/Match.ts - TypeScript типы для структуры матча
+Модули с типами и доменной/сервисной логикой — только TypeScript; импорты из них указывать без расширения (резолв в .ts). Остальные — JS, импорт с .js. См. @docs/development/shared-js-ts-duplication.md.
+
+- @src/shared/types/Match.ts - типы матча, SET_STATUS, createNewMatch(), validateMatch()
+- @src/shared/domain/MatchDomain.ts, SetDomain.ts, SetStateMachine.ts - доменный слой
+- @src/shared/services/SetService.ts, ScoreService.ts, HistoryService.ts - сервисный слой
+- @src/shared/validators/SetValidator.ts, TimeValidator.ts - валидаторы
 - @src/shared/matchUtils.js - утилиты для работы с матчами
-- @src/shared/volleyballRules.js - правила волейбола (фабрика правил createRules, getRules(match), getSetNumbers, isDecidingSet; поддержка indoor/beach/snow)
-- @src/shared/volleyballRulesConfig.js - конфигурации правил по вариантам (VARIANTS, RULES_CONFIGS)
-- @src/shared/domain/MatchDomain.ts - доменная логика матча (hasMatchStarted — блокировка смены варианта после начала игры)
+- @src/shared/volleyballRules.js - правила волейбола (getRules(match), getSetNumbers, isDecidingSet; indoor/beach/snow)
+- @src/shared/volleyballRulesConfig.js - конфигурации правил (VARIANTS, RULES_CONFIGS)
 - @src/shared/errorHandler.js - централизованная обработка ошибок
-- @src/shared/playerPositions.js - позиции игроков (международный стандарт OH, MB, OPP, S, L)
-- @src/shared/vmix-field-utils.js - общие утилиты для работы с полями vMix (используются в main и renderer)
+- @src/shared/playerPositions.js - позиции игроков (OH, MB, OPP, S, L)
+- @src/shared/vmix-field-utils.js - утилиты для полей vMix (main и renderer)
 
 ## Важные паттерны и соглашения
 

@@ -40,6 +40,13 @@
   - `tests/unit/renderer/useVMix-dynamic-inputs.test.js` — showOverlay (vmixTitle/vmixNumber), updateMatchData с forceUpdate, смена matchId
   - `tests/unit/renderer/VMixSettingsPage.test.jsx` — handleSave и navigate с forceUpdateVMix, список инпутов с draggable
 
+### Завершено
+
+- **Миграция на TypeScript**
+  - Тесты: исправлен путь к `App.tsx` в `App-loadMatch.test.tsx` (APP_FILE с расширением); моки `tests/__mocks__/Match.js` и `Match.mjs` заменены на `Match.ts`; импорт в `useMatch.test.ts` — без расширения `.js`.
+  - Конфигурация: в `vite.config.js` пороги покрытия переведены на `volleyballRules.ts` и `matchUtils.ts`, из `optimizeDeps.include` убран устаревший `vmix-field-utils.js`.
+  - Итог: весь код в `src/` и тестах на TypeScript (.ts/.tsx); в main единственное исключение — `preload.cjs` (CommonJS для Electron).
+
 ### Исправлено
 
 - **Потеря данных в форме настроек матча** — добавлен `formDataRef` в MatchSettingsPage для корректного сохранения; кнопка «Сохранить» в хедере читает актуальные данные из ref
@@ -72,6 +79,11 @@
 - Обновлены docs/testing/README.md — таблица новых и обновлённых тестов
 - Обновлены docs/architecture/ARCHITECTURE.md — vmix-overlay-utils.ts в main, getValueByDataMapKey.js в shared
 - Обновлён docs/README.md — дата последнего обновления 2026-02-06
+
+- **Миграция на TypeScript и актуализация docs (2026-02-07):**
+  - План миграции: `docs/development/typescript-migration-plan.md` — раздел 1 «Текущее состояние» обновлён (миграция завершена), в фазе 7 добавлен пункт про моки, чек-лист отмечен выполненным.
+  - Архитектура: `docs/architecture/ARCHITECTURE.md` — диаграмма и дерево структуры проекта приведены к .ts/.tsx; все ссылки на модули (main.ts, server.ts, App.tsx, useMatch.ts, fileManager.ts, logoManager.ts и др.) и preload.cjs обновлены; раздел конфигурации полей vMix — vmix-config.ts.
+  - Навигация: в `docs/README.md` добавлена ссылка на план миграции TypeScript, дата обновления 2026-02-07; в `docs/development/README.md` план миграции отмечен как завершённый, расширения файлов тестов в разделе «Тесты рефакторинга инпутов vMix» приведены к .ts/.tsx.
 
 ### Изменено
 

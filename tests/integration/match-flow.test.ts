@@ -4,17 +4,17 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SetService } from '../../src/shared/services/SetService.ts';
-import { ScoreService } from '../../src/shared/services/ScoreService.ts';
-import { HistoryService } from '../../src/shared/services/HistoryService.ts';
-import { SET_STATUS } from '../../src/shared/types/Match.ts';
+import { SetService } from '../../src/shared/services/SetService';
+import { ScoreService } from '../../src/shared/services/ScoreService';
+import { HistoryService } from '../../src/shared/services/HistoryService';
+import { SET_STATUS } from '../../src/shared/types/Match';
 import {
   createTestMatch,
   createMatchWithStartedSet,
   createMatchWithCompletedSet,
   createMatchWithMultipleSets,
   createMatchWithInProgressSet,
-} from '../fixtures/matchFactory.js';
+} from '../fixtures/matchFactory';
 
 describe('Match Flow Integration', () => {
   beforeEach(() => {

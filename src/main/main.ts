@@ -17,7 +17,7 @@ import * as vmixConfig from "./vmix-config.ts";
 import { getMobileServer } from "./server.ts";
 import * as settingsManager from "./settingsManager.ts";
 import * as logoManager from "./logoManager.ts";
-import errorHandler from "../shared/errorHandler.js";
+import errorHandler from "../shared/errorHandler";
 import * as updater from "./updater.ts";
 import { getIconPath, getPreloadPath, getVitePortFilePath } from "./utils/pathUtils.ts";
 import {

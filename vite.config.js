@@ -66,7 +66,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     // Включаем обработку CommonJS модулей в зависимостях
-    include: ['src/shared/vmix-field-utils.js', 'react', 'react-dom', 'react-router-dom'],
+    include: ['react', 'react-dom', 'react-router-dom'],
     esbuildOptions: {
       // Поддержка React 18 и JSX в тестах
       jsx: 'automatic',
@@ -98,7 +98,7 @@ export default defineConfig({
     environment: 'jsdom',
     
     // Файл настройки, который выполняется перед каждым тестом
-    setupFiles: ['./tests/setup.js'],
+    setupFiles: ['./tests/setup.ts'],
     
     // Паттерны для поиска тестовых файлов
     include: ['tests/**/*.{test,spec}.{js,jsx,ts,tsx}'],
@@ -123,7 +123,7 @@ export default defineConfig({
         'tests/',
         '**/*.test.{js,jsx,ts,tsx}',
         '**/__tests__/**',
-        'src/renderer/index.jsx',
+        'src/renderer/index.tsx',
         'src/main/main.ts', // Точка входа, собирается через Vite отдельно
         'dist/**', // Игнорируем собранные файлы
       ],
@@ -135,13 +135,13 @@ export default defineConfig({
           lines: 50,
           statements: 50,
         },
-        'src/shared/volleyballRules.js': {
+        'src/shared/volleyballRules.ts': {
           branches: 80,
           functions: 80,
           lines: 80,
           statements: 80,
         },
-        'src/shared/matchUtils.js': {
+        'src/shared/matchUtils.ts': {
           branches: 80,
           functions: 80,
           lines: 80,

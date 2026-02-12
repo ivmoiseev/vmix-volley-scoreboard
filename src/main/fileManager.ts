@@ -1,8 +1,9 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { dialog } from 'electron';
-import { validateMatch, createNewMatch } from '../shared/matchUtils.js';
-import errorHandler from '../shared/errorHandler.js';
+import { validateMatch, createNewMatch } from '../shared/matchUtils';
+import errorHandler from '../shared/errorHandler';
+import { migrateRosterPositions } from '../shared/playerPositions';
 import * as logoManager from './logoManager.ts';
 import { getMatchesDir } from './utils/pathUtils.ts';
 
@@ -146,7 +147,6 @@ async function openMatch(filePath) {
     }
 
     // Миграция позиций в рострах: старые/неизвестные значения → международный стандарт
-    const { migrateRosterPositions } = await import('../shared/playerPositions.js');
     if (match.teamA && Array.isArray(match.teamA.roster)) {
       match.teamA.roster = migrateRosterPositions(match.teamA.roster);
     }
@@ -156,7 +156,7 @@ async function openMatch(filePath) {
 
     // Применяем миграцию, если необходимо
     try {
-      const { migrateMatchToSetStatus, needsMigration } = await import('../shared/matchMigration.js');
+      const { migrateMatchToSetStatus, needsMigration } = await import('../shared/matchMigration');
       if (needsMigration(match)) {
         match = migrateMatchToSetStatus(match);
         console.log('[fileManager] Применена миграция данных матча к новой структуре');

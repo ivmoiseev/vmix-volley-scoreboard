@@ -2,9 +2,9 @@
  * Тесты для SetValidator
  */
 
-import { SetValidator } from '../../../src/shared/validators/SetValidator.ts';
-import { SET_STATUS } from '../../../src/shared/types/Match.ts';
-import type { Set, CurrentSet, Match } from '../../../src/shared/types/Match.ts';
+import { SetValidator } from '../../../src/shared/validators/SetValidator';
+import { SET_STATUS } from '../../../src/shared/types/Match';
+import type { Set, CurrentSet, Match } from '../../../src/shared/types/Match';
 
 describe('SetValidator', () => {
   describe('validateSetUpdate', () => {

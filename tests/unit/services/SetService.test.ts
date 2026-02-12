@@ -2,9 +2,9 @@
  * Тесты для SetService
  */
 
-import { SetService } from '../../../src/shared/services/SetService.ts';
-import { SET_STATUS } from '../../../src/shared/types/Match.ts';
-import type { Match } from '../../../src/shared/types/Match.ts';
+import { SetService } from '../../../src/shared/services/SetService';
+import { SET_STATUS } from '../../../src/shared/types/Match';
+import type { Match } from '../../../src/shared/types/Match';
 
 describe('SetService', () => {
   const createTestMatch = (): Match => ({
