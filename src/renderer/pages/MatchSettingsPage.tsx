@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { resizeImage } from '../utils/imageResize';
 import type { Match } from '../../shared/types/Match';
 import { useVMix } from '../hooks/useVMix';
 import { useHeaderButtons } from '../components/Layout';
 import Button from '../components/Button';
+import TeamColorsEditor from '../components/TeamColorsEditor';
+import TeamLogoEditor from '../components/TeamLogoEditor';
 import { space, radius } from '../theme/tokens';
 import { VARIANTS } from '../../shared/volleyballRulesConfig';
 import { MatchDomain } from '../../shared/domain/MatchDomain';
@@ -676,70 +677,6 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }: MatchSettingsPag
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  Цвет формы игроков
-                </label>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <input
-                    type="color"
-                    value={formData.teamAColor}
-                    onChange={(e) => handleInputChange('teamAColor', e.target.value)}
-                    style={{
-                      width: '60px',
-                      height: '40px',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: radius.sm,
-                      cursor: 'pointer',
-                    }}
-                  />
-                  <input
-                    type="text"
-                    value={formData.teamAColor}
-                    onChange={(e) => handleInputChange('teamAColor', e.target.value)}
-                    style={{
-                      flex: 1,
-                      padding: '0.5rem',
-                      fontSize: '1rem',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: radius.sm,
-                    }}
-                    placeholder="#3498db"
-                  />
-                </div>
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  Цвет формы либеро
-                </label>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <input
-                    type="color"
-                    value={formData.teamALiberoColor || '#ffffff'}
-                    onChange={(e) => handleInputChange('teamALiberoColor', e.target.value)}
-                    style={{
-                      width: '60px',
-                      height: '40px',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: radius.sm,
-                      cursor: 'pointer',
-                    }}
-                  />
-                  <input
-                    type="text"
-                    value={formData.teamALiberoColor || ''}
-                    onChange={(e) => handleInputChange('teamALiberoColor', e.target.value)}
-                    style={{
-                      flex: 1,
-                      padding: '0.5rem',
-                      fontSize: '1rem',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: radius.sm,
-                    }}
-                    placeholder="Не указан"
-                  />
-                </div>
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
                   Город
                 </label>
                 <input
@@ -756,140 +693,31 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }: MatchSettingsPag
                   placeholder="Город команды"
                 />
               </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  Логотип команды
-                </label>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                  {match?.teamA?.logo && (
-                    <img
-                      src={match.teamA.logo}
-                      alt="Логотип команды А"
-                      style={{
-                        width: '100px',
-                        height: '100px',
-                        objectFit: 'contain',
-                        backgroundColor: 'white',
-                        padding: '0.5rem',
-                        borderRadius: radius.sm,
-                        border: '1px solid var(--color-border)',
-                      }}
-                    />
-                  )}
-                  <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
-                    <label style={{
-                      padding: '0.5rem 1rem',
-                      backgroundColor: 'var(--color-primary)',
-                      color: 'white',
-                      borderRadius: radius.sm,
-                      cursor: 'pointer',
-                      display: 'inline-block',
-                      textAlign: 'center',
-                    }}>
-                      {match?.teamA?.logo ? 'Изменить' : 'Загрузить'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={async (e) => {
-                          const file = e.target.files[0];
-                          if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = async (event) => {
-                            try {
-                              const base64 = event.target.result;
-                              // Изменяем размер изображения до 240px по длинной стороне
-                              const resizedBase64 = await resizeImage(base64, 240);
-                              
-                              // ВАЖНО: Сохраняем логотип в файл сразу при загрузке
-                              if (window.electronAPI && window.electronAPI.saveLogoToFile) {
-                                const result = await window.electronAPI.saveLogoToFile('A', resizedBase64);
-                                if (result.success) {
-                                  const updatedMatch = {
-                                    ...match,
-                                    teamA: {
-                                      ...match.teamA,
-                                      logo: resizedBase64,
-                                      logoBase64: result.logoBase64,
-                                      logoPath: result.logoPath,
-                                    },
-                                    updatedAt: new Date().toISOString(),
-                                  };
-                                  setMatch(updatedMatch);
-                                  
-                                  // Обновляем матч в Electron API
-                                  if (window.electronAPI.setCurrentMatch) {
-                                    await window.electronAPI.setCurrentMatch(updatedMatch);
-                                  }
-                                } else {
-                                  throw new Error(result.error || 'Ошибка при сохранении логотипа');
-                                }
-                              } else {
-                                // Fallback: сохраняем без файла (для обратной совместимости)
-                                const updatedMatch = {
-                                  ...match,
-                                  teamA: {
-                                    ...match.teamA,
-                                    logo: resizedBase64,
-                                  },
-                                  updatedAt: new Date().toISOString(),
-                                };
-                                setMatch(updatedMatch);
-                              }
-                            } catch (error) {
-                              console.error('Ошибка при обработке изображения:', error);
-                              await window.electronAPI?.showMessage?.({ message: 'Ошибка при загрузке изображения: ' + error.message });
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        }}
-                        style={{ display: 'none' }}
-                      />
-                    </label>
-                    {match?.teamA?.logo && (
-                      <button
-                        onClick={async () => {
-                          // ВАЖНО: Удаляем файлы логотипа при удалении
-                          if (window.electronAPI && window.electronAPI.deleteLogo) {
-                            await window.electronAPI.deleteLogo('A');
-                          }
-                          
-                          const updatedMatch = {
-                            ...match,
-                            teamA: {
-                              ...match.teamA,
-                              logo: undefined,
-                              logoBase64: undefined,
-                              logoPath: undefined,
-                            },
-                            updatedAt: new Date().toISOString(),
-                          };
-                          setMatch(updatedMatch);
-                          
-                          // Обновляем матч в Electron API
-                          if (window.electronAPI.setCurrentMatch) {
-                            await window.electronAPI.setCurrentMatch(updatedMatch);
-                          }
-                          
-                          // ВАЖНО: Обновляем vMix после удаления логотипа
-                          if (connectionStatus.connected) {
-                            resetImageFieldsCache();
-                            updateMatchData(updatedMatch, true);
-                          }
-                        }}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          backgroundColor: 'var(--color-danger)',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: radius.sm,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Удалить
-                      </button>
-                    )}
-                  </div>
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'row', gap: '1.5rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <TeamLogoEditor
+                  team={match.teamA}
+                  teamLetter="A"
+                  match={match}
+                  onMatchChange={async (updatedMatch) => {
+                    setMatch(updatedMatch);
+                    if (window.electronAPI?.setCurrentMatch) {
+                      await window.electronAPI.setCurrentMatch(updatedMatch);
+                    }
+                    if (connectionStatus.connected) {
+                      resetImageFieldsCache();
+                      updateMatchData(updatedMatch, true);
+                    }
+                  }}
+                />
+                <TeamColorsEditor
+                  color={formData.teamAColor}
+                  liberoColor={formData.teamALiberoColor || ''}
+                  colorPlaceholder="#3498db"
+                  onChange={({ color, liberoColor }) => {
+                    if (color !== undefined) handleInputChange('teamAColor', color);
+                    if (liberoColor !== undefined) handleInputChange('teamALiberoColor', liberoColor);
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -918,70 +746,6 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }: MatchSettingsPag
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  Цвет формы игроков
-                </label>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <input
-                    type="color"
-                    value={formData.teamBColor}
-                    onChange={(e) => handleInputChange('teamBColor', e.target.value)}
-                    style={{
-                      width: '60px',
-                      height: '40px',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: radius.sm,
-                      cursor: 'pointer',
-                    }}
-                  />
-                  <input
-                    type="text"
-                    value={formData.teamBColor}
-                    onChange={(e) => handleInputChange('teamBColor', e.target.value)}
-                    style={{
-                      flex: 1,
-                      padding: '0.5rem',
-                      fontSize: '1rem',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: radius.sm,
-                    }}
-                    placeholder="#e74c3c"
-                  />
-                </div>
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  Цвет формы либеро
-                </label>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <input
-                    type="color"
-                    value={formData.teamBLiberoColor || '#ffffff'}
-                    onChange={(e) => handleInputChange('teamBLiberoColor', e.target.value)}
-                    style={{
-                      width: '60px',
-                      height: '40px',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: radius.sm,
-                      cursor: 'pointer',
-                    }}
-                  />
-                  <input
-                    type="text"
-                    value={formData.teamBLiberoColor || ''}
-                    onChange={(e) => handleInputChange('teamBLiberoColor', e.target.value)}
-                    style={{
-                      flex: 1,
-                      padding: '0.5rem',
-                      fontSize: '1rem',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: radius.sm,
-                    }}
-                    placeholder="Не указан"
-                  />
-                </div>
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
                   Город
                 </label>
                 <input
@@ -998,147 +762,31 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }: MatchSettingsPag
                   placeholder="Город команды"
                 />
               </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  Логотип команды
-                </label>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                  {match?.teamB?.logo && (
-                    <img
-                      src={match.teamB.logo}
-                      alt="Логотип команды Б"
-                      style={{
-                        width: '100px',
-                        height: '100px',
-                        objectFit: 'contain',
-                        backgroundColor: 'white',
-                        padding: '0.5rem',
-                        borderRadius: radius.sm,
-                        border: '1px solid var(--color-border)',
-                      }}
-                    />
-                  )}
-                  <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
-                    <label style={{
-                      padding: '0.5rem 1rem',
-                      backgroundColor: 'var(--color-primary)',
-                      color: 'white',
-                      borderRadius: radius.sm,
-                      cursor: 'pointer',
-                      display: 'inline-block',
-                      textAlign: 'center',
-                    }}>
-                      {match?.teamB?.logo ? 'Изменить' : 'Загрузить'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={async (e) => {
-                          const file = e.target.files[0];
-                          if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = async (event) => {
-                            try {
-                              const base64 = event.target.result;
-                              // Изменяем размер изображения до 240px по длинной стороне
-                              const resizedBase64 = await resizeImage(base64, 240);
-                              
-                              // ВАЖНО: Сохраняем логотип в файл сразу при загрузке
-                              if (window.electronAPI && window.electronAPI.saveLogoToFile) {
-                                const result = await window.electronAPI.saveLogoToFile('B', resizedBase64);
-                                if (result.success) {
-                                  const updatedMatch = {
-                                    ...match,
-                                    teamB: {
-                                      ...match.teamB,
-                                      logo: resizedBase64,
-                                      logoBase64: result.logoBase64,
-                                      logoPath: result.logoPath,
-                                    },
-                                    updatedAt: new Date().toISOString(),
-                                  };
-                                  setMatch(updatedMatch);
-                                  
-                                  // Обновляем матч в Electron API
-                                  if (window.electronAPI.setCurrentMatch) {
-                                    await window.electronAPI.setCurrentMatch(updatedMatch);
-                                  }
-                                  
-                                  // ВАЖНО: Обновляем vMix после сохранения файла логотипа
-                                  // Файл уже создан (saveLogoToFile завершился), можно отправлять в vMix
-                                  if (connectionStatus.connected) {
-                                    resetImageFieldsCache();
-                                    updateMatchData(updatedMatch, true);
-                                  }
-                                } else {
-                                  throw new Error(result.error || 'Ошибка при сохранении логотипа');
-                                }
-                              } else {
-                                // Fallback: сохраняем без файла (для обратной совместимости)
-                                const updatedMatch = {
-                                  ...match,
-                                  teamB: {
-                                    ...match.teamB,
-                                    logo: resizedBase64,
-                                  },
-                                  updatedAt: new Date().toISOString(),
-                                };
-                                setMatch(updatedMatch);
-                              }
-                            } catch (error) {
-                              console.error('Ошибка при обработке изображения:', error);
-                              await window.electronAPI?.showMessage?.({ message: 'Ошибка при загрузке изображения: ' + error.message });
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        }}
-                        style={{ display: 'none' }}
-                      />
-                    </label>
-                    {match?.teamB?.logo && (
-                      <button
-                        onClick={async () => {
-                          // ВАЖНО: Удаляем файлы логотипа при удалении
-                          if (window.electronAPI && window.electronAPI.deleteLogo) {
-                            await window.electronAPI.deleteLogo('B');
-                          }
-                          
-                          const updatedMatch = {
-                            ...match,
-                            teamB: {
-                              ...match.teamB,
-                              logo: undefined,
-                              logoBase64: undefined,
-                              logoPath: undefined,
-                            },
-                            updatedAt: new Date().toISOString(),
-                          };
-                          setMatch(updatedMatch);
-                          
-                          // Обновляем матч в Electron API
-                          if (window.electronAPI.setCurrentMatch) {
-                            await window.electronAPI.setCurrentMatch(updatedMatch);
-                          }
-                          
-                          // ВАЖНО: Обновляем vMix после удаления логотипа команды B
-                          if (connectionStatus.connected) {
-                            resetImageFieldsCache();
-                            updateMatchData(updatedMatch, true);
-                          }
-                        }}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          backgroundColor: 'var(--color-danger)',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: radius.sm,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Удалить
-                      </button>
-                    )}
-                  </div>
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'row', gap: '1.5rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <TeamLogoEditor
+                  team={match.teamB}
+                  teamLetter="B"
+                  match={match}
+                  onMatchChange={async (updatedMatch) => {
+                    setMatch(updatedMatch);
+                    if (window.electronAPI?.setCurrentMatch) {
+                      await window.electronAPI.setCurrentMatch(updatedMatch);
+                    }
+                    if (connectionStatus.connected) {
+                      resetImageFieldsCache();
+                      updateMatchData(updatedMatch, true);
+                    }
+                  }}
+                />
+                <TeamColorsEditor
+                  color={formData.teamBColor}
+                  liberoColor={formData.teamBLiberoColor || ''}
+                  colorPlaceholder="#e74c3c"
+                  onChange={({ color, liberoColor }) => {
+                    if (color !== undefined) handleInputChange('teamBColor', color);
+                    if (liberoColor !== undefined) handleInputChange('teamBLiberoColor', liberoColor);
+                  }}
+                />
               </div>
             </div>
           </div>

@@ -5,6 +5,8 @@ import { useVMix } from '../hooks/useVMix';
 import { useHeaderButtons } from '../components/Layout';
 import { getContrastTextColor } from '../utils/colorContrast';
 import Button from '../components/Button';
+import TeamColorsEditor from '../components/TeamColorsEditor';
+import TeamLogoEditor from '../components/TeamLogoEditor';
 import { space, radius } from '../theme/tokens';
 import { POSITION_OPTIONS, migrateRosterPositions } from '../../shared/playerPositions';
 
@@ -22,8 +24,8 @@ function RosterManagementPage({ match: propMatch, onMatchChange }: RosterManagem
   // Используем match из пропсов, затем из state
   const [match, setMatch] = useState(propMatch || matchFromState || null);
   
-  // Получаем updateMatchData из useVMix для принудительного обновления при сохранении
-  const { updateMatchData, connectionStatus } = useVMix(match);
+  // Получаем updateMatchData и resetImageFieldsCache из useVMix для обновления vMix при сохранении
+  const { updateMatchData, connectionStatus, resetImageFieldsCache } = useVMix(match);
   
   const [selectedTeam, setSelectedTeam] = useState('A');
   const [roster, setRoster] = useState([]);
@@ -456,8 +458,9 @@ function RosterManagementPage({ match: propMatch, onMatchChange }: RosterManagem
       onMatchChange(match);
     }
     
-    // Принудительно обновляем все данные в vMix при сохранении списков команд
+    // Принудительно обновляем все данные в vMix при сохранении (в т.ч. логотипы и цвета)
     if (connectionStatus.connected) {
+      resetImageFieldsCache?.();
       updateMatchData(match, true);
     }
     
@@ -487,86 +490,109 @@ function RosterManagementPage({ match: propMatch, onMatchChange }: RosterManagem
 
   const handleExportRoster = () => {
     const team = selectedTeam === 'A' ? match.teamA : match.teamB;
-    // Экспортируем состав и тренера вместе
-    const exportData = {
+    const exportData: Record<string, unknown> = {
+      name: team.name || '',
+      city: team.city ?? '',
       coach: team.coach || '',
       roster: team.roster || [],
+      startingLineupOrder: team.startingLineupOrder || [],
+      color: team.color || '',
+      liberoColor: team.liberoColor ?? '',
     };
+    if (team.logoBase64 || team.logo) {
+      exportData.logoBase64 = team.logoBase64 || team.logo;
+    }
     const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `roster_${team.name}_${Date.now()}.json`;
+    link.download = `roster_${(team.name || 'team').replace(/[^a-zA-Zа-яА-Я0-9_-]/g, '_')}_${Date.now()}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
 
-  const handleImportRoster = async (event) => {
-    const file = event.target.files[0];
+  const syncMatchToParentAndElectron = (updatedMatch: Match) => {
+    if (onMatchChange) onMatchChange(updatedMatch);
+    window.electronAPI?.setCurrentMatch(updatedMatch).catch((err: unknown) => console.error('Ошибка при обновлении матча:', err));
+    window.electronAPI?.setMobileMatch(updatedMatch).catch((err: unknown) => console.error('Ошибка при обновлении мобильного матча:', err));
+  };
+
+  const handleImportRoster = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const importedData = JSON.parse(e.target.result);
-        
-        // Проверяем формат: объект с полями coach и roster
+        const importedData = JSON.parse(e.target?.result as string) as Record<string, unknown>;
         if (!importedData.roster || !Array.isArray(importedData.roster)) {
-          await window.electronAPI?.showMessage?.({ message: 'Некорректный формат файла. Ожидается объект с полями "roster" (массив) и "coach" (строка)' });
+          await window.electronAPI?.showMessage?.({ message: 'Некорректный формат файла. Ожидается объект с полем "roster" (массив).' });
           return;
         }
-        
-        const importedRoster = migrateRosterPositions(importedData.roster);
-        const importedCoach = importedData.coach || '';
-        
-        // Инициализируем startingLineupOrder для импортированного состава
-        // Порядок определяется по порядку игроков в массиве, где isStarter === true
+
+        const importedRoster = migrateRosterPositions(importedData.roster as Parameters<typeof migrateRosterPositions>[0]);
         const importedStartingLineupOrder = importedRoster
-          .map((player, index) => player.isStarter ? index : null)
-          .filter(index => index !== null);
-        
-        // Обновляем состав и тренера одновременно
-        const updatedMatch = { ...match };
-        if (selectedTeam === 'A') {
-          updatedMatch.teamA = {
-            ...updatedMatch.teamA,
+          .map((player, index) => (player.isStarter ? index : null))
+          .filter((index): index is number => index !== null);
+
+        let updatedMatch: Match = { ...match };
+        const teamKey = selectedTeam === 'A' ? 'teamA' : 'teamB';
+        const currentTeam = updatedMatch[teamKey];
+
+        updatedMatch = {
+          ...updatedMatch,
+          [teamKey]: {
+            ...currentTeam,
             roster: importedRoster,
             startingLineupOrder: importedStartingLineupOrder,
-            coach: importedCoach,
-          };
-        } else {
-          updatedMatch.teamB = {
-            ...updatedMatch.teamB,
-            roster: importedRoster,
-            startingLineupOrder: importedStartingLineupOrder,
-            coach: importedCoach,
-          };
+            coach: (importedData.coach as string) ?? currentTeam.coach ?? '',
+            name: (importedData.name as string) ?? currentTeam.name ?? '',
+            city: (importedData.city as string) ?? currentTeam.city ?? '',
+            color: (importedData.color as string) ?? currentTeam.color ?? '',
+            liberoColor: (importedData.liberoColor as string) ?? currentTeam.liberoColor,
+          },
+          updatedAt: new Date().toISOString(),
+        };
+
+        const logoBase64 = (importedData.logoBase64 ?? importedData.logo) as string | undefined;
+        if (logoBase64 && window.electronAPI?.saveLogoToFile) {
+          try {
+            const result = await window.electronAPI.saveLogoToFile(selectedTeam as 'A' | 'B', logoBase64);
+            if (result.success) {
+              updatedMatch = {
+                ...updatedMatch,
+                [teamKey]: {
+                  ...updatedMatch[teamKey],
+                  logo: logoBase64,
+                  logoBase64: result.logoBase64,
+                  logoPath: result.logoPath,
+                },
+                updatedAt: new Date().toISOString(),
+              };
+            }
+          } catch (err) {
+            console.error('Ошибка при сохранении логотипа при импорте:', err);
+          }
         }
-        updatedMatch.updatedAt = new Date().toISOString();
+
         setMatch(updatedMatch);
-        setRoster(importedRoster); // Обновляем локальное состояние ростра
-        
-        // Обновляем матч в родительском компоненте и Electron API
-        if (onMatchChange) {
-          onMatchChange(updatedMatch);
-        }
-        
-        if (window.electronAPI) {
-          window.electronAPI.setCurrentMatch(updatedMatch).catch(err => {
-            console.error('Ошибка при обновлении матча:', err);
-          });
-          window.electronAPI.setMobileMatch(updatedMatch).catch(err => {
-            console.error('Ошибка при обновлении мобильного матча:', err);
-          });
-        }
-        
-        await window.electronAPI?.showMessage?.({ message: 'Состав и тренер успешно импортированы!' });
+        setRoster(updatedMatch[teamKey].roster || []);
+        syncMatchToParentAndElectron(updatedMatch);
+
+        const parts = ['состав'];
+        if (importedData.coach !== undefined) parts.push('тренер');
+        if (importedData.name !== undefined) parts.push('название');
+        if (importedData.city !== undefined) parts.push('город');
+        if (importedData.color !== undefined || importedData.liberoColor !== undefined) parts.push('цвета');
+        if (logoBase64) parts.push('логотип');
+        await window.electronAPI?.showMessage?.({ message: `Импортированы: ${parts.join(', ')}.` });
       } catch (error) {
-        await window.electronAPI?.showMessage?.({ message: 'Ошибка при чтении файла: ' + error.message });
+        await window.electronAPI?.showMessage?.({ message: 'Ошибка при чтении файла: ' + (error as Error).message });
       }
     };
     reader.readAsText(file);
+    event.target.value = '';
   };
 
   if (!match) {
@@ -615,6 +641,108 @@ function RosterManagementPage({ match: propMatch, onMatchChange }: RosterManagem
         >
           {match.teamB.name}
         </button>
+      </div>
+
+      {/* Внешний вид команды */}
+      <div style={{
+        backgroundColor: 'var(--color-surface-muted)',
+        padding: '1.5rem',
+        borderRadius: radius.sm,
+        marginBottom: '1.5rem',
+      }}>
+        <h3 style={{ marginTop: 0 }}>Внешний вид команды</h3>
+        <div style={{ display: 'grid', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ minWidth: '200px', flex: '1 1 0' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                Название команды
+              </label>
+              <input
+                type="text"
+                value={team.name || ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const updatedMatch = { ...match };
+                  if (selectedTeam === 'A') {
+                    updatedMatch.teamA = { ...updatedMatch.teamA, name: value };
+                  } else {
+                    updatedMatch.teamB = { ...updatedMatch.teamB, name: value };
+                  }
+                  updatedMatch.updatedAt = new Date().toISOString();
+                  setMatch(updatedMatch);
+                  syncMatchToParentAndElectron(updatedMatch);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  fontSize: '1rem',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: radius.sm,
+                }}
+                placeholder="Название команды"
+              />
+            </div>
+            <div style={{ minWidth: '200px', flex: '1 1 0' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                Город команды
+              </label>
+              <input
+                type="text"
+                value={team.city || ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const updatedMatch = { ...match };
+                  if (selectedTeam === 'A') {
+                    updatedMatch.teamA = { ...updatedMatch.teamA, city: value };
+                  } else {
+                    updatedMatch.teamB = { ...updatedMatch.teamB, city: value };
+                  }
+                  updatedMatch.updatedAt = new Date().toISOString();
+                  setMatch(updatedMatch);
+                  syncMatchToParentAndElectron(updatedMatch);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  fontSize: '1rem',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: radius.sm,
+                }}
+                placeholder="Город команды"
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'row', gap: '1.5rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <TeamLogoEditor
+              team={team}
+              teamLetter={selectedTeam as 'A' | 'B'}
+              match={match}
+              onMatchChange={(updatedMatch) => {
+                setMatch(updatedMatch);
+                syncMatchToParentAndElectron(updatedMatch);
+              }}
+            />
+            <TeamColorsEditor
+              color={team.color || ''}
+              liberoColor={team.liberoColor || ''}
+              colorPlaceholder={selectedTeam === 'A' ? '#3498db' : '#e74c3c'}
+              onChange={({ color: newColor, liberoColor: newLiberoColor }) => {
+                const teamKey = selectedTeam === 'A' ? 'teamA' : 'teamB';
+                const currentTeam = match[teamKey];
+                const nextTeam = { ...currentTeam };
+                if (newColor !== undefined) nextTeam.color = newColor;
+                if (newLiberoColor !== undefined) nextTeam.liberoColor = newLiberoColor || undefined;
+                const updatedMatch = {
+                  ...match,
+                  [teamKey]: nextTeam,
+                  updatedAt: new Date().toISOString(),
+                };
+                setMatch(updatedMatch);
+                syncMatchToParentAndElectron(updatedMatch);
+              }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Состав команды */}

@@ -1,31 +1,10 @@
-fix(electron): замена alert/confirm на IPC-диалоги — исправление бага с фокусом в полях ввода
+feat(roster): блок «Внешний вид команды», экспорт/импорт с логотипом и цветами; fix(overlay): логотип команды A на intro
 
-Проблема: после вызова alert() или confirm() в рендерере текстовые поля переставали
-принимать ввод с клавиатуры (Electron #20821). Решение: перенос показа сообщений
-и подтверждений в main-процесс через dialog.showMessageBox и вызов из рендерера по IPC.
+Рефакторинг страницы «Управление составами»:
+- Блок «Внешний вид команды»: название, город, логотип (TeamLogoEditor), цвета формы и либеро (TeamColorsEditor). Используются на MatchSettingsPage и RosterManagementPage.
+- Типы Team: logoPath?, logoBase64?, city?.
+- Экспорт/импорт: name, city, coach, roster, startingLineupOrder, color, liberoColor, logoBase64; при импорте логотипа — saveLogoToFile и подстановка в match.
+- Тесты RosterManagementPage обновлены; документация ui-structure.md и roster-management-refactoring-plan.md (описание выполненных изменений).
 
-Код:
-- Main: src/main/dialogHandlers.ts — registerDialogHandlers(ipcMain, dialog, getWindow),
-  обработчики dialog:show-message и dialog:show-confirm. Регистрация в main.ts.
-- Preload: в electronAPI добавлены showMessage и showConfirm.
-- Рендерер: во всех 8 файлах (MatchSettingsPage, RosterManagementPage, MatchControlPage,
-  VMixSettingsPage, WelcomePage, Layout, MobileAccessPage, useMatch) заменены alert/confirm
-  на window.electronAPI?.showMessage?.() и showConfirm?.().
-
-Тесты:
-- tests/unit/main/dialogHandlers.test.ts — вызов showMessageBox и возврат результата.
-- tests/setup.ts — моки showMessage и showConfirm в global.electronAPI.
-- Обновлены MatchSettingsPage (showConfirm при отмене смены команд), RosterManagementPage
-  и useMatch (проверки вызовов showMessage).
-
-Исправление сборки TypeScript:
-- useMatch.ts: приведение типа для window.electronAPI; Match → MatchForMigration при
-  migrateMatchToSetStatus; match → MatchWithVariant при getRules.
-- SetService.ts: приведение match к MatchWithVariant при вызове getRules.
-- npm run compile:typescript и build:electron проходят.
-
-Документация:
-- docs/troubleshooting/electron-input-focus-bug.md — статус «решение внедрено», актуализация.
-- docs/development/electron-dialog-refactoring-implementation-guide.md — этапы отмечены
-  выполненными; добавлен раздел 10 «Исправление ошибок компиляции TypeScript».
-- CHANGELOG.md — запись в [Unreleased]: добавлено (рефакторинг диалогов), исправлено (компиляция).
+Исправление overlay intro (мобильный сервер):
+- В server.ts при формировании logoUrl проверка existsSync(файл по logoPath); при отсутствии файла — fallback на logoBase64/logo (data URL), чтобы не отдавать битую ссылку для команды A.

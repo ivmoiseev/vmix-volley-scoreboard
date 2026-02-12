@@ -15,6 +15,7 @@ import { createNewMatch } from '../../../src/shared/matchUtils.js';
 vi.mock('../../../src/renderer/hooks/useVMix', () => ({
   useVMix: vi.fn(() => ({
     updateMatchData: vi.fn(),
+    resetImageFieldsCache: vi.fn(),
     connectionStatus: { connected: false },
   })),
 }));
@@ -61,13 +62,18 @@ describe('RosterManagementPage — импорт и экспорт', () => {
   });
 
   describe('экспорт состава', () => {
-    test('экспортирует coach и roster в формате JSON', async () => {
+    test('экспортирует name, city, coach, roster, startingLineupOrder, color, liberoColor в формате JSON', async () => {
       const roster = [
         { number: 1, name: 'Игрок 1', position: 'Доигровщик', isStarter: true },
         { number: 2, name: 'Игрок 2', position: 'Связующий', isStarter: false },
       ];
       const match = createMatchWithRoster(roster);
       match.teamA.coach = 'Тренер A';
+      match.teamA.name = 'Команда A';
+      match.teamA.city = 'Москва';
+      match.teamA.color = '#3498db';
+      match.teamA.liberoColor = '#ffffff';
+      match.teamA.startingLineupOrder = [0];
 
       const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
       const revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL');
@@ -88,12 +94,40 @@ describe('RosterManagementPage — импорт и экспорт', () => {
 
       const exportData = JSON.parse(exportText);
       expect(exportData).toHaveProperty('coach', 'Тренер A');
+      expect(exportData).toHaveProperty('name', 'Команда A');
+      expect(exportData).toHaveProperty('city', 'Москва');
       expect(exportData).toHaveProperty('roster');
+      expect(exportData).toHaveProperty('startingLineupOrder');
+      expect(exportData).toHaveProperty('color', '#3498db');
+      expect(exportData).toHaveProperty('liberoColor', '#ffffff');
       expect(exportData.roster).toHaveLength(2);
       expect(exportData.roster[0].position).toBe('Доигровщик');
       expect(exportData.roster[1].position).toBe('Связующий');
 
       expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:mock');
+
+      createObjectURLSpy.mockRestore();
+      revokeObjectURLSpy.mockRestore();
+    });
+
+    test('включает logoBase64 в экспорт при наличии логотипа', async () => {
+      const match = createMatchWithRoster([{ number: 1, name: 'X', position: '', isStarter: false }]);
+      match.teamA.logoBase64 = 'data:image/png;base64,abc';
+
+      const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
+      const revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL');
+
+      renderWithRouter(match);
+      fireEvent.click(screen.getByText('Экспорт'));
+
+      const blob = createObjectURLSpy.mock.calls[0][0];
+      const exportText = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsText(blob);
+      });
+      const exportData = JSON.parse(exportText);
+      expect(exportData).toHaveProperty('logoBase64', 'data:image/png;base64,abc');
 
       createObjectURLSpy.mockRestore();
       revokeObjectURLSpy.mockRestore();
@@ -121,7 +155,7 @@ describe('RosterManagementPage — импорт и экспорт', () => {
 
       const { container } = renderWithRouter(match, onMatchChange);
 
-      const fileInput = container.querySelector('input[type="file"]');
+      const fileInput = container.querySelector('input[type="file"][accept=".json"]');
       expect(fileInput).toBeTruthy();
 
       fireEvent.change(fileInput, { target: { files: [mockFile] } });
@@ -148,7 +182,7 @@ describe('RosterManagementPage — импорт и экспорт', () => {
 
       const { container } = renderWithRouter(match);
 
-      const fileInput = container.querySelector('input[type="file"]');
+      const fileInput = container.querySelector('input[type="file"][accept=".json"]');
       fireEvent.change(fileInput, { target: { files: [mockFile] } });
 
       await waitFor(() => {
@@ -156,6 +190,72 @@ describe('RosterManagementPage — импорт и экспорт', () => {
           expect.objectContaining({ message: expect.stringContaining('Некорректный формат файла') })
         );
       });
+    });
+
+    test('применяет name, city, color, liberoColor при импорте расширенного формата', async () => {
+      const match = createMatchWithRoster([]);
+      match.teamA.name = 'Было';
+      match.teamA.city = 'Был город';
+      match.teamA.color = '#000000';
+      const onMatchChange = vi.fn();
+
+      const importData = {
+        roster: [{ number: 1, name: 'Игрок', position: '', isStarter: false }],
+        coach: 'Тренер',
+        name: 'Новое название',
+        city: 'Казань',
+        color: '#ff0000',
+        liberoColor: '#00ff00',
+      };
+
+      const mockFile = new File([JSON.stringify(importData)], 'roster.json', {
+        type: 'application/json',
+      });
+
+      const { container } = renderWithRouter(match, onMatchChange);
+      const fileInput = container.querySelector('input[type="file"][accept=".json"]');
+      fireEvent.change(fileInput, { target: { files: [mockFile] } });
+
+      await waitFor(() => {
+        expect(onMatchChange).toHaveBeenCalled();
+      });
+
+      const updatedMatch = onMatchChange.mock.calls[0][0];
+      expect(updatedMatch.teamA.name).toBe('Новое название');
+      expect(updatedMatch.teamA.city).toBe('Казань');
+      expect(updatedMatch.teamA.color).toBe('#ff0000');
+      expect(updatedMatch.teamA.liberoColor).toBe('#00ff00');
+      expect(updatedMatch.teamA.coach).toBe('Тренер');
+      expect(updatedMatch.teamA.roster).toHaveLength(1);
+    });
+
+    test('применяет city при импорте и отображает в поле «Город команды»', async () => {
+      const match = createMatchWithRoster([]);
+      const onMatchChange = vi.fn();
+
+      const importData = {
+        roster: [{ number: 1, name: 'X', position: '', isStarter: false }],
+        city: 'Санкт-Петербург',
+      };
+      const mockFile = new File([JSON.stringify(importData)], 'roster.json', {
+        type: 'application/json',
+      });
+
+      const { container } = renderWithRouter(match, onMatchChange);
+      const fileInput = container.querySelector('input[type="file"][accept=".json"]');
+      fireEvent.change(fileInput, { target: { files: [mockFile] } });
+
+      await waitFor(() => {
+        expect(onMatchChange).toHaveBeenCalled();
+      });
+
+      const updatedMatch = onMatchChange.mock.calls[0][0];
+      expect(updatedMatch.teamA.city).toBe('Санкт-Петербург');
+
+      // Проверяем, что в UI отображается импортированный город
+      const cityInput = container.querySelector('input[placeholder="Город команды"]');
+      expect(cityInput).toBeTruthy();
+      expect((cityInput as HTMLInputElement).value).toBe('Санкт-Петербург');
     });
   });
 });

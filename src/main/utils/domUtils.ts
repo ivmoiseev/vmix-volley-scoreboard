@@ -37,8 +37,8 @@ function getSanitizationFunctions() {
       
       if (logoUrl) {
         const img = createSafeImage(logoUrl, teamName, () => {
-          // При ошибке загрузки оставляем контейнер видимым, но пустым
-          container.style.display = 'flex';
+          // При ошибке загрузки скрываем контейнер (файл удалён, 404 и т.д.)
+          container.style.display = 'none';
         });
         container.appendChild(img);
         container.style.display = 'flex';

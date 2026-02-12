@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
+import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createRequire } from 'module';
@@ -206,10 +207,24 @@ class MobileServer {
       return null;
     }
 
-    const logoUrl = (team) => {
-      const p = team && (team as any).logoPath;
-      if (!p || typeof p !== 'string') return null;
-      return p.startsWith('logos/') ? '/' + p : '/logos/' + p;
+    const logosDir = getLogosDir();
+    const logoUrl = (team: { logoPath?: string; logoBase64?: string; logo?: string } | null | undefined) => {
+      if (!team) return null;
+      const p = team.logoPath;
+      if (p && typeof p === 'string') {
+        const fileName = p.startsWith('logos/') ? p.slice(6) : p;
+        const fullPath = path.join(logosDir, fileName);
+        if (existsSync(fullPath)) {
+          return p.startsWith('logos/') ? '/' + p : '/logos/' + p;
+        }
+        // Файл по logoPath отсутствует (например, удалён при cleanup или после сохранения матча,
+        // а currentMatch не обновлён новыми путями) — не отдаём битую ссылку, переходим к base64
+      }
+      const base64 = team.logoBase64 || team.logo;
+      if (base64 && typeof base64 === 'string') {
+        return base64;
+      }
+      return null;
     };
 
     const rules = getRules(m);
@@ -333,7 +348,7 @@ class MobileServer {
       text-align: center;
       font-size: 0.85rem;
       color: #7f8c8d;
-      border-radius: 0;
+      border-radius: 0 0 12px 12px;
     }
     .score-section {
       background: white;
@@ -852,10 +867,8 @@ class MobileServer {
       } else if (matchData.teamA && matchData.teamA.logo) {
         // Старый формат (обратная совместимость)
         logoAUrl = matchData.teamA.logo;
-      } else {
-        // Fallback на фиксированное имя для обратной совместимости
-        logoAUrl = \`http://\${window.location.hostname}:${serverPort}/logos/logo_a.png\`;
       }
+      // Если логотипа нет — logoAUrl остаётся null, контейнер будет скрыт
       
       // Используем безопасный метод для установки логотипа
       setLogoContainer(logoA, logoAUrl, matchData.teamA ? matchData.teamA.name : 'Команда A');
@@ -874,10 +887,8 @@ class MobileServer {
       } else if (matchData.teamB && matchData.teamB.logo) {
         // Старый формат (обратная совместимость)
         logoBUrl = matchData.teamB.logo;
-      } else {
-        // Fallback на фиксированное имя для обратной совместимости
-        logoBUrl = \`http://\${window.location.hostname}:${serverPort}/logos/logo_b.png\`;
       }
+      // Если логотипа нет — logoBUrl остаётся null, контейнер будет скрыт
       
       // Используем безопасный метод для установки логотипа
       setLogoContainer(logoB, logoBUrl, matchData.teamB ? matchData.teamB.name : 'Команда B');

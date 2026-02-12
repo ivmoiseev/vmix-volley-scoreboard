@@ -34,7 +34,10 @@ export interface Team {
   name: string;
   color: string; // Цвет формы игроков
   liberoColor?: string; // Цвет формы либеро
-  logo?: string; // base64 или путь к файлу
+  city?: string; // Город команды
+  logo?: string; // base64 или путь к файлу (для отображения в UI)
+  logoPath?: string; // Путь к файлу логотипа (для vMix, main process)
+  logoBase64?: string; // base64 для сохранения в JSON и переносимости
   coach?: string;
   roster?: Player[];
   startingLineupOrder?: number[]; // Индексы игроков из roster в порядке стартового состава

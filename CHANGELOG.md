@@ -9,6 +9,14 @@
 
 ### Добавлено
 
+- **Рефакторинг страницы «Управление составами»**
+  - Блок «Внешний вид команды»: название команды, город команды, логотип (превью, загрузка/удаление), цвет формы и цвет либеро. Логотип и цвета в одну строку (flex).
+  - Компоненты **TeamLogoEditor** и **TeamColorsEditor** (`src/renderer/components/`) — используются на MatchSettingsPage и RosterManagementPage.
+  - В типе `Team` (Match.ts): поля `logoPath?`, `logoBase64?`, `city?`.
+  - Экспорт/импорт на странице составов расширен: для выбранной команды в JSON включаются `name`, `city`, `coach`, `roster`, `startingLineupOrder`, `color`, `liberoColor`, при наличии — `logoBase64`. Импорт применяет эти поля к выбранной команде; при наличии логотипа — `saveLogoToFile` и подстановка в match. Сообщение об успешном импорте перечисляет импортированные поля.
+  - Тесты: RosterManagementPage — экспорт/импорт с name, city, color, liberoColor, logoBase64; мок `resetImageFieldsCache`.
+  - Документация: `docs/getting-started/ui-structure.md` — описание блока «Внешний вид команды» и города; `docs/development/roster-management-refactoring-plan.md` — переписан как описание выполненных изменений (вместо плана).
+
 - **Исправление бага с фокусом в полях ввода (Electron alert/confirm)**
   - Все вызовы `alert()` и `window.confirm()` в рендерере заменены на IPC-диалоги main-процесса: `window.electronAPI.showMessage()` и `window.electronAPI.showConfirm()` (см. [Electron #20821](https://github.com/electron/electron/issues/20821)). После закрытия диалога поля ввода снова принимают ввод с клавиатуры.
   - Main: модуль `src/main/dialogHandlers.ts` с `registerDialogHandlers(ipcMain, dialog, getWindow)`; обработчики `dialog:show-message` и `dialog:show-confirm`; вызов из `main.ts`.
@@ -61,6 +69,9 @@
   - Итог: весь код в `src/` и тестах на TypeScript (.ts/.tsx); в main единственное исключение — `preload.cjs` (CommonJS для Electron).
 
 ### Исправлено
+
+- **Логотип команды A на overlay/intro (мобильный сервер)**
+  - В `getOverlayMatchPayload()` (server.ts) при формировании `logoUrl` добавлена проверка существования файла по `team.logoPath` (`existsSync`). Если файл отсутствует (например, после cleanup при сохранении матча текущий матч в памяти не обновлён новыми путями), в ответ не отдаётся битая ссылка; используется fallback на `team.logoBase64` или `team.logo` (data URL). Импорт `existsSync` из `fs`.
 
 - **Ошибки компиляции TypeScript после рефакторинга диалогов**
   - В `useMatch.ts`: приведение типа для `window.electronAPI` (Window не объявляет electronAPI в проекте); приведение `Match` к `MatchForMigration` при вызове `migrateMatchToSetStatus` и результата к `Match | null`; приведение `match` к `MatchWithVariant` при вызове `getRules`.
