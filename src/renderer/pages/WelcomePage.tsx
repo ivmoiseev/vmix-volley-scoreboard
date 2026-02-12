@@ -39,26 +39,24 @@ function WelcomePage() {
   const handleCreateMatch = async () => {
     try {
       if (!window.electronAPI) {
-        alert('Electron API недоступен');
         return;
       }
 
       const match = await window.electronAPI.createMatch();
       if (!match) {
-        alert('Не удалось создать матч: матч не был создан');
+        await window.electronAPI.showMessage({ message: 'Не удалось создать матч: матч не был создан' });
         return;
       }
       navigate('/match', { state: { match } });
     } catch (error) {
       console.error('Ошибка при создании матча:', error);
-      alert('Не удалось создать матч: ' + (error instanceof Error ? error.message : String(error)));
+      await window.electronAPI?.showMessage?.({ message: 'Не удалось создать матч: ' + (error instanceof Error ? error.message : String(error)) });
     }
   };
 
   const handleOpenMatch = async () => {
     try {
       if (!window.electronAPI) {
-        alert('Electron API недоступен');
         return;
       }
 
@@ -68,7 +66,7 @@ function WelcomePage() {
       }
     } catch (error) {
       console.error('Ошибка при открытии матча:', error);
-      alert('Не удалось открыть матч: ' + (error instanceof Error ? error.message : String(error)));
+      await window.electronAPI?.showMessage?.({ message: 'Не удалось открыть матч: ' + (error instanceof Error ? error.message : String(error)) });
     }
   };
 

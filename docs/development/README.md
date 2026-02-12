@@ -9,6 +9,7 @@
 - **[QA Аудит](QA_AUDIT_REPORT.md)** - ⚠️ **ВАЖНО**: отчет о качестве кода, найденных проблемах и рекомендациях по улучшению
 - **[Аудит безопасности](SECURITY_AUDIT_REPORT.md)** - полный аудит безопасности: уязвимости, легаси, неиспользуемый код, план решения
 - **[Инструкции по рефакторингу безопасности](security-refactoring-implementation-guide.md)** - поэтапные инструкции для программистов (TDD)
+- **[Инструкция: замена alert/confirm на IPC-диалоги](electron-dialog-refactoring-implementation-guide.md)** - исправление бага с фокусом в полях ввода в Electron (TDD, этапность, тесты); **этапы выполнены** (2026-02-12), раздел 10 — исправление ошибок компиляции TS
 - **[Аудит UI/UX](ui-ux-audit-report.md)** - анализ пользовательского интерфейса и рекомендации по улучшению дизайна (разрешение 1366×768); статус реализации см. в DESIGN.md
 - **[Инструкции по рефакторингу дизайна](design-refactoring-implementation-guide.md)** - пошаговый рефакторинг (этапы выполнены); текущее состояние — в DESIGN.md
 - **[Руководство по рефакторингу](REFACTORING_GUIDE.md)** - подробный план рефакторинга и улучшения кода
@@ -56,6 +57,7 @@ development/
 ├── ui-ux-audit-report.md                  # Аудит UI/UX и рекомендации по дизайну
 ├── design-refactoring-implementation-guide.md # Инструкции по рефакторингу дизайна (этапы выполнены)
 ├── REFACTORING_GUIDE.md                   # Руководство по рефакторингу
+├── electron-dialog-refactoring-implementation-guide.md # Замена alert/confirm на IPC-диалоги (баг фокуса)
 ├── dependencies-version-requirements.md   # Требования к версиям зависимостей
 ├── project-structure-cleanup.md          # Очистка структуры проекта
 ├── vitest-migration-guide.md             # Руководство по миграции на Vitest

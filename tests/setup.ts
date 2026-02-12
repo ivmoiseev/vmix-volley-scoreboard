@@ -52,6 +52,10 @@ global.electronAPI = global.electronAPI || {
   setAutoUpdateSettings: vi.fn(),
   onUpdateStatus: vi.fn(() => () => {}),
   onAutoUpdateSettingsChanged: vi.fn(() => () => {}),
+
+  // Диалоги (IPC вместо alert/confirm — исправление бага с фокусом в полях ввода)
+  showMessage: vi.fn(() => Promise.resolve()),
+  showConfirm: vi.fn(() => Promise.resolve(true)),
 };
 
 global.window = global.window || ({} as typeof window);

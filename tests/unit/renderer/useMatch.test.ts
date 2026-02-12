@@ -3,7 +3,7 @@
  * Проверка работы хука с Service Layer
  */
 
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SET_STATUS } from '../../../src/shared/types/Match';
 import type { Match } from '../../../src/shared/types/Match';
@@ -422,7 +422,7 @@ describe('useMatch', () => {
       expect(result.current.hasHistory).toBe(true);
     });
 
-    it('должен обрабатывать ошибки при завершении партии', () => {
+    it('должен обрабатывать ошибки при завершении партии', async () => {
       const match = createTestMatch({
         currentSet: {
           setNumber: 1,
@@ -437,7 +437,8 @@ describe('useMatch', () => {
         throw new Error('Партия не может быть завершена');
       });
 
-      const alertSpy = vi.spyOn(window, 'alert').mockImplementation();
+      const showMessageMock = vi.mocked(global.electronAPI?.showMessage);
+      if (showMessageMock) showMessageMock.mockClear();
 
       const { result } = renderHook(() => useMatch(match));
 
@@ -445,9 +446,9 @@ describe('useMatch', () => {
         result.current.finishSet();
       });
 
-      expect(alertSpy).toHaveBeenCalledWith('Партия не может быть завершена');
-
-      alertSpy.mockRestore();
+      await waitFor(() => {
+        expect(global.electronAPI?.showMessage).toHaveBeenCalledWith({ message: 'Партия не может быть завершена' });
+      });
     });
   });
 
@@ -487,7 +488,7 @@ describe('useMatch', () => {
       expect(result.current.hasHistory).toBe(true);
     });
 
-    it('должен обрабатывать ошибки при обновлении партии', () => {
+    it('должен обрабатывать ошибки при обновлении партии', async () => {
       const match = createTestMatch({
         currentSet: {
           setNumber: 1,
@@ -504,7 +505,8 @@ describe('useMatch', () => {
         throw new Error('Ошибка валидации');
       });
 
-      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+      const showMessageMock = vi.mocked(global.electronAPI?.showMessage);
+      if (showMessageMock) showMessageMock.mockClear();
 
       const { result } = renderHook(() => useMatch(match));
 
@@ -518,12 +520,12 @@ describe('useMatch', () => {
         expect(success).toBe(true); // Функция всегда возвращает true
       });
 
-      // useMatch обрабатывает ошибку через SetService.updateSet, который показывает alert
-      expect(alertSpy).toHaveBeenCalledWith('Ошибка валидации');
+      // useMatch обрабатывает ошибку через SetService.updateSet, который показывает showMessage
+      await waitFor(() => {
+        expect(global.electronAPI?.showMessage).toHaveBeenCalledWith({ message: 'Ошибка валидации' });
+      });
       // Проверяем, что match не изменился (счет остался прежним)
       expect(result.current.match?.currentSet.scoreA).toBe(initialScore);
-
-      alertSpy.mockRestore();
     });
   });
 

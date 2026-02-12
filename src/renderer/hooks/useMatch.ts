@@ -6,8 +6,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Match } from '../../shared/types/Match';
 import { SET_STATUS } from '../../shared/types/Match';
-import { getRules } from '../../shared/volleyballRules';
-import { migrateMatchToSetStatus } from '../../shared/matchMigration';
+import { getRules, type MatchWithVariant } from '../../shared/volleyballRules';
+import { migrateMatchToSetStatus, type MatchForMigration } from '../../shared/matchMigration';
 import { SetService } from '../../shared/services/SetService';
 import { ScoreService } from '../../shared/services/ScoreService';
 import { HistoryService } from '../../shared/services/HistoryService';
@@ -31,8 +31,10 @@ import { HistoryService } from '../../shared/services/HistoryService';
  * ```
  */
 export function useMatch(initialMatch: Match | null) {
-  // Применяем миграцию при инициализации
-  const migratedMatch = initialMatch ? migrateMatchToSetStatus(initialMatch) : null;
+  // Применяем миграцию при инициализации (приведение типов для совместимости Match с MatchForMigration)
+  const migratedMatch = initialMatch
+    ? (migrateMatchToSetStatus(initialMatch as unknown as MatchForMigration) as Match | null)
+    : null;
   const [match, setMatch] = useState<Match | null>(migratedMatch);
   const prevInitialMatchRef = useRef<Match | null>(initialMatch);
   const lastStatsUpdateRef = useRef<{ team: string | null; category: string | null; timestamp: number }>({
@@ -51,8 +53,8 @@ export function useMatch(initialMatch: Match | null) {
         prevMatch.matchId !== initialMatch.matchId ||
         prevMatch.updatedAt !== initialMatch.updatedAt
       ) {
-        // Применяем миграцию при обновлении
-        const migratedMatch = migrateMatchToSetStatus(initialMatch);
+        // Применяем миграцию при обновлении (приведение типов для совместимости Match с MatchForMigration)
+        const migratedMatch = migrateMatchToSetStatus(initialMatch as unknown as MatchForMigration) as Match | null;
         setMatch(migratedMatch);
         prevInitialMatchRef.current = migratedMatch;
       }
@@ -244,7 +246,7 @@ export function useMatch(initialMatch: Match | null) {
         console.error('Ошибка при завершении партии:', error);
         // Показываем сообщение об ошибке, если это ошибка валидации
         if (error instanceof Error && error.message.includes('не может быть завершена')) {
-          alert(error.message);
+          void (window as Window & { electronAPI?: { showMessage?: (o: { message: string }) => Promise<void> } }).electronAPI?.showMessage?.({ message: error.message });
         }
         return prevMatch;
       }
@@ -295,7 +297,7 @@ export function useMatch(initialMatch: Match | null) {
           console.error('Ошибка при обновлении партии:', error);
           // Показываем сообщение об ошибке, если это ошибка валидации
           if (error instanceof Error) {
-            alert(error.message);
+            void (window as Window & { electronAPI?: { showMessage?: (o: { message: string }) => Promise<void> } }).electronAPI?.showMessage?.({ message: error.message });
           }
           return prevMatch;
         }
@@ -375,7 +377,7 @@ export function useMatch(initialMatch: Match | null) {
   }, []);
 
   // Вычисляемые значения (с проверкой на null)
-  const rules = match ? getRules(match) : null;
+  const rules = match ? getRules(match as unknown as MatchWithVariant) : null;
   const setballInfo =
     match?.currentSet && match.currentSet.status === SET_STATUS.IN_PROGRESS && rules
       ? rules.isSetball(match.currentSet.scoreA, match.currentSet.scoreB, match.currentSet.setNumber)

@@ -60,11 +60,11 @@ export default function Layout({ children, match, onMatchChange }: LayoutProps) 
         if (result.success) {
           setAutoSaveEnabled(enabled);
         } else {
-          alert('Не удалось изменить настройки автосохранения: ' + (result.error || 'Неизвестная ошибка'));
+          await window.electronAPI?.showMessage?.({ message: 'Не удалось изменить настройки автосохранения: ' + (result.error || 'Неизвестная ошибка') });
         }
       } catch (error) {
         console.error('Ошибка при изменении настроек автосохранения:', error);
-        alert('Ошибка при изменении настроек автосохранения: ' + (error instanceof Error ? error.message : String(error)));
+        await window.electronAPI?.showMessage?.({ message: 'Ошибка при изменении настроек автосохранения: ' + (error instanceof Error ? error.message : String(error)) });
       }
     }
   };
@@ -72,14 +72,13 @@ export default function Layout({ children, match, onMatchChange }: LayoutProps) 
   const handleSaveMatch = async () => {
     try {
       if (!window.electronAPI || !match) {
-        alert('Electron API недоступен или матч не загружен');
         return;
       }
 
       const result = await window.electronAPI.saveMatch(match);
       if (result.success) {
         const updatedMatch = { ...match, updatedAt: new Date().toISOString() };
-        alert('Матч успешно сохранен!');
+        await window.electronAPI.showMessage({ message: 'Матч успешно сохранен!' });
         if (onMatchChange) {
           onMatchChange(updatedMatch as Match);
         }
@@ -89,21 +88,20 @@ export default function Layout({ children, match, onMatchChange }: LayoutProps) 
       }
     } catch (error) {
       console.error('Ошибка при сохранении матча:', error);
-      alert('Не удалось сохранить матч: ' + (error instanceof Error ? error.message : String(error)));
+      await window.electronAPI?.showMessage?.({ message: 'Не удалось сохранить матч: ' + (error instanceof Error ? error.message : String(error)) });
     }
   };
 
   const handleSaveAsMatch = async () => {
     try {
       if (!window.electronAPI || !match) {
-        alert('Electron API недоступен или матч не загружен');
         return;
       }
 
       const result = await window.electronAPI.saveMatchDialog(match);
       if (result.success) {
         const updatedMatch = { ...match, updatedAt: new Date().toISOString() };
-        alert('Матч успешно сохранен!');
+        await window.electronAPI.showMessage({ message: 'Матч успешно сохранен!' });
         if (onMatchChange) {
           onMatchChange(updatedMatch as Match);
         }
@@ -113,7 +111,7 @@ export default function Layout({ children, match, onMatchChange }: LayoutProps) 
       }
     } catch (error) {
       console.error('Ошибка при сохранении матча:', error);
-      alert('Не удалось сохранить матч: ' + (error instanceof Error ? error.message : String(error)));
+      await window.electronAPI?.showMessage?.({ message: 'Не удалось сохранить матч: ' + (error instanceof Error ? error.message : String(error)) });
     }
   };
 

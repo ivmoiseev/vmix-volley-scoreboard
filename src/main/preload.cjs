@@ -64,6 +64,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUISettings: () => ipcRenderer.invoke('ui:get-settings'),
   setUISettings: (uiConfig) => ipcRenderer.invoke('ui:set-settings', uiConfig),
 
+  // Диалоги (вместо alert/confirm — исправление бага с фокусом в полях ввода)
+  showMessage: (options) => ipcRenderer.invoke('dialog:show-message', options),
+  showConfirm: (options) => ipcRenderer.invoke('dialog:show-confirm', options),
+
   // Listeners (возвращают функцию для удаления слушателя)
   onNavigate: (callback) => {
     const handler = (event, path) => callback(path);

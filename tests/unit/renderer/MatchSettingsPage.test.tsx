@@ -61,6 +61,8 @@ const mockElectronAPI = {
   setCurrentMatch: vi.fn(),
   setMobileMatch: vi.fn(),
   swapTeams: vi.fn(),
+  showMessage: vi.fn(() => Promise.resolve()),
+  showConfirm: vi.fn(() => Promise.resolve(true)),
 };
 
 // Обертка для рендеринга с роутером
@@ -103,12 +105,6 @@ describe('MatchSettingsPage', () => {
       global.window.electronAPI = mockElectronAPI;
     } else {
       Object.assign(global.window.electronAPI, mockElectronAPI);
-    }
-    
-    if (!global.window.confirm) {
-      global.window.confirm = vi.fn(() => true);
-    } else {
-      global.window.confirm = vi.fn(() => true);
     }
     
     // Моки для FileReader
@@ -413,7 +409,7 @@ describe('MatchSettingsPage', () => {
     });
 
     test('не должен вызывать swapTeams, если пользователь отменил подтверждение', async () => {
-      global.window.confirm = vi.fn(() => false); // Пользователь отменил
+      mockElectronAPI.showConfirm.mockResolvedValue(false);
 
       renderWithRouter(
         <MatchSettingsPage match={testMatch} onMatchChange={onMatchChange} />
@@ -422,7 +418,9 @@ describe('MatchSettingsPage', () => {
       const swapButton = await screen.findByText('Поменять команды местами');
       fireEvent.click(swapButton);
 
-      // swapTeams не должен быть вызван
+      await waitFor(() => {
+        expect(mockElectronAPI.showConfirm).toHaveBeenCalled();
+      });
       expect(mockElectronAPI.swapTeams).not.toHaveBeenCalled();
     });
   });

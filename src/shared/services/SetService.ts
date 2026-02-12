@@ -87,7 +87,7 @@ export class SetService {
 
     // 2. Проверка правил завершения
     const { scoreA, scoreB, setNumber, startTime } = match.currentSet;
-    const rules = getRules(match);
+    const rules = getRules(match as unknown as import('../volleyballRules').MatchWithVariant);
     if (!rules.canFinishSet(scoreA, scoreB, setNumber)) {
       const cfg = rules.getConfig();
       const threshold = setNumber === cfg.decidingSetNumber ? cfg.pointsToWinDecidingSet : cfg.pointsToWinRegularSet;

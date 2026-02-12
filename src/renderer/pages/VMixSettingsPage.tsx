@@ -29,7 +29,6 @@ function VMixSettingsPage() {
   const handleSave = useCallback(async () => {
     try {
       if (!window.electronAPI) {
-        alert("Electron API недоступен");
         return;
       }
 
@@ -39,7 +38,7 @@ function VMixSettingsPage() {
       navigate("/match", { state: { forceUpdateVMix: true } });
     } catch (error) {
       console.error("Ошибка при сохранении настроек:", error);
-      alert("Не удалось сохранить настройки: " + error.message);
+      await window.electronAPI?.showMessage?.({ message: "Не удалось сохранить настройки: " + error.message });
     }
   }, [config, navigate]);
 
@@ -236,10 +235,14 @@ function VMixSettingsPage() {
     });
   }, []);
 
-  const handleDeleteDynamicInput = () => {
+  const handleDeleteDynamicInput = async () => {
     if (!selectedDynamicInputId) return;
     const displayName = config.inputs?.[selectedDynamicInputId]?.displayName || "инпут";
-    if (!window.confirm(`Удалить инпут «${displayName}»? Настройки полей будут потеряны.`)) return;
+    const confirmed = await window.electronAPI?.showConfirm?.({
+      title: "Подтверждение",
+      message: `Удалить инпут «${displayName}»? Настройки полей будут потеряны.`,
+    });
+    if (!confirmed) return;
     const result = removeInputFromVMixConfig({ vmix: config }, selectedDynamicInputId);
     setConfig(result.vmix);
     const remaining = (result.vmix?.inputOrder || []).filter((id) => id !== selectedDynamicInputId);

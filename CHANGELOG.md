@@ -9,6 +9,14 @@
 
 ### Добавлено
 
+- **Исправление бага с фокусом в полях ввода (Electron alert/confirm)**
+  - Все вызовы `alert()` и `window.confirm()` в рендерере заменены на IPC-диалоги main-процесса: `window.electronAPI.showMessage()` и `window.electronAPI.showConfirm()` (см. [Electron #20821](https://github.com/electron/electron/issues/20821)). После закрытия диалога поля ввода снова принимают ввод с клавиатуры.
+  - Main: модуль `src/main/dialogHandlers.ts` с `registerDialogHandlers(ipcMain, dialog, getWindow)`; обработчики `dialog:show-message` и `dialog:show-confirm`; вызов из `main.ts`.
+  - Preload: в `electronAPI` добавлены `showMessage` и `showConfirm`.
+  - Затронуты страницы и компоненты: MatchSettingsPage, RosterManagementPage, MatchControlPage, VMixSettingsPage, WelcomePage, Layout, MobileAccessPage, useMatch.
+  - Тесты: `tests/unit/main/dialogHandlers.test.ts`; моки `showMessage`/`showConfirm` в `tests/setup.ts`; обновлены MatchSettingsPage, RosterManagementPage, useMatch (проверки вызовов диалогов).
+  - Документация: `docs/troubleshooting/electron-input-focus-bug.md` (анализ), `docs/development/electron-dialog-refactoring-implementation-guide.md` (инструкция по рефакторингу, TDD, этапы отмечены выполненными).
+
 - **Блокировка кнопок плашек при одной плашке в эфире (один vMix-инпут)**
   - В useVMix добавлена функция `isAnotherOverlayOnAirForSameInput(inputKey)`: возвращает true, если другая плашка из той же группы (тот же оверлей и тот же vMix-инпут) в эфире. Недоступными делаются только кнопки, ссылающиеся на тот же vMix-инпут; кнопки плашек на другие инпуты остаются доступными.
   - VMixOverlayButtons: опциональный проп `isAnotherOverlayOnAirForSameInput`; кнопка отключается при «другая плашка в эфире» и неактивной текущей; подсказка «Другая плашка этого инпута в эфире».
@@ -53,6 +61,10 @@
   - Итог: весь код в `src/` и тестах на TypeScript (.ts/.tsx); в main единственное исключение — `preload.cjs` (CommonJS для Electron).
 
 ### Исправлено
+
+- **Ошибки компиляции TypeScript после рефакторинга диалогов**
+  - В `useMatch.ts`: приведение типа для `window.electronAPI` (Window не объявляет electronAPI в проекте); приведение `Match` к `MatchForMigration` при вызове `migrateMatchToSetStatus` и результата к `Match | null`; приведение `match` к `MatchWithVariant` при вызове `getRules`.
+  - В `SetService.ts`: приведение `match` к `MatchWithVariant` при вызове `getRules(match)` для совместимости с интерфейсом (индексная сигнатура). Сборка `npm run compile:typescript` и `npm run build:electron` проходит успешно.
 
 - **Потеря данных в форме настроек матча** — добавлен `formDataRef` в MatchSettingsPage для корректного сохранения; кнопка «Сохранить» в хедере читает актуальные данные из ref
 - **Перезапись formData при обновлении match** — зависимость useEffect изменена с `[match, navigate]` на `[match?.matchId, navigate]`

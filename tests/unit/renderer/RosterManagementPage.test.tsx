@@ -117,7 +117,7 @@ describe('RosterManagementPage — импорт и экспорт', () => {
         type: 'application/json',
       });
 
-      vi.spyOn(window, 'alert').mockImplementation(() => {});
+      // showMessage мокируется в tests/setup.ts
 
       const { container } = renderWithRouter(match, onMatchChange);
 
@@ -138,7 +138,8 @@ describe('RosterManagementPage — импорт и экспорт', () => {
 
     test('показывает ошибку при некорректном формате файла', async () => {
       const match = createMatchWithRoster([]);
-      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+      const showMessageMock = global.electronAPI?.showMessage;
+      if (showMessageMock) vi.mocked(showMessageMock).mockClear();
 
       const invalidData = { foo: 'bar' };
       const mockFile = new File([JSON.stringify(invalidData)], 'invalid.json', {
@@ -151,8 +152,8 @@ describe('RosterManagementPage — импорт и экспорт', () => {
       fireEvent.change(fileInput, { target: { files: [mockFile] } });
 
       await waitFor(() => {
-        expect(alertSpy).toHaveBeenCalledWith(
-          expect.stringContaining('Некорректный формат файла')
+        expect(global.electronAPI?.showMessage).toHaveBeenCalledWith(
+          expect.objectContaining({ message: expect.stringContaining('Некорректный формат файла') })
         );
       });
     });

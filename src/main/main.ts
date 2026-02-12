@@ -24,6 +24,7 @@ import {
   resolveLogoUrlsInImageFields,
   findInputConfig,
 } from "./vmix-overlay-utils.ts";
+import { registerDialogHandlers } from "./dialogHandlers.ts";
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 
@@ -964,6 +965,7 @@ async function createMenu() {
 }
 
 // IPC handlers
+registerDialogHandlers(ipcMain, dialog, () => BrowserWindow.getFocusedWindow());
 ipcMain.handle("app-version", () => {
   return app.getVersion();
 });

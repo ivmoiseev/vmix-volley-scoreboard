@@ -534,9 +534,11 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }: MatchSettingsPag
             onClick={async () => {
               if (!match) return;
               
-              if (!window.confirm('Вы уверены, что хотите поменять команды местами? Это действие изменит:\n- Названия команд\n- Цвета команд\n- Логотипы команд\n- Счет в текущей партии\n- Счет во всех завершенных партиях\n- Статистику команд')) {
-                return;
-              }
+              const confirmed = await window.electronAPI?.showConfirm?.({
+                title: 'Подтверждение',
+                message: 'Вы уверены, что хотите поменять команды местами? Это действие изменит:\n- Названия команд\n- Цвета команд\n- Логотипы команд\n- Счет в текущей партии\n- Счет во всех завершенных партиях\n- Статистику команд',
+              });
+              if (!confirmed) return;
 
               try {
                 if (window.electronAPI && window.electronAPI.swapTeams) {
@@ -618,16 +620,16 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }: MatchSettingsPag
                       scorer: finalSwappedMatch.officials?.scorer || '',
                     });
                     
-                    alert('Команды успешно поменяны местами!');
+                    await window.electronAPI?.showMessage?.({ message: 'Команды успешно поменяны местами!' });
                   } else {
-                    alert('Ошибка при смене команд: ' + (result.error || 'Неизвестная ошибка'));
+                    await window.electronAPI?.showMessage?.({ message: 'Ошибка при смене команд: ' + (result.error || 'Неизвестная ошибка') });
                   }
                 } else {
-                  alert('Electron API недоступен');
+                  await window.electronAPI?.showMessage?.({ message: 'Electron API недоступен' });
                 }
               } catch (error) {
                 console.error('Ошибка при смене команд:', error);
-                alert('Ошибка при смене команд: ' + error.message);
+                await window.electronAPI?.showMessage?.({ message: 'Ошибка при смене команд: ' + error.message });
               }
             }}
             style={{
@@ -835,7 +837,7 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }: MatchSettingsPag
                               }
                             } catch (error) {
                               console.error('Ошибка при обработке изображения:', error);
-                              alert('Ошибка при загрузке изображения: ' + error.message);
+                              await window.electronAPI?.showMessage?.({ message: 'Ошибка при загрузке изображения: ' + error.message });
                             }
                           };
                           reader.readAsDataURL(file);
@@ -1084,7 +1086,7 @@ function MatchSettingsPage({ match: propMatch, onMatchChange }: MatchSettingsPag
                               }
                             } catch (error) {
                               console.error('Ошибка при обработке изображения:', error);
-                              alert('Ошибка при загрузке изображения: ' + error.message);
+                              await window.electronAPI?.showMessage?.({ message: 'Ошибка при загрузке изображения: ' + error.message });
                             }
                           };
                           reader.readAsDataURL(file);

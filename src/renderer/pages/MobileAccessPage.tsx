@@ -108,7 +108,7 @@ function MobileAccessPage() {
     setSavingIP(true);
     try {
       if (!window.electronAPI) {
-        alert('Electron API недоступен');
+        await window.electronAPI?.showMessage?.({ message: 'Electron API недоступен' });
         return;
       }
       const result = await window.electronAPI.setSelectedIP(ip);
@@ -117,7 +117,7 @@ function MobileAccessPage() {
         // Обновляем информацию о сервере, чтобы показать новый IP
         await loadServerInfo();
       } else {
-        alert('Не удалось сохранить выбранный IP: ' + (result.error || 'Неизвестная ошибка'));
+        await window.electronAPI?.showMessage?.({ message: 'Не удалось сохранить выбранный IP: ' + (result.error || 'Неизвестная ошибка') });
         // Возвращаем предыдущее значение при ошибке
         if (serverInfo && serverInfo.selectedIP) {
           setSelectedIP(serverInfo.selectedIP);
@@ -125,7 +125,7 @@ function MobileAccessPage() {
       }
     } catch (error) {
       console.error('Ошибка при сохранении выбранного IP:', error);
-      alert('Ошибка при сохранении выбранного IP: ' + error.message);
+      await window.electronAPI?.showMessage?.({ message: 'Ошибка при сохранении выбранного IP: ' + error.message });
       // Возвращаем предыдущее значение при ошибке
       if (serverInfo && serverInfo.selectedIP) {
         setSelectedIP(serverInfo.selectedIP);
@@ -153,7 +153,7 @@ function MobileAccessPage() {
     setLoading(true);
     try {
       if (!window.electronAPI) {
-        alert('Electron API недоступен');
+        await window.electronAPI?.showMessage?.({ message: 'Electron API недоступен' });
         return;
       }
 
@@ -170,10 +170,10 @@ function MobileAccessPage() {
           await generateSession();
         }
       } else {
-        alert('Не удалось запустить сервер: ' + result.error);
+        await window.electronAPI?.showMessage?.({ message: 'Не удалось запустить сервер: ' + result.error });
       }
     } catch (error) {
-      alert('Ошибка: ' + error.message);
+      await window.electronAPI?.showMessage?.({ message: 'Ошибка: ' + error.message });
     } finally {
       setLoading(false);
     }
@@ -183,7 +183,7 @@ function MobileAccessPage() {
     setLoading(true);
     try {
       if (!window.electronAPI) {
-        alert('Electron API недоступен');
+        await window.electronAPI?.showMessage?.({ message: 'Electron API недоступен' });
         return;
       }
 
@@ -195,10 +195,10 @@ function MobileAccessPage() {
         setQrCodeUrl(null);
         sessionLoadedRef.current = false; // Сбрасываем флаг для следующего запуска
       } else {
-        alert('Не удалось остановить сервер: ' + result.error);
+        await window.electronAPI?.showMessage?.({ message: 'Не удалось остановить сервер: ' + result.error });
       }
     } catch (error) {
-      alert('Ошибка: ' + error.message);
+      await window.electronAPI?.showMessage?.({ message: 'Ошибка: ' + error.message });
     } finally {
       setLoading(false);
     }
@@ -228,7 +228,7 @@ function MobileAccessPage() {
   const generateSession = async () => {
     try {
       if (!window.electronAPI) {
-        alert('Electron API недоступен');
+        await window.electronAPI?.showMessage?.({ message: 'Electron API недоступен' });
         return;
       }
 
@@ -238,10 +238,10 @@ function MobileAccessPage() {
         setSessionData(result);
         await generateQRCode(result.url);
       } else {
-        alert('Не удалось сгенерировать сессию. Убедитесь, что сервер запущен.');
+        await window.electronAPI?.showMessage?.({ message: 'Не удалось сгенерировать сессию. Убедитесь, что сервер запущен.' });
       }
     } catch (error) {
-      alert('Ошибка при генерации сессии: ' + error.message);
+      await window.electronAPI?.showMessage?.({ message: 'Ошибка при генерации сессии: ' + error.message });
     }
   };
 
@@ -304,7 +304,7 @@ function MobileAccessPage() {
 
     try {
       await navigator.clipboard.writeText(sessionData.url);
-      alert('Ссылка скопирована в буфер обмена!');
+      await window.electronAPI?.showMessage?.({ message: 'Ссылка скопирована в буфер обмена!' });
     } catch (error) {
       // Fallback для старых браузеров
       const textArea = document.createElement('textarea');
@@ -315,9 +315,9 @@ function MobileAccessPage() {
       textArea.select();
       try {
         document.execCommand('copy');
-        alert('Ссылка скопирована в буфер обмена!');
+        await window.electronAPI?.showMessage?.({ message: 'Ссылка скопирована в буфер обмена!' });
       } catch (err) {
-        alert('Не удалось скопировать ссылку');
+        await window.electronAPI?.showMessage?.({ message: 'Не удалось скопировать ссылку' });
       }
       document.body.removeChild(textArea);
     }
@@ -619,7 +619,7 @@ function MobileAccessPage() {
                   onClick={async () => {
                     try {
                       await navigator.clipboard.writeText(url);
-                      alert('Ссылка скопирована');
+                      await window.electronAPI?.showMessage?.({ message: 'Ссылка скопирована' });
                     } catch (e) {
                       const ta = document.createElement('textarea');
                       ta.value = url;
@@ -629,9 +629,9 @@ function MobileAccessPage() {
                       ta.select();
                       try {
                         document.execCommand('copy');
-                        alert('Ссылка скопирована');
+                        await window.electronAPI?.showMessage?.({ message: 'Ссылка скопирована' });
                       } catch (err) {
-                        alert('Не удалось скопировать');
+                        await window.electronAPI?.showMessage?.({ message: 'Не удалось скопировать' });
                       }
                       document.body.removeChild(ta);
                     }

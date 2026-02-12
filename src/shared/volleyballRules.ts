@@ -90,8 +90,8 @@ export function createRules(config: RulesConfig): VolleyballRules {
   };
 }
 
-/** Матч с полем variant для получения правил */
-interface MatchWithVariant {
+/** Матч с полем variant для получения правил (минимальный контракт для getRules) */
+export interface MatchWithVariant {
   variant?: string;
   [key: string]: unknown;
 }

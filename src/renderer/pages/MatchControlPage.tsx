@@ -325,16 +325,17 @@ function MatchControlPage({ match: initialMatch, onMatchChange }: MatchControlPa
     );
   }
 
-  const handleFinishSet = () => {
+  const handleFinishSet = async () => {
     if (!canFinish) {
       const threshold = match?.currentSet?.setNumber === 5 ? 15 : 25;
-      alert(
-        `Партия не может быть завершена. Необходимо набрать ${threshold} очков с разницей минимум 2 очка.`
-      );
+      await window.electronAPI?.showMessage?.({
+        message: `Партия не может быть завершена. Необходимо набрать ${threshold} очков с разницей минимум 2 очка.`,
+      });
       return;
     }
 
-    if (window.confirm("Завершить текущую партию?")) {
+    const confirmed = await window.electronAPI?.showConfirm?.({ message: 'Завершить текущую партию?' });
+    if (confirmed) {
       finishSet();
     }
   };

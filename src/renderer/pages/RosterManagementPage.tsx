@@ -507,13 +507,13 @@ function RosterManagementPage({ match: propMatch, onMatchChange }: RosterManagem
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const importedData = JSON.parse(e.target.result);
         
         // Проверяем формат: объект с полями coach и roster
         if (!importedData.roster || !Array.isArray(importedData.roster)) {
-          alert('Некорректный формат файла. Ожидается объект с полями "roster" (массив) и "coach" (строка)');
+          await window.electronAPI?.showMessage?.({ message: 'Некорректный формат файла. Ожидается объект с полями "roster" (массив) и "coach" (строка)' });
           return;
         }
         
@@ -561,9 +561,9 @@ function RosterManagementPage({ match: propMatch, onMatchChange }: RosterManagem
           });
         }
         
-        alert('Состав и тренер успешно импортированы!');
+        await window.electronAPI?.showMessage?.({ message: 'Состав и тренер успешно импортированы!' });
       } catch (error) {
-        alert('Ошибка при чтении файла: ' + error.message);
+        await window.electronAPI?.showMessage?.({ message: 'Ошибка при чтении файла: ' + error.message });
       }
     };
     reader.readAsText(file);
