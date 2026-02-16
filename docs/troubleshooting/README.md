@@ -21,6 +21,7 @@
 
 ### Electron и UI
 - **[Недоступные для редактирования поля ввода (фокус после alert/confirm)](electron-input-focus-bug.md)** - анализ бага Electron с потерей фокуса в полях ввода; **решение внедрено** (2026-02-12): все alert/confirm заменены на IPC-диалоги. Инструкция по рефакторингу — в [electron-dialog-refactoring-implementation-guide.md](../development/electron-dialog-refactoring-implementation-guide.md).
+- **[Белая полоска под меню при 125% масштабировании Windows](windows-125-percent-dpi-menu-gap-analysis.md)** - анализ визуального артефакта (1–2px зазор между нативным меню и контентом); известный баг Chromium/Electron при DPI ≠ 100%.
 
 ### Сборка и зависимости
 - **[Ошибка "Cannot find package 'electron-updater'"](electron-updater-missing-module.md)** - решение проблемы с отсутствующим модулем в production сборке
@@ -35,6 +36,7 @@ troubleshooting/
 ├── XSS_FIX_SUMMARY.md                     # Исправление XSS
 ├── vmix-connection-audit-report.md        # Аудит подключения к vMix
 ├── electron-input-focus-bug.md            # Недоступные поля ввода после alert/confirm
+├── windows-125-percent-dpi-menu-gap-analysis.md  # Белая полоска при 125% DPI
 ├── electron-updater-missing-module.md     # Ошибка с electron-updater
 └── qrcode-library-replacement.md          # Замена библиотеки QR-кода
 ```

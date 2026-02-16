@@ -267,6 +267,34 @@ describe('getValueByDataMapKey', () => {
     test('liberoNBackground возвращает liberoColor или color команды', () => {
       expect(getValueByDataMapKey(baseMatch, 'startingA.libero1Background')).toBe('#2980b9');
     });
+
+    test('при пустом стартовом составе (нет isStarter) поля Старт А/Б возвращают пустую строку, не данные из Roster', () => {
+      const noStarters: MatchForDataMap = {
+        ...baseMatch,
+        teamA: {
+          ...baseMatch.teamA!,
+          roster: [
+            { number: 1, name: 'Игрок 1', position: '', isStarter: false },
+            { number: 2, name: 'Игрок 2', position: '', isStarter: false },
+          ],
+          startingLineupOrder: [],
+        },
+        teamB: {
+          ...baseMatch.teamB!,
+          roster: [
+            { number: 10, name: 'Игрок 10', position: '', isStarter: false },
+            { number: 11, name: 'Игрок 11', position: '', isStarter: false },
+          ],
+          startingLineupOrder: [],
+        },
+      };
+      expect(getValueByDataMapKey(noStarters, 'startingA.player1Number')).toBe('');
+      expect(getValueByDataMapKey(noStarters, 'startingA.player1Name')).toBe('');
+      expect(getValueByDataMapKey(noStarters, 'startingA.player2Number')).toBe('');
+      expect(getValueByDataMapKey(noStarters, 'startingB.player1Number')).toBe('');
+      expect(getValueByDataMapKey(noStarters, 'startingB.player1Name')).toBe('');
+      expect(getValueByDataMapKey(noStarters, 'startingB.player2Name')).toBe('');
+    });
   });
 
   describe('партии: setN.scoreA, setN.scoreB, setN.duration', () => {

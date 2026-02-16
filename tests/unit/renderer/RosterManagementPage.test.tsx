@@ -7,7 +7,7 @@
 
 import { describe, test, beforeEach, expect, vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import RosterManagementPage from '../../../src/renderer/pages/RosterManagementPage';
 import { createNewMatch } from '../../../src/shared/matchUtils.js';
@@ -59,6 +59,28 @@ const renderWithRouter = (match, onMatchChange = vi.fn()) => {
 describe('RosterManagementPage — импорт и экспорт', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  test('кнопки Импорт и Экспорт находятся в блоке «Внешний вид команды»', () => {
+    const match = createMatchWithRoster([]);
+    const { container } = renderWithRouter(match);
+    const heading = screen.getByText('Внешний вид команды');
+    const section = heading.closest('div');
+    expect(section).toBeTruthy();
+    expect(section).toContainElement(screen.getByText('Импорт'));
+    expect(section).toContainElement(screen.getByText('Экспорт'));
+  });
+
+  test('в блоке «Состав команды» только кнопка «Добавить игрока», без Импорт/Экспорт', () => {
+    const match = createMatchWithRoster([]);
+    renderWithRouter(match);
+    const rosterHeading = screen.getByText('Состав команды');
+    const rosterSection = rosterHeading.closest('div');
+    expect(rosterSection).toBeTruthy();
+    const withinRoster = within(rosterSection as HTMLElement);
+    expect(withinRoster.getByText('Добавить игрока')).toBeInTheDocument();
+    expect(withinRoster.queryByText('Экспорт')).not.toBeInTheDocument();
+    expect(withinRoster.queryByText('Импорт')).not.toBeInTheDocument();
   });
 
   describe('экспорт состава', () => {

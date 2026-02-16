@@ -8,13 +8,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SetEditModal from '../../../src/renderer/components/SetEditModal';
 import { SET_STATUS } from '../../../src/shared/types/Match.ts';
 
-// Мокируем утилиты времени
+// Мокируем утилиты времени (путь без расширения — резолвер подхватывает timeUtils.ts)
 // ВАЖНО: vi.mock() hoisted наверх, поэтому все должно быть определено внутри factory
-vi.mock('../../../src/shared/timeUtils.js', () => ({
-  formatTimestamp: vi.fn((timestamp, timezone) => {
+vi.mock('../../../src/shared/timeUtils', () => ({
+  formatTimestamp: vi.fn((timestamp: number, timezone?: string) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
-    const options = {
+    const options: Intl.DateTimeFormatOptions = {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -26,15 +26,15 @@ vi.mock('../../../src/shared/timeUtils.js', () => ({
     }
     return date.toLocaleString('ru-RU', options);
   }),
-  calculateDuration: vi.fn((startTime, endTime) => {
+  calculateDuration: vi.fn((startTime: number | null, endTime: number | null) => {
     if (!startTime || !endTime) return null;
     return Math.round((endTime - startTime) / 60000);
   }),
-  formatDuration: vi.fn((minutes) => minutes !== null && minutes !== undefined ? `${minutes}'` : ''),
+  formatDuration: vi.fn((minutes: number | null | undefined) => minutes !== null && minutes !== undefined ? `${minutes}'` : ''),
 }));
 
 // Импортируем моки после определения vi.mock
-import * as timeUtils from '../../../src/shared/timeUtils.js';
+import * as timeUtils from '../../../src/shared/timeUtils';
 const mockFormatTimestamp = vi.mocked(timeUtils.formatTimestamp);
 const mockCalculateDuration = vi.mocked(timeUtils.calculateDuration);
 const mockFormatDuration = vi.mocked(timeUtils.formatDuration);

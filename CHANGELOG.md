@@ -70,6 +70,16 @@
 
 ### Исправлено
 
+- **Поля «Старт А»/«Старт Б» при пустом стартовом составе**
+  - В `getValueByDataMapKey` исправлена логика для ключей `startingA.*` / `startingB.*`: при отсутствии отмеченных стартовых игроков (нет `isStarter`, пустой `startingLineupOrder`) в поля сопоставления vMix больше не подставляются данные из полного состава (Roster); возвращается пустая строка.
+  - Изменён только блок для позиций player1–player6: игрок берётся по `startingLineupOrder[i]` или как i-й среди `roster.filter(isStarter)`, без запасного варианта `roster[i]`.
+  - Тест в `getValueByDataMapKey.test.ts`: при пустом стартовом составе для `startingA.player1Number/Name`, `startingB.player1Number/Name` и т.п. ожидается `''`.
+  - Документация: `docs/troubleshooting/starting-lineup-empty-vs-roster-analysis.md` — добавлен раздел о внесённом исправлении.
+
+- **Редактор цветов формы при пустом значении («Не указан»)**
+  - В `TeamColorsEditor` при пустом цвете в `input type="color"` больше не передаётся `value=""` (формат HTML5 требует `#rrggbb`). Для отображения пикера используется fallback `#ffffff`; в состоянии и в `onChange` по-прежнему передаётся пустая строка. Устранены предупреждения в консоли и некорректное отображение после «Поменять цвета», когда цвет либеро не указан.
+  - Для поля «Цвет формы игроков» задан placeholder «Не указан»; для пикеров добавлены `aria-label`. Документация: `docs/development/roster-page-import-export-and-swap-colors-plan.md` (история изменений), `roster-management-refactoring-plan.md` (описание TeamColorsEditor).
+
 - **Логотип команды A на overlay/intro (мобильный сервер)**
   - В `getOverlayMatchPayload()` (server.ts) при формировании `logoUrl` добавлена проверка существования файла по `team.logoPath` (`existsSync`). Если файл отсутствует (например, после cleanup при сохранении матча текущий матч в памяти не обновлён новыми путями), в ответ не отдаётся битая ссылка; используется fallback на `team.logoBase64` или `team.logo` (data URL). Импорт `existsSync` из `fs`.
 

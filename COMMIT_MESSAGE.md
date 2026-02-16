@@ -1,10 +1,14 @@
-feat(roster): блок «Внешний вид команды», экспорт/импорт с логотипом и цветами; fix(overlay): логотип команды A на intro
+fix(ui): поля Старт А/Б при пустом составе, редактор цветов и тесты
 
-Рефакторинг страницы «Управление составами»:
-- Блок «Внешний вид команды»: название, город, логотип (TeamLogoEditor), цвета формы и либеро (TeamColorsEditor). Используются на MatchSettingsPage и RosterManagementPage.
-- Типы Team: logoPath?, logoBase64?, city?.
-- Экспорт/импорт: name, city, coach, roster, startingLineupOrder, color, liberoColor, logoBase64; при импорте логотипа — saveLogoToFile и подстановка в match.
-- Тесты RosterManagementPage обновлены; документация ui-structure.md и roster-management-refactoring-plan.md (описание выполненных изменений).
-
-Исправление overlay intro (мобильный сервер):
-- В server.ts при формировании logoUrl проверка existsSync(файл по logoPath); при отсутствии файла — fallback на logoBase64/logo (data URL), чтобы не отдавать битую ссылку для команды A.
+- getValueByDataMapKey: при отсутствии стартовых игроков поля startingA/B
+  возвращают пустую строку, а не данные из Roster. Тест на пустой стартовый состав.
+- SetEditModal: мок timeUtils в тестах по пути без .js (резолв к .ts).
+- Управление составами: кнопки Импорт/Экспорт перенесены в заголовок блока
+  «Внешний вид команды»; в блоке «Состав команды» только «Добавить игрока».
+- TeamColorsEditor: кнопка «Поменять цвета», aria-label для пикеров и кнопки.
+- TeamColorsEditor: при пустом цвете для input type="color" используется
+  fallback #ffffff (устранены предупреждения в консоли и некорректный вид после обмена).
+- Тесты: RosterManagementPage (расположение кнопок), TeamColorsEditor (обмен, пустой liberoColor).
+- Документация: ui-structure, roster-management-refactoring-plan,
+  roster-page-import-export-and-swap-colors-plan (история изменений),
+  starting-lineup-empty-vs-roster-analysis, CHANGELOG.

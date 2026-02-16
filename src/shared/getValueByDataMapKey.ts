@@ -136,8 +136,12 @@ export function getValueByDataMapKey(match: MatchForDataMap | null | undefined, 
     const roster = match[teamKey]?.roster;
     if (part.startsWith('player')) {
       const i = parseInt(part.replace('player', ''), 10) - 1;
-      const order = startOrder?.[i] ?? roster?.filter((p) => p.isStarter)?.[i];
-      const player = typeof order === 'number' && roster ? roster[order] : roster?.[i];
+      // Игрок стартового состава: только по startingLineupOrder или по isStarter, без подстановки roster[i]
+      const rosterIndex = startOrder?.[i];
+      const player =
+        typeof rosterIndex === 'number' && roster
+          ? roster[rosterIndex]
+          : roster?.filter((p) => p.isStarter)?.[i];
       if (suffix === 'PositionShort') {
         const pos = player?.position;
         if (pos == null || pos === '' || pos === 'Не указано') return '';

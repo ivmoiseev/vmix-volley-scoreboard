@@ -650,7 +650,37 @@ function RosterManagementPage({ match: propMatch, onMatchChange }: RosterManagem
         borderRadius: radius.sm,
         marginBottom: '1.5rem',
       }}>
-        <h3 style={{ marginTop: 0 }}>Внешний вид команды</h3>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '1rem',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+        }}>
+          <h3 style={{ marginTop: 0 }}>Внешний вид команды</h3>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <label style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: 'var(--color-success)',
+              color: 'white',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              display: 'inline-block',
+            }}>
+              Импорт
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImportRoster}
+                style={{ display: 'none' }}
+              />
+            </label>
+            <Button variant="primary" onClick={handleExportRoster}>
+              Экспорт
+            </Button>
+          </div>
+        </div>
         <div style={{ display: 'grid', gap: '1rem' }}>
           <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ minWidth: '200px', flex: '1 1 0' }}>
@@ -760,25 +790,6 @@ function RosterManagementPage({ match: propMatch, onMatchChange }: RosterManagem
         }}>
           <h3 style={{ marginTop: 0 }}>Состав команды</h3>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <label style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: 'var(--color-success)',
-              color: 'white',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              display: 'inline-block',
-            }}>
-              Импорт
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleImportRoster}
-                style={{ display: 'none' }}
-              />
-            </label>
-            <Button variant="primary" onClick={handleExportRoster}>
-              Экспорт
-            </Button>
             <Button variant="success" onClick={handleAddPlayer}>
               Добавить игрока
             </Button>

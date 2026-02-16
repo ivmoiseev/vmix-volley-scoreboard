@@ -1,3 +1,4 @@
+import Button from './Button';
 import { radius } from '../theme/tokens';
 
 export interface TeamColorsEditorProps {
@@ -32,8 +33,15 @@ function TeamColorsEditor({
     cursor: 'pointer' as const,
   };
 
+  const handleSwapColors = () => {
+    onChange({ color: liberoColor || '', liberoColor: color || '' });
+  };
+
+  // input type="color" требует формат #rrggbb; при пустом значении используем fallback только для отображения пикера
+  const COLOR_PICKER_FALLBACK = '#ffffff';
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
       <div style={{ minWidth: '140px', flex: '1 1 0' }}>
         <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
           Цвет формы игроков
@@ -41,16 +49,17 @@ function TeamColorsEditor({
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <input
             type="color"
-            value={color}
+            value={color || COLOR_PICKER_FALLBACK}
             onChange={(e) => onChange({ color: e.target.value })}
             style={colorPickerStyle}
+            aria-label="Цвет формы игроков"
           />
           <input
             type="text"
             value={color}
             onChange={(e) => onChange({ color: e.target.value })}
             style={{ flex: 1, minWidth: 0, ...inputStyle }}
-            placeholder={colorPlaceholder}
+            placeholder="Не указан"
           />
         </div>
       </div>
@@ -61,9 +70,10 @@ function TeamColorsEditor({
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <input
             type="color"
-            value={liberoColor || '#ffffff'}
+            value={liberoColor || COLOR_PICKER_FALLBACK}
             onChange={(e) => onChange({ liberoColor: e.target.value })}
             style={colorPickerStyle}
+            aria-label="Цвет формы либеро"
           />
           <input
             type="text"
@@ -74,6 +84,14 @@ function TeamColorsEditor({
           />
         </div>
       </div>
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={handleSwapColors}
+        aria-label="Поменять местами цвет формы игроков и цвет формы либеро"
+      >
+        Поменять цвета
+      </Button>
     </div>
   );
 }
