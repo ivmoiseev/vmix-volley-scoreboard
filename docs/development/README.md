@@ -33,6 +33,8 @@
 
 ### Планы и руководства по новому функционалу
 - **[План: HTML-страницы оверлеев для vMix/OBS (Browser Source)](overlay-pages-browser-source-plan.md)** — план внедрения страниц scoreboard, intro, rosters (1920×1080, прозрачный фон) через мобильный сервер
+- **[План: автоматические плашки событий (сетбол, матчбол, таймаут) в vMix](vmix-event-overlays-setball-matchball-timeout.md)** — варианты решения автоматического показа/скрытия плашек при событиях и привязка к видимости плашки со счётом
+- **[План реализации: автособытия vMix (поэтапный, TDD)](vmix-event-overlays-implementation-plan.md)** — подробный план рефакторинга для программиста: этапы 0–7, тесты, обратная совместимость
 
 ### Документация логики
 - **[Логика управления счетом и состояниями партий](score-and-set-status-logic-documentation.md)** - подробная документация всей логики управления счетом, начисления счета, смены состояний партий
@@ -70,6 +72,8 @@ development/
 ├── vmix-current-functionality.md          # Текущий функционал: интеграция с vMix и настройка инпутов
 ├── vmix-data-map.md                      # Карта данных приложения для vMix
 ├── overlay-pages-browser-source-plan.md   # План: HTML-страницы оверлеев для vMix/OBS (Browser Source)
+├── vmix-event-overlays-setball-matchball-timeout.md # План: автоматические плашки событий (сетбол, матчбол, таймаут)
+├── vmix-event-overlays-implementation-plan.md       # План реализации автособытий (этапы 0–7, TDD)
 ├── multi-process-architecture-analysis.md # Анализ многопроцессной архитектуры
 ├── architecture-diagrams.md               # Диаграммы архитектуры
 └── auto-updates-setup.md                 # Настройка автоматических обновлений

@@ -1,6 +1,6 @@
 {
   "name": "vmix-volley-scoreboard",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "VolleyScore Master: An Electron-based application designed for volleyball tournament graphics management. It integrates seamlessly with vMix for live broadcasts, providing real-time control over on-screen titles, scoreboards, and match infographics.",
   "main": "dist/main.js",
   "tsx": {
@@ -80,19 +80,8 @@
         ]
       },
       {
-        "from": "matches",
-        "to": "matches",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
         "from": "assets/icon.ico",
         "to": "assets/icon.ico"
-      },
-      {
-        "from": "settings.json",
-        "to": "."
       },
       {
         "from": "README.md",

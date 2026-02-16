@@ -104,12 +104,12 @@ alwaysApply: true
 
 **Матчи (@src/main/fileManager.js):**
 - **Dev режим:** `__dirname/../../matches` (корень проекта)
-- **Production режим:** `process.resourcesPath/matches` (вне ASAR архива)
-- Используйте функцию `getMatchesDir()` из @src/main/fileManager.js для получения правильного пути
+- **Production режим:** `app.getPath('userData')/matches` (в сборку не включаются, данные импортируются при необходимости)
+- Используйте функцию `getMatchesDir()` из @src/main/utils/pathUtils.ts для получения правильного пути
 
 **Настройки (@src/main/settingsManager.js):**
 - **Dev и Production:** `app.getPath('userData')/settings.json`
-- Всегда доступно для записи в обоих режимах
+- В сборку settings.json не включается; при первом запуске создаётся файл с настройками по умолчанию, при необходимости настройки можно импортировать
 
 **Мобильный сервер (@src/main/server.js):**
 - Использует метод `getLogosPath()` для определения пути к логотипам
@@ -119,7 +119,7 @@ alwaysApply: true
 
 1. **Всегда используйте существующие функции** для получения путей:
    - `logoManager.getLogosDir()` из @src/main/logoManager.js - для логотипов
-   - `fileManager.getMatchesDir()` из @src/main/fileManager.js - для матчей (через `ensureMatchesDir()`)
+   - `getMatchesDir()` из @src/main/utils/pathUtils.ts (fileManager использует через `ensureMatchesDir()`) - для матчей
    - `app.getPath('userData')` - для настроек и пользовательских данных
 
 2. **Не используйте жестко заданные пути** типа `__dirname/../../logos` напрямую - всегда проверяйте режим

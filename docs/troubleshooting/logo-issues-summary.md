@@ -143,7 +143,7 @@
 
 **Production режим:**
 - `logos/` - `%APPDATA%/VolleyScore Master/logos/` (Windows) или `~/Library/Application Support/VolleyScore Master/logos/` (macOS)
-- `matches/` - `process.resourcesPath/matches/` (extraResources, read-only для чтения существующих файлов)
+- `matches/` - `app.getPath('userData')/matches/` (для записи; в сборку не включаются, данные импортируются при необходимости)
 - `settings.json` - `%APPDATA%/VolleyScore Master/settings.json` (userData, writable)
 
 ### Миграция логотипов из extraResources в userData

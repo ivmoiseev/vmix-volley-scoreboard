@@ -836,10 +836,10 @@ async function createMenu() {
         },
         { type: "separator" },
         {
-          label: "Управление матчем",
+          label: "Управление составами",
           click: () => {
             if (mainWindow) {
-              mainWindow.webContents.send("navigate", "/match");
+              mainWindow.webContents.send("navigate", "/match/roster");
             }
           },
         },

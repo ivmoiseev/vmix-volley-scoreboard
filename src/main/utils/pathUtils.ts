@@ -17,7 +17,7 @@
  * - Корень приложения: app.getAppPath() (ASAR архив)
  * - settings.json: app.getPath('userData')/settings.json (для записи)
  * - logos: app.getPath('userData')/logos (для записи)
- * - matches: process.resourcesPath/matches (extraResources, только чтение)
+ * - matches: app.getPath('userData')/matches (для записи; в сборку не включаются)
  * - public: process.resourcesPath/public (extraResources, overlay-страницы и статика сервера)
  * - assets: process.resourcesPath/assets (extraResources)
  * - preload.cjs: app.getAppPath()/src/main/preload.cjs (в ASAR)
@@ -93,8 +93,8 @@ export function getSettingsPath() {
 }
 
 /**
- * Получает путь к файлу настроек по умолчанию из extraResources
- * (используется для первого запуска в production)
+ * Получает путь к файлу настроек по умолчанию (dev или extraResources, если был включён в сборку).
+ * В production при отсутствии settings.json в сборке создаётся новый файл в userData через getDefaultSettings().
  */
 export function getDefaultSettingsPath() {
   if (isProduction() && process.resourcesPath) {
@@ -135,11 +135,12 @@ export function getExtraResourcesLogosDir() {
  * Получает путь к папке matches
  * 
  * В dev: <корень проекта>/matches
- * В production: process.resourcesPath/matches (extraResources, только чтение)
+ * В production: app.getPath('userData')/matches (для записи; в сборку не включаются, данные импортируются при необходимости)
  */
 export function getMatchesDir() {
-  if (isProduction() && process.resourcesPath) {
-    return path.join(process.resourcesPath, 'matches');
+  if (isProduction()) {
+    const userDataPath = app.getPath('userData');
+    return path.join(userDataPath, 'matches');
   }
   
   const projectRoot = getProjectRoot();
