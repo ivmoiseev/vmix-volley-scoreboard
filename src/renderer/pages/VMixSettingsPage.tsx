@@ -2,9 +2,20 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useHeaderButtons } from "../components/Layout";
 import { removeInputFromVMixConfig, tryApplyVMixInputRemapByKey } from "../../shared/vmixConfigUtils";
+import { AUTO_EVENT_TYPES } from "../../shared/eventOverlayTypes";
 import VMixInputFieldsPanel from "../components/VMixInputFieldsPanel";
 import Button from "../components/Button";
 import { space, radius } from "../theme/tokens";
+
+/** Подписи типов событий для UI */
+const AUTO_EVENT_TYPE_LABELS = {
+  setballA: "Сетбол А",
+  setballB: "Сетбол Б",
+  matchballA: "Матчбол А",
+  matchballB: "Матчбол Б",
+  timeoutA: "Таймаут А",
+  timeoutB: "Таймаут Б",
+};
 
 function VMixSettingsPage() {
   const navigate = useNavigate();
@@ -552,6 +563,29 @@ function VMixSettingsPage() {
                   />
                   Включить инпут
                 </label>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--color-text)", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={config.inputs[selectedDynamicInputId].isScoreInput === true}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setConfig((prev) => {
+                        const next = { ...prev, inputs: { ...prev.inputs } };
+                        const order = Array.isArray(prev.inputOrder) ? prev.inputOrder : [];
+                        for (const id of order) {
+                          if (!next.inputs[id]) continue;
+                          next.inputs[id] = {
+                            ...next.inputs[id],
+                            isScoreInput: id === selectedDynamicInputId ? checked : false,
+                          };
+                        }
+                        return next;
+                      });
+                    }}
+                    disabled={!connectionStatus.connected}
+                  />
+                  Использовать как инпут со счётом
+                </label>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "1rem", marginBottom: "1rem" }}>
                 <div>
@@ -623,6 +657,97 @@ function VMixSettingsPage() {
                     Удалить инпут
                   </Button>
                 </span>
+              </div>
+              {/* Автоматический инпут по событиям */}
+              <div style={{ marginBottom: "1rem", padding: "0.75rem", backgroundColor: "var(--color-surface-muted)", borderRadius: radius.sm }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--color-text)", cursor: "pointer", marginBottom: "0.5rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={config.inputs[selectedDynamicInputId].autoEvent === true}
+                    onChange={(e) =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        inputs: {
+                          ...prev.inputs,
+                          [selectedDynamicInputId]: {
+                            ...prev.inputs[selectedDynamicInputId],
+                            autoEvent: e.target.checked,
+                            autoEventTypes: e.target.checked ? (prev.inputs[selectedDynamicInputId].autoEventTypes || []) : [],
+                          },
+                        },
+                      }))
+                    }
+                    disabled={!connectionStatus.connected}
+                  />
+                  Автоматически показывать при событиях
+                </label>
+                {config.inputs[selectedDynamicInputId].autoEvent === true && (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.25rem 1rem", marginBottom: "0.5rem" }}>
+                      {AUTO_EVENT_TYPES.map((eventType) => (
+                        <label key={eventType} style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--color-text)", cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={(config.inputs[selectedDynamicInputId].autoEventTypes || []).includes(eventType)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setConfig((prev) => {
+                                const next = { ...prev, inputs: { ...prev.inputs } };
+                                const currentTypes = Array.isArray(prev.inputs[selectedDynamicInputId]?.autoEventTypes) ? [...prev.inputs[selectedDynamicInputId].autoEventTypes] : [];
+                                if (checked) {
+                                  currentTypes.push(eventType);
+                                  const order = Array.isArray(prev.inputOrder) ? prev.inputOrder : [];
+                                  for (const id of order) {
+                                    if (id === selectedDynamicInputId) continue;
+                                    const types = next.inputs[id]?.autoEventTypes;
+                                    if (!Array.isArray(types) || !types.includes(eventType)) continue;
+                                    next.inputs[id] = {
+                                      ...next.inputs[id],
+                                      autoEventTypes: types.filter((t) => t !== eventType),
+                                    };
+                                  }
+                                } else {
+                                  next.inputs[selectedDynamicInputId] = {
+                                    ...next.inputs[selectedDynamicInputId],
+                                    autoEventTypes: currentTypes.filter((t) => t !== eventType),
+                                  };
+                                  return next;
+                                }
+                                next.inputs[selectedDynamicInputId] = {
+                                  ...next.inputs[selectedDynamicInputId],
+                                  autoEventTypes: currentTypes,
+                                };
+                                return next;
+                              });
+                            }}
+                            disabled={!connectionStatus.connected}
+                          />
+                          {AUTO_EVENT_TYPE_LABELS[eventType]}
+                        </label>
+                      ))}
+                    </div>
+                    <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--color-text)", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={config.inputs[selectedDynamicInputId].autoEventShowAlongside === true}
+                        onChange={(e) =>
+                          setConfig((prev) => ({
+                            ...prev,
+                            inputs: {
+                              ...prev.inputs,
+                              [selectedDynamicInputId]: {
+                                ...prev.inputs[selectedDynamicInputId],
+                                autoEventShowAlongside: e.target.checked,
+                              },
+                            },
+                          }))
+                        }
+                        disabled={!connectionStatus.connected}
+                      />
+                      Показывать совместно с другими событийными плашками
+                    </label>
+                  </>
+                )}
               </div>
               <VMixInputFieldsPanel
                 inputId={selectedDynamicInputId}

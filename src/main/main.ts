@@ -7,33 +7,38 @@ import {
   globalShortcut,
   shell,
 } from "electron";
+import type {
+  BrowserWindowConstructorOptions,
+  MenuItemConstructorOptions,
+} from "electron";
 import path from "path";
 import fs from "fs";
 import http from "http";
-import * as documentationViewer from "./documentation-viewer.ts";
-import * as fileManager from "./fileManager.ts";
-import { getVMixClient, clearInputFieldsCache } from "./vmix-client.ts";
-import * as vmixConfig from "./vmix-config.ts";
-import { getMobileServer } from "./server.ts";
-import * as settingsManager from "./settingsManager.ts";
-import * as logoManager from "./logoManager.ts";
+import * as documentationViewer from "./documentation-viewer";
+import * as fileManager from "./fileManager";
+import { getVMixClient, clearInputFieldsCache } from "./vmix-client";
+import * as vmixConfig from "./vmix-config";
+import { getMobileServer } from "./server";
+import * as settingsManager from "./settingsManager";
+import * as logoManager from "./logoManager";
 import errorHandler from "../shared/errorHandler";
-import * as updater from "./updater.ts";
-import { getIconPath, getPreloadPath, getVitePortFilePath } from "./utils/pathUtils.ts";
+import * as updater from "./updater";
+import { getIconPath, getPreloadPath, getVitePortFilePath } from "./utils/pathUtils";
 import {
   resolveLogoUrlsInImageFields,
   findInputConfig,
-} from "./vmix-overlay-utils.ts";
-import { registerDialogHandlers } from "./dialogHandlers.ts";
+} from "./vmix-overlay-utils";
+import { registerDialogHandlers } from "./dialogHandlers";
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
+const DEV_APP_ID = "vmix-volley-scoreboard";
 
-let mainWindow;
-let currentMatch = null;
-let currentMatchFilePath = null; // Путь к файлу текущего матча
+let mainWindow: BrowserWindow | null = null;
+let currentMatch: any | null = null;
+let currentMatchFilePath: string | null = null; // Путь к файлу текущего матча
 let hasUnsavedChanges = false;
 let isLoadingVite = false; // Флаг для предотвращения одновременных попыток загрузки
-let autoSaveTimeout = null; // Таймер для отложенного автосохранения
+let autoSaveTimeout: ReturnType<typeof setTimeout> | null = null; // Таймер для отложенного автосохранения
 
 /**
  * Очищает файлы логотипов при создании нового матча
@@ -46,13 +51,13 @@ async function clearLogosOnNewMatch() {
     try {
       await logoManager.cleanupLogosDirectory();
       console.log('[main] Папка logos очищена при создании нового матча');
-    } catch (error) {
+    } catch (error: any) {
       // Игнорируем ошибку, если папка не существует
       if (error.code !== 'ENOENT') {
         console.warn('Не удалось очистить папку logos:', error.message);
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Ошибка при очистке логотипов при создании нового матча:', error.message);
     // Не прерываем выполнение, если ошибка очистки логотипов
   }
@@ -61,7 +66,7 @@ async function clearLogosOnNewMatch() {
 /**
  * Планирует автосохранение матча с задержкой (debounce)
  */
-async function scheduleAutoSave(match) {
+async function scheduleAutoSave(match: any) {
   // Очищаем предыдущий таймер
   if (autoSaveTimeout) {
     clearTimeout(autoSaveTimeout);
@@ -87,7 +92,7 @@ async function scheduleAutoSave(match) {
         "[AutoSave] Матч автоматически сохранен в",
         currentMatchFilePath
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error("[AutoSave] Ошибка при автосохранении:", error);
       // Не показываем ошибку пользователю, только логируем
     }
@@ -122,7 +127,7 @@ function createWindow() {
   const windowTitle = `vMix Volley Scoreboard - v.${appVersion}`;
 
   // Создаем конфигурацию окна с иконкой
-  const windowOptions = {
+  const windowOptions: BrowserWindowConstructorOptions = {
     width: 1200,
     height: 800,
     minWidth: 1280,
@@ -142,39 +147,52 @@ function createWindow() {
   
   // Добавляем иконку, если она найдена
   if (fs.existsSync(iconPath)) {
-    windowOptions.icon = iconPath;
+    (windowOptions as any).icon = iconPath;
     console.log(`[Window] Иконка установлена для окна: ${iconPath}`);
   }
 
-  mainWindow = new BrowserWindow(windowOptions);
+  const win = new BrowserWindow(windowOptions);
+  mainWindow = win;
 
   // Показываем окно после загрузки страницы
-  mainWindow.once("ready-to-show", () => {
-    mainWindow.show();
+  win.once("ready-to-show", () => {
+    win.show();
     // Устанавливаем заголовок после загрузки, чтобы переопределить HTML title
-    mainWindow.setTitle(windowTitle);
+    win.setTitle(windowTitle);
     if (isDev) {
-      mainWindow.webContents.openDevTools();
+      win.webContents.openDevTools();
     }
   });
 
   // Также устанавливаем заголовок после загрузки страницы
-  mainWindow.webContents.once("did-finish-load", () => {
-    mainWindow.setTitle(windowTitle);
+  win.webContents.once("did-finish-load", () => {
+    win.setTitle(windowTitle);
   });
 
   if (isDev) {
     // Функция для проверки доступности порта с проверкой, что это Vite
-    const checkPort = (port, callback) => {
-      const req = http.get(`http://localhost:${port}`, (res) => {
-        res.on("data", () => {
-          // Игнорируем данные
+    const checkPort = (
+      port: number,
+      callback: (available: boolean, checkedPort: number) => void
+    ) => {
+      // Проверяем, что это dev-сервер именно нашего приложения:
+      // другой Electron/Vite на том же порту не пройдет проверку /__app_identity.
+      const req = http.get(`http://localhost:${port}/__app_identity`, (res) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          body += chunk;
         });
         res.on("end", () => {
-          // Vite должен возвращать статус 200 или 304
-          if (res.statusCode === 200 || res.statusCode === 304) {
-            callback(true, port);
-          } else {
+          if (res.statusCode !== 200) {
+            callback(false, port);
+            return;
+          }
+          try {
+            const json = JSON.parse(body);
+            const ok = json && typeof json === "object" && json.appId === DEV_APP_ID;
+            callback(!!ok, port);
+          } catch {
             callback(false, port);
           }
         });
@@ -238,22 +256,22 @@ function createWindow() {
           const onLoadSuccess = () => {
             console.log(`✓ Страница успешно загружена с порта ${checkedPort}`);
             isLoadingVite = false; // Сбрасываем флаг
-            mainWindow.webContents.removeListener("did-fail-load", onLoadFail);
+            win.webContents.removeListener("did-fail-load", onLoadFail);
             // Устанавливаем заголовок после загрузки, чтобы переопределить HTML title
-            mainWindow.setTitle(windowTitle);
+            win.setTitle(windowTitle);
             // Открываем DevTools для отладки
-            mainWindow.webContents.openDevTools();
+            win.webContents.openDevTools();
             // Также логируем текущий URL для проверки
-            console.log(`Текущий URL: ${mainWindow.webContents.getURL()}`);
+            console.log(`Текущий URL: ${win.webContents.getURL()}`);
           };
 
           // Обработчик ошибки загрузки
-          const onLoadFail = (event, errorCode, errorDescription) => {
+          const onLoadFail = (event: any, errorCode: any, errorDescription: any) => {
             console.error(
               `✗ Ошибка загрузки с порта ${checkedPort}: ${errorCode} - ${errorDescription}`
             );
             isLoadingVite = false; // Сбрасываем флаг
-            mainWindow.webContents.removeListener(
+            win.webContents.removeListener(
               "did-finish-load",
               onLoadSuccess
             );
@@ -261,17 +279,17 @@ function createWindow() {
             setTimeout(findVitePort, 500);
           };
 
-          mainWindow.webContents.once("did-finish-load", onLoadSuccess);
-          mainWindow.webContents.once("did-fail-load", onLoadFail);
+          win.webContents.once("did-finish-load", onLoadSuccess);
+          win.webContents.once("did-fail-load", onLoadFail);
 
-          mainWindow.loadURL(devUrl).catch((err) => {
+          win.loadURL(devUrl).catch((err) => {
             console.error("Ошибка при вызове loadURL:", err);
             isLoadingVite = false; // Сбрасываем флаг
-            mainWindow.webContents.removeListener(
+            win.webContents.removeListener(
               "did-finish-load",
               onLoadSuccess
             );
-            mainWindow.webContents.removeListener("did-fail-load", onLoadFail);
+            win.webContents.removeListener("did-fail-load", onLoadFail);
             portIndex++;
             setTimeout(findVitePort, 500);
           });
@@ -298,45 +316,45 @@ function createWindow() {
 
     // Используем loadFile вместо loadURL для корректной работы с относительными путями
     // loadFile автоматически обрабатывает пути к assets внутри ASAR
-    mainWindow.loadFile(distPath).catch((err) => {
+    win.loadFile(distPath).catch((err) => {
       console.error("[Production] Failed to load index.html:", err);
       console.error("[Production] Error details:", err.message, err.stack);
       // Попробуем альтернативный способ через loadURL с file:// протоколом
       const fileUrl = `file://${distPath.replace(/\\/g, "/")}`;
       console.log("[Production] Trying alternative URL:", fileUrl);
-      mainWindow.loadURL(fileUrl).catch((urlErr) => {
+      win.loadURL(fileUrl).catch((urlErr) => {
         console.error("[Production] Failed to load via URL:", urlErr);
         console.error("[Production] URL Error details:", urlErr.message, urlErr.stack);
       });
     });
     
     // Обработка ошибок загрузки страницы
-    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
       console.error(`[Production] Failed to load: ${errorCode} - ${errorDescription}`);
       console.error(`[Production] URL: ${validatedURL}`);
     });
     
     // Обработка успешной загрузки
-    mainWindow.webContents.on('did-finish-load', () => {
+    win.webContents.on('did-finish-load', () => {
       console.log("[Production] Page loaded successfully");
       // Устанавливаем заголовок после загрузки, чтобы переопределить HTML title
-      mainWindow.setTitle(windowTitle);
+      win.setTitle(windowTitle);
     });
   }
 
-  mainWindow.on("closed", () => {
+  win.on("closed", () => {
     mainWindow = null;
   });
 
   // Логируем события загрузки
-  mainWindow.webContents.on("dom-ready", () => {
+  win.webContents.on("dom-ready", () => {
     console.log("[Production] DOM ready");
   });
 
-  mainWindow.webContents.on("did-finish-load", () => {
+  win.webContents.on("did-finish-load", () => {
     console.log("[Production] Page finished loading");
     // Устанавливаем заголовок после загрузки, чтобы переопределить HTML title
-    mainWindow.setTitle(windowTitle);
+    win.setTitle(windowTitle);
   });
 
   // Логируем ошибки загрузки страницы
@@ -394,7 +412,7 @@ function createWindow() {
             levelNames[level] || level
           }] ${message} (${sourceId}:${line})`
         );
-      } catch (error) {
+      } catch (error: any) {
         // Игнорируем ошибки записи в консоль (EPIPE и т.д.)
         // Это может происходить, если окно закрыто или pipe разорван
         if (error.code !== 'EPIPE') {
@@ -463,7 +481,7 @@ app.whenReady().then(async () => {
     await logoManager.ensureLogosDir();
     const logosDir = logoManager.getLogosDir();
     console.log("[App] Папка logos инициализирована:", logosDir);
-  } catch (error) {
+  } catch (error: any) {
     console.warn(
       "[App] Не удалось инициализировать папку logos при старте:",
       error.message
@@ -474,7 +492,7 @@ app.whenReady().then(async () => {
   try {
     await logoManager.cleanupLogosDirectory();
     console.log("[App] Папка logos очищена от устаревших файлов");
-  } catch (error) {
+  } catch (error: any) {
     console.warn(
       "[App] Не удалось очистить папку logos при старте:",
       error.message
@@ -496,7 +514,7 @@ app.whenReady().then(async () => {
         console.log("[App] vMix: автоматическое подключение не удалось, состояние сброшено");
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.warn("[App] Ошибка при восстановлении подключения к vMix:", error?.message);
   }
 
@@ -601,7 +619,7 @@ async function createMenu() {
     );
   }
 
-  const template = [
+  const template: MenuItemConstructorOptions[] = [
     {
       label: "Файл",
       submenu: [
@@ -636,7 +654,7 @@ async function createMenu() {
                   hasUnsavedChanges = false;
                   mainWindow.webContents.send("load-match", match);
                 }
-              } catch (error) {
+              } catch (error: any) {
                 dialog.showErrorBox(
                   "Ошибка",
                   "Не удалось открыть матч: " + error.message
@@ -691,7 +709,7 @@ async function createMenu() {
                   hasUnsavedChanges = false;
                   mainWindow.webContents.send("match-saved");
                 }
-              } catch (error) {
+              } catch (error: any) {
                 dialog.showErrorBox(
                   "Ошибка",
                   "Не удалось сохранить матч: " + error.message
@@ -714,7 +732,7 @@ async function createMenu() {
                   hasUnsavedChanges = false;
                   mainWindow.webContents.send("match-saved");
                 }
-              } catch (error) {
+              } catch (error: any) {
                 dialog.showErrorBox(
                   "Ошибка",
                   "Не удалось сохранить матч: " + error.message
@@ -965,7 +983,16 @@ async function createMenu() {
 }
 
 // IPC handlers
-registerDialogHandlers(ipcMain, dialog, () => BrowserWindow.getFocusedWindow());
+registerDialogHandlers(
+  ipcMain,
+  {
+    showMessageBox: async (win, options) => {
+      const res = await dialog.showMessageBox(win as any, options as any);
+      return { response: res.response };
+    },
+  },
+  () => BrowserWindow.getFocusedWindow()
+);
 ipcMain.handle("app-version", () => {
   return app.getVersion();
 });
@@ -1084,10 +1111,8 @@ ipcMain.handle("logo:save-to-file", async (event, teamLetter, logoBase64) => {
     if (!logoBase64) {
       return { success: false, error: "Логотип не указан" };
     }
-    
-    // Очищаем папку перед сохранением (удаляем старые логотипы)
-    await logoManager.cleanupLogosDirectory();
-    
+    // Очищаем только файлы этой команды (logo_a_*.png или logo_b_*.png), чтобы не удалить логотип другой команды при импорте по очереди
+    await logoManager.cleanupLogosForTeam(teamLetter);
     // Сохраняем логотип в файл с уникальным именем
     const processedTeam = await logoManager.processTeamLogoForSave(
       { logo: logoBase64 },
@@ -1099,7 +1124,7 @@ ipcMain.handle("logo:save-to-file", async (event, teamLetter, logoBase64) => {
       logoPath: processedTeam.logoPath,
       logoBase64: processedTeam.logoBase64,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Ошибка при сохранении логотипа команды ${teamLetter}:`, error);
     return {
       success: false,
@@ -1119,7 +1144,7 @@ ipcMain.handle("logo:delete", async (event, teamLetter) => {
     await logoManager.cleanupLogosDirectory();
     
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Ошибка при удалении логотипа команды ${teamLetter}:`, error);
     return {
       success: false,
@@ -1162,7 +1187,7 @@ ipcMain.handle("match:swap-teams", async (event, match) => {
 
     // 5. Меняем местами счет в завершенных партиях
     if (swappedMatch.sets && Array.isArray(swappedMatch.sets)) {
-      swappedMatch.sets = swappedMatch.sets.map((set) => {
+      swappedMatch.sets = swappedMatch.sets.map((set: any) => {
         const tempSetScore = set.scoreA;
         set.scoreA = set.scoreB;
         set.scoreB = tempSetScore;
@@ -1230,7 +1255,7 @@ ipcMain.handle("match:swap-teams", async (event, match) => {
       }
 
       // Очистка папки logos уже выполнена перед сохранением обоих логотипов
-    } catch (error) {
+    } catch (error: any) {
       console.error(
         "Ошибка при сохранении логотипов после смены команд:",
         error
@@ -1246,7 +1271,7 @@ ipcMain.handle("match:swap-teams", async (event, match) => {
     hasUnsavedChanges = true;
 
     return { success: true, match: swappedMatch };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Ошибка при смене команд местами:", error);
     return { success: false, error: error.message };
   }
@@ -1370,13 +1395,13 @@ ipcMain.handle(
         textColorFields || {}
       );
       // Проверяем, есть ли ошибки
-      const hasErrors = results.some((r) => !r.success);
+      const hasErrors = results.some((r: any) => !r.success);
       if (hasErrors) {
-        const errors = results.filter((r) => !r.success).map((r) => r.error);
+        const errors = results.filter((r: any) => !r.success).map((r: any) => r.error);
         return { success: false, error: errors.join("; ") };
       }
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       const friendlyError = errorHandler.handleError(
         error,
         "vmix:update-input-fields"
@@ -1411,7 +1436,7 @@ ipcMain.handle("vmix:show-overlay", async (event, inputKey) => {
     const client = getVMixClient(config.host, config.port);
     const result = await client.showOverlay(Number(overlay), String(inputIdentifier));
     return result;
-  } catch (error) {
+  } catch (error: any) {
     return { success: false, error: error.message };
   }
 });
@@ -1432,7 +1457,7 @@ ipcMain.handle("vmix:hide-overlay", async (event, inputKey) => {
     const client = getVMixClient(config.host, config.port);
     const result = await client.hideOverlay(Number(overlay));
     return result;
-  } catch (error) {
+  } catch (error: any) {
     return { success: false, error: error.message };
   }
 });
@@ -1443,7 +1468,7 @@ ipcMain.handle("vmix:get-overlay-state", async () => {
     const client = getVMixClient(config.host, config.port);
     const result = await client.getOverlayState();
     return result;
-  } catch (error) {
+  } catch (error: any) {
     return { success: false, error: error.message, overlays: null };
   }
 });
@@ -1453,7 +1478,7 @@ ipcMain.handle("vmix:getGTInputs", async () => {
     const config = await vmixConfig.getVMixConfig();
     const client = getVMixClient(config.host, config.port);
     return await client.getGTInputs();
-  } catch (error) {
+  } catch (error: any) {
     return { success: false, error: error.message, inputs: [] };
   }
 });
@@ -1463,7 +1488,7 @@ ipcMain.handle("vmix:getInputFields", async (event, inputNumberOrKey, forceRefre
     const config = await vmixConfig.getVMixConfig();
     const client = getVMixClient(config.host, config.port);
     return await client.getInputFields(inputNumberOrKey, forceRefresh);
-  } catch (error) {
+  } catch (error: any) {
     return { success: false, error: error.message, fields: [] };
   }
 });
@@ -1472,7 +1497,7 @@ ipcMain.handle("vmix:clearInputFieldsCache", async (event, inputIdentifier) => {
   try {
     clearInputFieldsCache(inputIdentifier);
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     return { success: false, error: error.message };
   }
 });
@@ -1481,7 +1506,7 @@ ipcMain.handle("vmix:clearInputFieldsCache", async (event, inputIdentifier) => {
 const mobileServer = getMobileServer();
 
 // Устанавливаем callback для синхронизации изменений матча из мобильного приложения
-mobileServer.setMatchUpdateCallback((updatedMatch) => {
+mobileServer.setMatchUpdateCallback((updatedMatch: any) => {
   // Обновляем текущий матч в main процессе
   currentMatch = updatedMatch;
   hasUnsavedChanges = true;
@@ -1509,7 +1534,7 @@ ipcMain.handle("mobile:stop-server", async () => {
   try {
     await mobileServer.stop();
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     return { success: false, error: error.message };
   }
 });
@@ -1528,7 +1553,7 @@ ipcMain.handle("mobile:get-server-info", async () => {
     if (mobileSettings && mobileSettings.port) {
       // IP определяется динамически через getLocalIP с учетом выбранного IP из настроек
       const selectedIP = mobileSettings.selectedIP || null;
-      const fallbackInfo = {
+      const fallbackInfo: any = {
         running: false,
         port: mobileSettings.port,
         ip: mobileServer.getLocalIP ? mobileServer.getLocalIP(selectedIP) : null,
@@ -1543,7 +1568,7 @@ ipcMain.handle("mobile:get-server-info", async () => {
       );
       return fallbackInfo;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(
       "[IPC mobile:get-server-info] Ошибка при получении настроек:",
       error
@@ -1558,7 +1583,7 @@ ipcMain.handle("mobile:get-network-interfaces", async () => {
   try {
     const interfaces = mobileServer.getNetworkInterfaces();
     return { success: true, interfaces };
-  } catch (error) {
+  } catch (error: any) {
     console.error("[IPC mobile:get-network-interfaces] Ошибка:", error);
     return { success: false, error: error.message, interfaces: [] };
   }
@@ -1573,7 +1598,7 @@ ipcMain.handle("mobile:set-selected-ip", async (event, selectedIP) => {
     });
     console.log("[IPC mobile:set-selected-ip] Выбранный IP сохранен:", selectedIP);
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error("[IPC mobile:set-selected-ip] Ошибка:", error);
     return { success: false, error: error.message };
   }
@@ -1624,7 +1649,7 @@ ipcMain.handle("autosave:get-settings", async () => {
   try {
     const settings = await settingsManager.getAutoSaveSettings();
     return { success: true, enabled: settings.enabled };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting auto-save settings:", error);
     return { success: false, error: error.message };
   }
@@ -1634,7 +1659,7 @@ ipcMain.handle("autosave:set-settings", async (event, enabled) => {
   try {
     await settingsManager.setAutoSaveSettings({ enabled });
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error setting auto-save settings:", error);
     return { success: false, error: error.message };
   }
@@ -1645,7 +1670,7 @@ ipcMain.handle("update:check", async () => {
   try {
     updater.checkForUpdates();
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error checking for updates:", error);
     return { success: false, error: error.message };
   }
@@ -1655,7 +1680,7 @@ ipcMain.handle("update:download", async () => {
   try {
     updater.downloadUpdate();
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error downloading update:", error);
     return { success: false, error: error.message };
   }
@@ -1665,7 +1690,7 @@ ipcMain.handle("update:install", async () => {
   try {
     updater.installUpdate();
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error installing update:", error);
     return { success: false, error: error.message };
   }
@@ -1676,7 +1701,7 @@ ipcMain.handle("autoupdate:get-settings", async () => {
   try {
     const settings = await settingsManager.getAutoUpdateSettings();
     return { success: true, enabled: settings.enabled };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting auto-update settings:", error);
     return { success: false, error: error.message };
   }
@@ -1690,7 +1715,7 @@ ipcMain.handle("autoupdate:set-settings", async (event, enabled) => {
       mainWindow.webContents.send("autoupdate-settings-changed", enabled);
     }
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error setting auto-update settings:", error);
     return { success: false, error: error.message };
   }
@@ -1701,7 +1726,7 @@ ipcMain.handle("ui:get-settings", async () => {
   try {
     const ui = await settingsManager.getUISettings();
     return { success: true, theme: ui?.theme ?? "light" };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting UI settings:", error);
     return { success: false, error: error.message };
   }
@@ -1714,7 +1739,7 @@ ipcMain.handle("ui:set-settings", async (event, uiConfig: { theme?: string }) =>
       mainWindow.webContents.send("ui-theme-changed", uiConfig.theme);
     }
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error setting UI settings:", error);
     return { success: false, error: error.message };
   }

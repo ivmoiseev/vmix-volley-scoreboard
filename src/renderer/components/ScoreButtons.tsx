@@ -7,9 +7,21 @@ export interface ScoreButtonsProps {
   teamBName: string;
   onScoreChange: (team: 'A' | 'B', delta: number) => void;
   disabled?: boolean;
+  /** Toggle таймаута для команды (опционально) */
+  onTimeoutClick?: (team: 'A' | 'B') => void;
+  timeoutTeam?: 'A' | 'B' | null;
+  isTimeoutActive?: boolean;
 }
 
-export default function ScoreButtons({ teamAName, teamBName, onScoreChange, disabled = false }: ScoreButtonsProps) {
+export default function ScoreButtons({
+  teamAName,
+  teamBName,
+  onScoreChange,
+  disabled = false,
+  onTimeoutClick,
+  timeoutTeam,
+  isTimeoutActive,
+}: ScoreButtonsProps) {
   const sizeStyle: CSSProperties = {
     padding: `${space.md} ${space.xl}`,
     fontSize: '1.5rem',
@@ -44,6 +56,17 @@ export default function ScoreButtons({ teamAName, teamBName, onScoreChange, disa
             +1
           </Button>
         </div>
+        {onTimeoutClick && (
+          <div style={{ marginTop: space.sm }}>
+            <Button
+              type="button"
+              variant={isTimeoutActive && timeoutTeam === 'A' ? 'primary' : 'secondary'}
+              onClick={() => onTimeoutClick('A')}
+            >
+              Таймаут
+            </Button>
+          </div>
+        )}
       </div>
       <div style={{ textAlign: 'center' }}>
         <div style={{ marginBottom: space.sm, fontWeight: 'bold' }}>{teamBName}</div>
@@ -65,6 +88,17 @@ export default function ScoreButtons({ teamAName, teamBName, onScoreChange, disa
             +1
           </Button>
         </div>
+        {onTimeoutClick && (
+          <div style={{ marginTop: space.sm }}>
+            <Button
+              type="button"
+              variant={isTimeoutActive && timeoutTeam === 'B' ? 'primary' : 'secondary'}
+              onClick={() => onTimeoutClick('B')}
+            >
+              Таймаут
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

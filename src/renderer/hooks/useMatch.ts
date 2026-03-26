@@ -43,6 +43,12 @@ export function useMatch(initialMatch: Match | null) {
     timestamp: 0,
   });
 
+  /** Состояние таймата: только в state, не сохраняется в Match (сбрасывается при перезагрузке) */
+  const [timeoutState, setTimeoutState] = useState<{ team: 'A' | 'B' | null; active: boolean }>({
+    team: null,
+    active: false,
+  });
+
   // Обновляем match при изменении initialMatch (например, при синхронизации с мобильного)
   useEffect(() => {
     if (initialMatch) {
@@ -359,6 +365,21 @@ export function useMatch(initialMatch: Match | null) {
   );
 
   /**
+   * Переключает таймаут для команды (toggle): вкл для команды / выкл при повторном нажатии / переключение на другую команду.
+   */
+  const toggleTimeout = useCallback((team: 'A' | 'B') => {
+    setTimeoutState((prev) => {
+      if (!prev.active) {
+        return { team, active: true };
+      }
+      if (prev.team === team) {
+        return { team: null, active: false };
+      }
+      return { team, active: true };
+    });
+  }, []);
+
+  /**
    * Переключает расширенную статистику
    */
   const toggleStatistics = useCallback((enabled: boolean) => {
@@ -410,6 +431,7 @@ export function useMatch(initialMatch: Match | null) {
     changeStatistics,
     toggleStatistics,
     undoLastAction,
+    toggleTimeout,
     isSetballNow: setballInfo.isSetball,
     setballTeam: setballInfo.team,
     isMatchballNow: matchballInfo.isMatchball,
@@ -417,5 +439,7 @@ export function useMatch(initialMatch: Match | null) {
     canFinish,
     hasHistory,
     currentSetStatus: match?.currentSet?.status || SET_STATUS.PENDING,
+    timeoutTeam: timeoutState.team,
+    isTimeoutActive: timeoutState.active,
   };
 }

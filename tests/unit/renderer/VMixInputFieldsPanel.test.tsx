@@ -109,6 +109,69 @@ describe('VMixInputFieldsPanel', () => {
     expect(onFieldChange).toHaveBeenCalledWith('input-1', 'TeamA', null);
   });
 
+  test('массовое сопоставление: применяет rosterA.player1Name к выбранному полю', async () => {
+    const onFieldChange = vi.fn();
+    render(
+      <VMixInputFieldsPanel
+        {...defaultProps}
+        onFieldChange={onFieldChange}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('TeamA')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Массовое сопоставление/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/Массовое сопоставление Rosters\/Lineup/)).toBeInTheDocument();
+    });
+
+    // По умолчанию открыт roster A, players 1..14, kinds Number+Name.
+    // Выберем только Player 1 Name -> TeamA, чтобы упростить.
+    const player1NameSelect = screen.getByLabelText('Player 1 Name');
+    fireEvent.change(player1NameSelect, { target: { value: 'TeamA' } });
+
+    // Применяем
+    const applyBtn = screen.getByRole('button', { name: /Применить/i });
+    fireEvent.click(applyBtn);
+
+    expect(onFieldChange).toHaveBeenCalledWith('input-1', 'TeamA', {
+      dataMapKey: 'rosterA.player1Name',
+      vmixFieldType: 'text',
+    });
+  });
+
+  test('массовое сопоставление: можно отключить строку в предпросмотре (не применяет)', async () => {
+    const onFieldChange = vi.fn();
+    render(<VMixInputFieldsPanel {...defaultProps} onFieldChange={onFieldChange} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('TeamA')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Массовое сопоставление/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/Массовое сопоставление Rosters\/Lineup/)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText('Player 1 Name'), { target: { value: 'TeamA' } });
+
+    // В предпросмотре появится строка. Снимем галочку.
+    // Текст разбит по узлам (<strong> и <code>), поэтому ищем по коду dataMapKey.
+    const codeEl = await screen.findByText('rosterA.player1Name');
+    const rowLabel = codeEl.closest('label');
+    expect(rowLabel).toBeTruthy();
+    const checkbox = rowLabel!.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    expect(checkbox).toBeTruthy();
+    fireEvent.click(checkbox!);
+
+    // Теперь применение должно быть disabled (0 enabled строк)
+    const applyBtn = screen.getByRole('button', { name: /Применить/i });
+    expect(applyBtn).toBeDisabled();
+    expect(onFieldChange).not.toHaveBeenCalled();
+  });
+
   test('при ошибке загрузки полей показывает сообщение об ошибке', async () => {
     window.electronAPI.getVMixInputFields.mockResolvedValue({
       success: false,

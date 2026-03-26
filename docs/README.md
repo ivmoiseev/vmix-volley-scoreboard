@@ -34,7 +34,9 @@
 - **[План внедрения импорта/экспорта настроек](development/settings-import-export-plan.md)** - описание реализации функционала импорта/экспорта настроек
 - **[План миграции на TypeScript](development/typescript-migration-plan.md)** - завершённая миграция: src и тесты на TypeScript (.ts/.tsx)
 - **[Варианты волейбола (зал, пляж, снежный)](development/volleyball-variants.md)** - правила счёта и архитектура реализации
-- **[План: автоматические плашки событий (сетбол, матчбол, таймаут) в vMix](development/vmix-event-overlays-setball-matchball-timeout.md)** - варианты решения автоматического показа/скрытия плашек при событиях
+- **[Автоматические плашки событий vMix (сетбол, матчбол, таймаут)](development/vmix-event-overlays.md)** - анализ, план реализации, доработки и рефакторинг
+- **[UX-рефакторинг сопоставления полей vMix ↔ данные приложения](development/vmix-field-mapping-ux-refactoring-plan.md)** - план улучшений UX: поиск, группировка, избранное, массовые операции, обозреватель сопоставлений
+- **[Инструкция: UX-рефакторинг сопоставления полей vMix ↔ данные приложения](development/vmix-field-mapping-ux-refactoring-implementation-guide.md)** - этапы реализации для программиста (поиск, пикеры, mass-mapping Rosters/Lineup, copy/paste, обозреватель)
 - **[Защита от декомпиляции](development/obfuscation-and-protection.md)** - варианты защиты Electron приложения от декомпиляции
 
 ### 🔧 Устранение проблем
@@ -66,7 +68,7 @@ docs/
 │   ├── QA_AUDIT_REPORT.md
 │   ├── REFACTORING_GUIDE.md
 │   ├── dependencies-version-requirements.md
-│   ├── vmix-event-overlays-setball-matchball-timeout.md  # План событийных плашек vMix
+│   ├── vmix-event-overlays.md  # Автоматические плашки событий vMix
 │   └── [другие документы]
 └── troubleshooting/             # Устранение проблем
     ├── logo-issues-summary.md
@@ -111,4 +113,4 @@ docs/
 
 ---
 
-*Последнее обновление: 2026-02-16*
+*Последнее обновление: 2026-03-26*

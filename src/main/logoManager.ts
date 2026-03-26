@@ -333,6 +333,43 @@ function getLogoHttpUrl(logoPath, port) {
   return `http://localhost:${port}/${cleanPath}`;
 }
 
+const LOGO_FILE_PREFIX = { A: 'logo_a_', B: 'logo_b_' };
+
+/**
+ * Очищает в папке logos только файлы логотипа одной команды (logo_a_*.png или logo_b_*.png).
+ * Используется при сохранении логотипа из импорта/настроек, чтобы не удалять логотип другой команды.
+ * @param {string} teamLetter - 'A' или 'B'
+ * @returns {Promise<void>}
+ */
+async function cleanupLogosForTeam(teamLetter) {
+  const prefix = LOGO_FILE_PREFIX[teamLetter];
+  if (!prefix) return;
+  try {
+    await ensureLogosDir();
+    const logosDir = getLogosDir();
+    const files = await fs.readdir(logosDir);
+    const deletePromises = files
+      .filter((file) => file.startsWith(prefix) && file.endsWith('.png'))
+      .map(async (file) => {
+        try {
+          const filePath = path.join(logosDir, file);
+          const stats = await fs.stat(filePath);
+          if (stats.isFile()) {
+            await fs.unlink(filePath);
+            console.log(`[logoManager] Удален файл логотипа: ${file}`);
+          }
+        } catch (error) {
+          console.warn(`[logoManager] Не удалось удалить файл ${file}:`, error.message);
+        }
+      });
+    await Promise.all(deletePromises);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.warn('[logoManager] Ошибка при очистке логотипов команды:', error.message);
+    }
+  }
+}
+
 /**
  * Очищает папку logos от всех файлов логотипов (logo_*.png)
  * Удаляет все старые логотипы перед сохранением новых для обхода кэширования vMix
@@ -341,33 +378,24 @@ function getLogoHttpUrl(logoPath, port) {
 async function cleanupLogosDirectory() {
   try {
     await ensureLogosDir();
-    
     const logosDir = getLogosDir();
     const files = await fs.readdir(logosDir);
-    
-    // Удаляем все файлы, начинающиеся с logo_ и заканчивающиеся на .png
     const deletePromises = files
-      .filter(file => file.startsWith('logo_') && file.endsWith('.png'))
+      .filter((file) => file.startsWith('logo_') && file.endsWith('.png'))
       .map(async (file) => {
         try {
           const filePath = path.join(logosDir, file);
           const stats = await fs.stat(filePath);
-          
-          // Удаляем только файлы, не директории
           if (stats.isFile()) {
             await fs.unlink(filePath);
             console.log(`[logoManager] Удален файл логотипа: ${file}`);
           }
         } catch (error) {
-          // Игнорируем ошибки удаления отдельных файлов
           console.warn(`[logoManager] Не удалось удалить файл ${file}:`, error.message);
         }
       });
-    
     await Promise.all(deletePromises);
   } catch (error) {
-    // Не прерываем выполнение при ошибке очистки
-    // Игнорируем ошибки, если папка не существует или пуста
     if (error.code !== 'ENOENT') {
       console.warn('[logoManager] Ошибка при очистке папки logos:', error.message);
     }
@@ -381,6 +409,7 @@ export {
   processTeamLogoForLoad,
   getLogoHttpUrl,
   cleanupLogosDirectory,
+  cleanupLogosForTeam,
   getLogosDir,
   ensureLogosDir,
   migrateLogosFromExtraResources,

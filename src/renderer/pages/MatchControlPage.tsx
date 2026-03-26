@@ -60,6 +60,9 @@ function MatchControlPage({ match: initialMatch, onMatchChange }: MatchControlPa
     changeStatistics,
     toggleStatistics,
     undoLastAction,
+    toggleTimeout,
+    timeoutTeam,
+    isTimeoutActive,
     isSetballNow,
     setballTeam,
     isMatchballNow,
@@ -77,7 +80,7 @@ function MatchControlPage({ match: initialMatch, onMatchChange }: MatchControlPa
     hideOverlay,
     isOverlayActive,
     isAnotherOverlayOnAirForSameInput,
-  } = useVMix(match);
+  } = useVMix(match, { timeoutTeam, isTimeoutActive });
   
   // Вычисляем данные для модального окна с помощью useMemo, чтобы избежать бесконечных ре-рендеров
   const modalData = useMemo(() => {
@@ -168,7 +171,10 @@ function MatchControlPage({ match: initialMatch, onMatchChange }: MatchControlPa
           isNewMatch,
         }
       );
-      updateMatchData(match, forceUpdate);
+      updateMatchData(
+        { ...match, timeoutTeam, isTimeoutActive },
+        forceUpdate
+      );
 
       // Очищаем флаг forceUpdateFromState после использования
       if (forceUpdateFromState) {
@@ -247,9 +253,12 @@ function MatchControlPage({ match: initialMatch, onMatchChange }: MatchControlPa
       );
       // Вызываем updateMatchData с forceUpdate=false, но изменения видимости должны быть обнаружены
       // через filterChangedVisibilityFields, так как видимость изменилась
-      updateMatchData(match, false);
+      updateMatchData(
+        { ...match, timeoutTeam, isTimeoutActive },
+        false
+      );
     }
-  }, [match?.currentSet?.servingTeam, connectionStatus.connected, updateMatchData]);
+  }, [match?.currentSet?.servingTeam, connectionStatus.connected, updateMatchData, match, timeoutTeam, isTimeoutActive]);
 
   // Обработка обновления матча из мобильного приложения или при создании/открытии матча
   useEffect(() => {
@@ -461,12 +470,15 @@ function MatchControlPage({ match: initialMatch, onMatchChange }: MatchControlPa
             />
           </div>
 
-          {/* Кнопки управления счетом */}
+          {/* Кнопки управления счетом и таймауты */}
           <ScoreButtons
             teamAName={match.teamA.name}
             teamBName={match.teamB.name}
             onScoreChange={changeScore}
             disabled={currentSetStatus !== SET_STATUS.IN_PROGRESS}
+            onTimeoutClick={toggleTimeout}
+            timeoutTeam={timeoutTeam}
+            isTimeoutActive={isTimeoutActive}
           />
 
           {/* Кнопки управления партией */}

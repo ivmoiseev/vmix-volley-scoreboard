@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
 
+// Уникальный идентификатор dev-сервера этого приложения (защита от подмены UI при совпадении порта)
+const DEV_APP_ID = 'vmix-volley-scoreboard';
+
 // Плагин для копирования favicon.ico в корень dist
 const copyFaviconPlugin = () => {
   return {
@@ -19,12 +22,31 @@ const copyFaviconPlugin = () => {
   };
 };
 
+/**
+ * Dev-only endpoint, чтобы main-process мог отличить "наш" Vite
+ * от другого приложения, случайно запущенного на том же порту.
+ */
+const devIdentityPlugin = () => {
+  return {
+    name: 'dev-identity-endpoint',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__app_identity', (_req, res) => {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.statusCode = 200;
+        res.end(JSON.stringify({ appId: DEV_APP_ID }));
+      });
+    },
+  };
+};
+
 export default defineConfig({
   plugins: [
     react({
       // Включаем поддержку React 18
       jsxRuntime: 'automatic',
     }),
+    devIdentityPlugin(),
     copyFaviconPlugin(),
   ],
   base: './',

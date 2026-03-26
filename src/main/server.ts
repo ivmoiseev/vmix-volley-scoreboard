@@ -77,21 +77,23 @@ class MobileServer {
     // В production public лежит в resources (extraResources), не в asar
     this.app.use(express.static(getPublicDir()));
     
-    // Статические файлы для логотипов
-    // Определяем путь динамически при инициализации
-    const logosPath = this.getLogosPath();
-    
-    // Убеждаемся, что папка существует
-    fs.access(logosPath).catch(() => {
-      return fs.mkdir(logosPath, { recursive: true });
-    }).catch(err => {
-      console.error('[MobileServer] Ошибка при создании папки logos:', err);
+    // Статические файлы для логотипов: путь разрешаем при каждом запросе (getLogosDir()),
+    // чтобы раздача шла из той же папки, куда logoManager сохраняет файлы (избегаем 404 при расхождении путей).
+    this.app.use('/logos', (req, res, next) => {
+      const filename = req.path.replace(/^\//, '').trim();
+      if (!filename || filename.includes('..') || /[/\\]/.test(filename)) {
+        res.status(400).send('Invalid path');
+        return;
+      }
+      const logosDir = getLogosDir();
+      const filePath = path.join(logosDir, filename);
+      res.sendFile(filePath, (err) => {
+        if (err) {
+          if (err.code === 'ENOENT') res.status(404).send(`Cannot GET ${req.originalUrl}`);
+          else next(err);
+        }
+      });
     });
-    
-    // Настраиваем express.static для обслуживания логотипов
-    this.app.use('/logos', express.static(logosPath, {
-      maxAge: '1d', // Кэширование на 1 день
-    }));
   }
 
   /**

@@ -213,6 +213,39 @@ describe('VMixSettingsPage', () => {
     expect(draggables.length).toBe(2);
   });
 
+  test('при выбранном инпуте отображается галка «Использовать как инпут со счётом» и блок авто-событий', async () => {
+    window.electronAPI.getVMixConfig.mockResolvedValue({
+      host: 'localhost',
+      port: 8088,
+      connectionState: 'connected',
+      inputOrder: ['id1'],
+      inputs: {
+        id1: { displayName: 'Счёт', vmixTitle: 'T1', enabled: true, overlay: 1, fields: {} },
+      },
+    });
+
+    renderWithRouter();
+
+    await waitFor(() => {
+      expect(screen.getByText('Счёт')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Счёт'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Использовать как инпут со счётом/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Автоматически показывать при событиях/)).toBeInTheDocument();
+
+    const autoEventCheckbox = screen.getByRole('checkbox', { name: /Автоматически показывать при событиях/ });
+    fireEvent.click(autoEventCheckbox);
+
+    await waitFor(() => {
+      expect(screen.getByText('Сетбол А')).toBeInTheDocument();
+      expect(screen.getByText(/Показывать совместно с другими событийными плашками/)).toBeInTheDocument();
+    });
+  });
+
   test('при пустом inputOrder показывается «Нет инпутов»', async () => {
     window.electronAPI.getVMixConfig.mockResolvedValue({
       host: 'localhost',

@@ -9,7 +9,7 @@ export interface ConnectionStatus {
 export interface VMixOverlayButtonsProps {
   vmixConfig: {
     inputOrder?: string[];
-    inputs?: Record<string, { displayName?: string; enabled?: boolean }>;
+    inputs?: Record<string, { displayName?: string; enabled?: boolean; autoEvent?: boolean }>;
   } | null;
   connectionStatus: ConnectionStatus;
   onShowOverlay: (inputKey: string, buttonKey?: string | null) => Promise<{ success: boolean; error?: string }>;
@@ -66,9 +66,16 @@ export default function VMixOverlayButtons({
     .map((id) => {
       const input = vmixConfig?.inputs?.[id];
       if (!input || input.displayName == null) return null;
-      return { key: id, label: input.displayName, inputKey: id };
+      return {
+        key: id,
+        label: input.displayName,
+        inputKey: id,
+        autoEvent: input.autoEvent === true,
+      };
     })
-    .filter((x): x is { key: string; label: string; inputKey: string } => Boolean(x));
+    .filter((x): x is { key: string; label: string; inputKey: string; autoEvent: boolean } =>
+      Boolean(x)
+    );
 
   return (
     <div
@@ -98,16 +105,19 @@ export default function VMixOverlayButtons({
             const disabled =
               !isVMixConnected ||
               !isInputEnabled ||
-              (anotherOnAir && !active);
-            const tooltipText = disabled
-              ? !isVMixConnected
-                ? 'vMix не подключен'
-                : !isInputEnabled
-                  ? 'Инпут отключен в настройках'
-                  : 'Другая плашка этого инпута в эфире'
-              : active
-                ? 'Скрыть плашку'
-                : 'Показать плашку';
+              (anotherOnAir && !active) ||
+              btn.autoEvent;
+            const tooltipText = btn.autoEvent
+              ? 'Показ и скрытие управляются автоматически (сетбол, матчбол, таймаут)'
+              : disabled
+                ? !isVMixConnected
+                  ? 'vMix не подключен'
+                  : !isInputEnabled
+                    ? 'Инпут отключен в настройках'
+                    : 'Другая плашка этого инпута в эфире'
+                : active
+                  ? 'Скрыть плашку'
+                  : 'Показать плашку';
             return (
               <Button
                 key={btn.key}
@@ -123,7 +133,21 @@ export default function VMixOverlayButtons({
                   opacity: disabled && !isVMixConnected ? 0.6 : disabled ? 0.5 : 1,
                 }}
               >
-                {btn.label}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                  {btn.label}
+                  {btn.autoEvent && (
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        opacity: 0.9,
+                        fontWeight: 'normal',
+                      }}
+                      title="Автоматический показ при событиях (сетбол/матчбол/таймаут)"
+                    >
+                      (авт.)
+                    </span>
+                  )}
+                </span>
                 {active && (
                   <span
                     style={{

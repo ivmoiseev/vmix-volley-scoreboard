@@ -5,6 +5,9 @@ import { getFullFieldName } from "../utils/vmix-field-utils";
 import { getContrastTextColor } from "../utils/colorContrast";
 import { calculateDuration, formatDuration } from "../../shared/timeUtils";
 import { getValueByDataMapKey } from "../../shared/getValueByDataMapKey";
+import { getRules } from "../../shared/volleyballRules";
+import { SET_STATUS } from "../../shared/types/Match";
+import { AUTO_EVENT_PRIORITY_ORDER } from "../../shared/eventOverlayTypes";
 
 // Константы для типов полей и ключей
 const FIELD_TYPES = {
@@ -26,10 +29,108 @@ const OVERLAY_UPDATE_DELAY = 300;
 const OVERLAY_POLL_INTERVAL = 2000;
 const DEBOUNCE_DELAY = 300;
 
+/** Конфиг инпута в части авто-событий (используется в эффекте синхронизации и updateDynamicInputs) */
+interface VMixInputAutoEventConfig {
+  overlay?: number;
+  isScoreInput?: boolean;
+  autoEvent?: boolean;
+  autoEventTypes?: string[];
+  autoEventShowAlongside?: boolean;
+}
+
+/** Фрагмент конфига vMix для расчёта авто-оверлеев */
+interface VMixAutoEventConfig {
+  inputOrder?: string[];
+  inputs?: Record<string, VMixInputAutoEventConfig>;
+  overlay?: number;
+}
+
+/** Результат расчёта состояния авто-событий (сетбол/матчбол/таймаут) */
+interface AutoEventState {
+  activeTypes: string[];
+  toShow: Set<string>;
+  mainSlotEventType: string | null;
+  eventSignature: string;
+}
+
+// --- Авто-оверлеи (сетбол, матчбол, таймаут) ---
+/** Минимальный интервал между проходами синхронизации show/hide (мс) */
+const AUTO_SYNC_MIN_INTERVAL_MS = 2500;
+/** После отправки hide не отправлять hide для того же ключа (мс), чтобы не сбивать анимацию в vMix */
+const AUTO_HIDE_COOLDOWN_MS = 4000;
+/** Минимальная пауза между hide и show для одного ключа (мс), чтобы анимация скрытия успела завершиться */
+const MIN_MS_AFTER_HIDE_BEFORE_SHOW = 1500;
+
+/** Опции для авто-оверлеев (таймаут передаётся из useMatch) */
+export interface UseVMixOverlayOptions {
+  timeoutTeam?: "A" | "B" | null;
+  isTimeoutActive?: boolean;
+}
+
+/** Номер оверлея по ключу инпута из конфига (общая логика для hideOverlay и эффекта авто-синхронизации) */
+function getOverlayByKey(
+  inputs: Record<string, { overlay?: number } | undefined>,
+  key: string,
+  defaultOverlay: number
+): number {
+  return (inputs[key] as { overlay?: number } | undefined)?.overlay ?? defaultOverlay;
+}
+
+/** Тип элемента карты инпутов vMix (по номеру) */
+type VMixInputMapEntry = {
+  number: string;
+  key?: string;
+  title?: string;
+  shortTitle?: string;
+  type?: string;
+};
+
+/**
+ * Ищет инпут в карте по идентификатору (номер, key или title).
+ * Общая логика для findInputInMap и updateOverlayStates (без дублирования).
+ */
+function findInputInMapWithMap(
+  map: Record<string, VMixInputMapEntry> | null | undefined,
+  inputIdentifier: string
+): VMixInputMapEntry | null {
+  if (!inputIdentifier || !map || Object.keys(map).length === 0) return null;
+  const trimmed = String(inputIdentifier).trim();
+
+  if (/^\d+$/.test(trimmed)) {
+    const inputData = map[trimmed];
+    return inputData ? { number: inputData.number, key: inputData.key, title: inputData.title, shortTitle: inputData.shortTitle, type: inputData.type } : null;
+  }
+
+  for (const [_num, inputData] of Object.entries(map)) {
+    if (inputData.key && inputData.key.toLowerCase() === trimmed.toLowerCase()) {
+      return { number: inputData.number, key: inputData.key, title: inputData.title, shortTitle: inputData.shortTitle, type: inputData.type };
+    }
+  }
+
+  const normalizedName = trimmed.toLowerCase();
+  for (const [_num, inputData] of Object.entries(map)) {
+    const title = (inputData.title || "").toLowerCase();
+    const shortTitle = (inputData.shortTitle || "").toLowerCase();
+    if (title === normalizedName || shortTitle === normalizedName) {
+      return { number: inputData.number, key: inputData.key, title: inputData.title, shortTitle: inputData.shortTitle, type: inputData.type };
+    }
+    if (normalizedName.includes(".")) {
+      const nameWithoutExt = normalizedName.split(".")[0];
+      if (nameWithoutExt === title || nameWithoutExt === shortTitle) {
+        return { number: inputData.number, key: inputData.key, title: inputData.title, shortTitle: inputData.shortTitle, type: inputData.type };
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Хук для работы с vMix
  */
-export function useVMix(_match: Match | null) {
+export function useVMix(
+  _match: Match | null,
+  overlayOptions?: UseVMixOverlayOptions
+) {
   const [vmixConfig, setVMixConfig] = useState<unknown>(null);
   const [connectionStatus, setConnectionStatus] = useState<{ connected: boolean; message: string }>({
     connected: false,
@@ -40,6 +141,8 @@ export function useVMix(_match: Match | null) {
   const vmixConfigRef = useRef(vmixConfig);
   const updateMatchDataDebouncedRef = useRef(null);
   const connectionStatusRef = useRef(connectionStatus);
+  const overlayOptionsRef = useRef(overlayOptions);
+  overlayOptionsRef.current = overlayOptions;
 
   // Кэш последних отправленных значений для динамических инпутов (ключ = inputId)
   // Структура: { inputId: { fields: {}, colorFields: {}, visibilityFields: {}, imageFields: {}, textColorFields: {} } }
@@ -57,19 +160,72 @@ export function useVMix(_match: Match | null) {
   // Нужно, когда несколько конфиг-инпутов сопоставлены с одним vMix-инпутом.
   const lastShownInputKeyByOverlay = useRef<Record<number, string>>({});
 
+  /** Ref для доступа к isOverlayActive из hideOverlay (isOverlayActive объявляется ниже по коду) */
+  const isOverlayActiveRef = useRef<(inputKey: string) => boolean>(() => false);
+
   const loadConfigRef = useRef(null);
 
   const matchRef = useRef<Match | null>(null);
   matchRef.current = _match;
 
+  /** Защита от повторного входа и лавины запросов в эффекте синхронизации авто-оверлеев */
+  const autoSyncInProgressRef = useRef(false);
+  const autoSyncLastRunRef = useRef(0);
+
+  /** Время последней отправки hide по ключу инпута; не слать hide повторно до истечения кулдауна (длинная анимация в vMix) */
+  const autoHideSentAtRef = useRef<Record<string, number>>({});
+
+  /** Предыдущее состояние таймаута; при смене сбрасываем троттлинг, чтобы авто-инпут показался сразу */
+  const lastTimeoutStateRef = useRef<{ timeoutTeam: string | null; isTimeoutActive: boolean } | null>(null);
+  /** Подпись состояния событий (сетбол/матчбол); при смене сбрасываем троттлинг, чтобы hide/show ушёл сразу */
+  const lastEventSignatureRef = useRef<string>("");
+
+  function computeAutoEventState(
+    matchData: Match | null,
+    overlayOptions: UseVMixOverlayOptions | undefined,
+    config: VMixAutoEventConfig | null
+  ): AutoEventState | null {
+    if (!matchData || !config) return null;
+    const inputOrder = Array.isArray(config.inputOrder) ? config.inputOrder : [];
+    const inputs = config.inputs || {};
+    const timeoutTeam = overlayOptions?.timeoutTeam ?? null;
+    const isTimeoutActive = overlayOptions?.isTimeoutActive ?? false;
+    const rules = getRules(matchData as any);
+    const cs = matchData.currentSet;
+    const setball =
+      cs?.status === SET_STATUS.IN_PROGRESS && rules
+        ? rules.isSetball(cs.scoreA, cs.scoreB, cs.setNumber)
+        : { isSetball: false, team: null };
+    const matchball =
+      cs?.status === SET_STATUS.IN_PROGRESS && matchData.sets && rules
+        ? rules.isMatchball(matchData.sets, cs.setNumber, cs.scoreA, cs.scoreB)
+        : { isMatchball: false, team: null };
+    const activeTypes: string[] = [];
+    if (setball.isSetball && setball.team) activeTypes.push(setball.team === "A" ? "setballA" : "setballB");
+    if (matchball.isMatchball && matchball.team) activeTypes.push(matchball.team === "A" ? "matchballA" : "matchballB");
+    if (isTimeoutActive && timeoutTeam) activeTypes.push(timeoutTeam === "A" ? "timeoutA" : "timeoutB");
+    const toShow = new Set<string>();
+    let mainSlotEventType: string | null = null;
+    for (const t of AUTO_EVENT_PRIORITY_ORDER) {
+      if (!activeTypes.includes(t)) continue;
+      const inputId = inputOrder.find((id) => (inputs[id]?.autoEventTypes || []).includes(t));
+      if (!inputId) continue;
+      if (inputs[inputId]?.autoEventShowAlongside === true) {
+        toShow.add(inputId);
+      } else if (mainSlotEventType == null) {
+        mainSlotEventType = t;
+        toShow.add(inputId);
+      }
+    }
+    const eventSignature = `${cs?.scoreA ?? ""}-${cs?.scoreB ?? ""}-${cs?.setNumber ?? ""}-${activeTypes.join(",")}`;
+    return { activeTypes, toShow, mainSlotEventType, eventSignature };
+  }
+
   // Обновляем refs при изменении состояния
   useEffect(() => {
     vmixConfigRef.current = vmixConfig;
-  }, [vmixConfig]);
-
-  useEffect(() => {
     connectionStatusRef.current = connectionStatus;
-  }, [connectionStatus]);
+  }, [vmixConfig, connectionStatus]);
 
   // Вспомогательные функции для проверок и валидации
   const isVMixReady = useCallback(() => {
@@ -371,39 +527,9 @@ export function useVMix(_match: Match | null) {
 
               if (!overlayInputValue) continue;
 
-              // Функция для поиска инпута в карте (локальная копия логики из findInputInMap)
-              const findInputInTempMap = (id) => {
-                const trimmed = String(id).trim();
-                if (/^\d+$/.test(trimmed)) {
-                  return tempInputsMap[trimmed] || null;
-                }
-                for (const [_num, data] of Object.entries(tempInputsMap)) {
-                  if (
-                    data.key &&
-                    data.key.toLowerCase() === trimmed.toLowerCase()
-                  ) {
-                    return data;
-                  }
-                  if (
-                    data.title &&
-                    data.title.toLowerCase() === trimmed.toLowerCase()
-                  ) {
-                    return data;
-                  }
-                  if (
-                    data.shortTitle &&
-                    data.shortTitle.toLowerCase() === trimmed.toLowerCase()
-                  ) {
-                    return data;
-                  }
-                }
-                return null;
-              };
-
-              // Сравниваем инпуты по номерам
+              const overlayInputData = findInputInMapWithMap(tempInputsMap, overlayInputValue);
+              const configInputData = findInputInMapWithMap(tempInputsMap, inputIdentifier);
               let isOurInputActive = false;
-              const overlayInputData = findInputInTempMap(overlayInputValue);
-              const configInputData = findInputInTempMap(inputIdentifier);
 
               if (overlayInputData && configInputData) {
                 isOurInputActive =
@@ -588,9 +714,15 @@ export function useVMix(_match: Match | null) {
   /**
    * Обновляет один динамический инпут vMix (поля, цвета, видимость, картинки).
    * Вызывается из updateDynamicInputs (цикл) и из showOverlay перед показом плашки.
+   * Для авто-инпутов передаётся eventType, чтобы event.autoLabel разрешался по контексту.
    */
   const updateSingleDynamicInput = useCallback(
-    async (inputId: string, matchData: Match | null, forceUpdate = true): Promise<void> => {
+    async (
+      inputId: string,
+      matchData: Match | null,
+      forceUpdate = true,
+      options?: { eventType?: string }
+    ): Promise<void> => {
       if (!isVMixReady()) return;
       if (matchData == null) return;
       const config = vmixConfigRef.current;
@@ -616,6 +748,8 @@ export function useVMix(_match: Match | null) {
         // без списка полей отправим только сопоставленные
       }
 
+      const eventType = options?.eventType;
+
       for (const f of vmixFieldsList) {
         if (f?.type === "text") {
           const fieldName = f.name;
@@ -625,7 +759,11 @@ export function useVMix(_match: Match | null) {
               mapping.customValue != null && mapping.customValue !== ""
                 ? String(mapping.customValue)
                 : mapping.dataMapKey
-                  ? getValueByDataMapKey(matchData, mapping.dataMapKey)
+                  ? getValueByDataMapKey(
+                      matchData,
+                      mapping.dataMapKey,
+                      mapping.dataMapKey === "event.autoLabel" ? { eventType } : undefined
+                    )
                   : undefined;
             fields[fieldName] = rawValue != null ? String(rawValue) : "";
           } else {
@@ -640,7 +778,11 @@ export function useVMix(_match: Match | null) {
           mapping.customValue != null && mapping.customValue !== ""
             ? String(mapping.customValue)
             : mapping.dataMapKey
-              ? getValueByDataMapKey(matchData, mapping.dataMapKey)
+              ? getValueByDataMapKey(
+                  matchData,
+                  mapping.dataMapKey,
+                  mapping.dataMapKey === "event.autoLabel" ? { eventType } : undefined
+                )
               : undefined;
         const dataMapKey = mapping.dataMapKey || "";
         const isVisibility =
@@ -735,15 +877,30 @@ export function useVMix(_match: Match | null) {
   /**
    * Обновляет динамические инпуты vMix (из config.inputOrder) по сопоставлениям
    * dataMapKey/customValue и getValueByDataMapKey.
+   * Для авто-инпутов передаёт eventType по текущему состоянию (сетбол/матчбол/таймаут), чтобы не затирать event.autoLabel.
    */
   const updateDynamicInputs = useCallback(
     async (matchData, forceUpdate = false) => {
       if (!isVMixReady()) return;
-      const config = vmixConfigRef.current;
+      const config = vmixConfigRef.current as VMixAutoEventConfig | null;
       const inputOrder = Array.isArray(config?.inputOrder) ? config.inputOrder : [];
       if (inputOrder.length === 0) return;
+      const state = computeAutoEventState(matchData, overlayOptionsRef.current, config);
+      if (!state) return;
+      const inputs = config?.inputs || {};
       for (const inputId of inputOrder) {
-        await updateSingleDynamicInput(inputId, matchData, forceUpdate);
+        const isAuto = inputs[inputId]?.autoEvent === true;
+        if (isAuto && !state.toShow.has(inputId)) {
+          continue;
+        }
+        const types = inputs[inputId]?.autoEventTypes || [];
+        const eventType =
+          isAuto && state.toShow.has(inputId)
+            ? (state.mainSlotEventType && types.includes(state.mainSlotEventType)
+                ? state.mainSlotEventType
+                : types.find((et) => state.activeTypes.includes(et)) ?? null)
+            : null;
+        await updateSingleDynamicInput(inputId, matchData, forceUpdate, eventType ? { eventType } : undefined);
       }
     },
     [isVMixReady, updateSingleDynamicInput]
@@ -766,7 +923,8 @@ export function useVMix(_match: Match | null) {
         }
 
         const matchData = matchRef.current;
-        if (matchData) {
+        const isAutoEventInput = (inputConfig as { autoEvent?: boolean })?.autoEvent === true;
+        if (matchData && !isAutoEventInput) {
           try {
             await updateSingleDynamicInput(inputKey, matchData, true);
           } catch (err) {
@@ -797,10 +955,9 @@ export function useVMix(_match: Match | null) {
   );
 
   /**
-   * Скрывает оверлей
-   * Примечание: hideOverlay не проверяет enabled, так как нужно иметь возможность скрыть оверлей даже если инпут отключен
-   * Примечание: activeButtonRef НЕ очищается сразу, так как vMix может скрывать инпут с задержкой (анимация)
-   * Состояние кнопки обновится автоматически через периодический опрос vMix API в updateOverlayStates()
+   * Скрывает оверлей.
+   * Если скрывается инпут со счётом (isScoreInput), сначала скрываются все авто-инпуты (autoEvent).
+   * Примечание: hideOverlay не проверяет enabled. activeButtonRef обновится через опрос vMix API.
    */
   const hideOverlay = useCallback(
     async (inputKey) => {
@@ -808,16 +965,34 @@ export function useVMix(_match: Match | null) {
         return { success: false, error: "vMix не подключен" };
       }
 
+      const config = vmixConfigRef.current as {
+        inputs?: Record<string, { isScoreInput?: boolean; autoEvent?: boolean }>;
+        inputOrder?: string[];
+      } | null;
+      const inputOrder = Array.isArray(config?.inputOrder) ? config.inputOrder : [];
+      const inputs = config?.inputs || {};
+
+      const scoreInputKey = inputOrder.find((id) => inputs[id]?.isScoreInput === true);
+      const autoInputKeys = inputOrder.filter((id) => inputs[id]?.autoEvent === true);
+      const defaultOverlay = (config as { overlay?: number })?.overlay ?? 1;
+
+      // При скрытии счёта сначала скрываем только те авто-инпуты, которые реально в эфире и на других оверлеях (лишние hide не слать)
+      if (inputKey === scoreInputKey && autoInputKeys.length > 0) {
+        const scoreOverlayNum = getOverlayByKey(inputs, scoreInputKey, defaultOverlay);
+        for (const key of autoInputKeys) {
+          if (getOverlayByKey(inputs, key, defaultOverlay) === scoreOverlayNum) continue;
+          if (!isOverlayActiveRef.current(key)) continue;
+          try {
+            await window.electronAPI.hideVMixOverlay(key);
+          } catch (_) {
+            // продолжаем скрывать остальные
+          }
+        }
+      }
+
       try {
         const result = await window.electronAPI.hideVMixOverlay(inputKey);
-
-        if (result.success) {
-          // НЕ очищаем activeButtonRef сразу - дождемся подтверждения через vMix API
-          // Это важно, так как vMix может скрывать инпут с задержкой из-за анимации
-          // Планируем обновление состояния через периодический опрос
-          scheduleOverlayUpdate();
-        }
-
+        if (result.success) scheduleOverlayUpdate();
         return result;
       } catch (error) {
         return { success: false, error: (error as Error).message };
@@ -912,90 +1087,11 @@ export function useVMix(_match: Match | null) {
   };
 
   /**
-   * Находит инпут в inputsMap по идентификатору (номер, ID или имя)
-   * Возвращает объект с информацией об инпуте или null, если не найден
+   * Находит инпут в inputsMap по идентификатору (номер, ID или имя).
+   * Использует общую функцию findInputInMapWithMap.
    */
   const findInputInMap = useCallback(
-    (inputIdentifier) => {
-      if (
-        !inputIdentifier ||
-        !inputsMap ||
-        Object.keys(inputsMap).length === 0
-      ) {
-        return null;
-      }
-
-      const trimmed = inputIdentifier.trim();
-
-      // 1. Если это число (порядковый номер) - ищем напрямую
-      if (/^\d+$/.test(trimmed)) {
-        const inputData = inputsMap[trimmed];
-        if (inputData) {
-          return {
-            number: inputData.number,
-            key: inputData.key,
-            title: inputData.title,
-            shortTitle: inputData.shortTitle,
-            type: inputData.type,
-          };
-        }
-        return null;
-      }
-
-      // 2. Если это ID инпута (key) - ищем по key
-      for (const [_number, inputData] of Object.entries(inputsMap)) {
-        if (
-          inputData.key &&
-          inputData.key.toLowerCase() === trimmed.toLowerCase()
-        ) {
-          return {
-            number: inputData.number,
-            key: inputData.key,
-            title: inputData.title,
-            shortTitle: inputData.shortTitle,
-            type: inputData.type,
-          };
-        }
-      }
-
-      // 3. Если это имя инпута (title или shortTitle) - ищем по имени
-      const normalizedName = trimmed.toLowerCase();
-      for (const [_number, inputData] of Object.entries(inputsMap)) {
-        const title = (inputData.title || "").toLowerCase();
-        const shortTitle = (inputData.shortTitle || "").toLowerCase();
-
-        // Точное совпадение
-        if (title === normalizedName || shortTitle === normalizedName) {
-          return {
-            number: inputData.number,
-            key: inputData.key,
-            title: inputData.title,
-            shortTitle: inputData.shortTitle,
-            type: inputData.type,
-          };
-        }
-
-        // Также проверяем, если имя содержит расширение (например, ".gtzip")
-        // и совпадает с именем без расширения
-        if (normalizedName.includes(".")) {
-          const nameWithoutExt = normalizedName.split(".")[0];
-          if (nameWithoutExt === title || nameWithoutExt === shortTitle) {
-            return {
-              number: inputData.number,
-              key: inputData.key,
-              title: inputData.title,
-              shortTitle: inputData.shortTitle,
-              type: inputData.type,
-            };
-          }
-        }
-      }
-
-      // 4. Если ничего не найдено, возвращаем null
-      // НЕ извлекаем номер из "Input3" - это неправильно,
-      // потому что "Input3" и "3" - это разные способы обращения к инпуту в vMix
-      return null;
-    },
+    (inputIdentifier) => findInputInMapWithMap(inputsMap as Record<string, VMixInputMapEntry> | null, inputIdentifier),
     [inputsMap]
   );
 
@@ -1179,6 +1275,10 @@ export function useVMix(_match: Match | null) {
     [vmixConfig, overlayStates, getInputIdentifier, findInputInMap, inputsMap, getInputKeysForOverlayAndVmixInput]
   );
 
+  useEffect(() => {
+    isOverlayActiveRef.current = isOverlayActive;
+  }, [isOverlayActive]);
+
   /**
    * Возвращает true, если для данного inputKey другая плашка из той же группы
    * (тот же vMix-инпут и оверлей) сейчас в эфире. Используется для блокировки кнопок:
@@ -1219,6 +1319,144 @@ export function useVMix(_match: Match | null) {
     },
     [vmixConfig, overlayStates, inputsMap, getInputKeysForOverlayAndVmixInput, isOverlayActive]
   );
+
+  /**
+   * Синхронизация авто-оверлеев: при активном оверлее со счётом показываем/обновляем авто-инпуты по событиям (сетбол/матчбол/таймаут).
+   */
+  useEffect(() => {
+    if (!connectionStatus.connected || !vmixConfig || !_match) return;
+
+    const config = vmixConfigRef.current as VMixAutoEventConfig | null;
+    const inputOrder = Array.isArray(config?.inputOrder) ? config.inputOrder : [];
+    const inputs = config?.inputs || {};
+    const defaultOverlay = (config as { overlay?: number })?.overlay ?? 1;
+
+    const scoreInputKey = inputOrder.find((id) => inputs[id]?.isScoreInput === true);
+    if (!scoreInputKey) return;
+
+    const scoreOverlay = getOverlayByKey(inputs, scoreInputKey, defaultOverlay);
+    const scoreActive = isOverlayActive(scoreInputKey);
+    const autoKeys = inputOrder.filter((id) => inputs[id]?.autoEvent === true);
+
+    if (!scoreActive) {
+      // Скрываем только авто-инпуты на других оверлеях, и только если оверлей ещё активен — иначе не слать лишние hide каждые 2.5 с
+      // Не обновляем autoSyncLastRunRef здесь, чтобы ниже асинхронный блок мог выполниться и снять плашку по окончании события (таймаут и т.д.)
+      if (!autoSyncInProgressRef.current && Date.now() - autoSyncLastRunRef.current >= AUTO_SYNC_MIN_INTERVAL_MS) {
+        autoSyncInProgressRef.current = true;
+        autoKeys.forEach((key) => {
+          if (key === scoreInputKey || getOverlayByKey(inputs, key, defaultOverlay) === scoreOverlay) return;
+          if (!isOverlayActive(key)) return;
+          window.electronAPI?.hideVMixOverlay?.(key)?.catch(() => {});
+        });
+        autoSyncInProgressRef.current = false;
+      }
+      // Не выходим: ниже обрабатываем скрытие авто-оверлеев по окончании события (например таймаут кончился), даже если счёт не в эфире
+    }
+
+    const opts = overlayOptionsRef.current;
+    const timeoutTeam = opts?.timeoutTeam ?? null;
+    const isTimeoutActive = opts?.isTimeoutActive ?? false;
+    const prevTimeout = lastTimeoutStateRef.current;
+    const timeoutChanged =
+      prevTimeout &&
+      (prevTimeout.timeoutTeam !== timeoutTeam || prevTimeout.isTimeoutActive !== isTimeoutActive);
+    if (timeoutChanged) {
+      autoSyncLastRunRef.current = 0;
+    }
+    lastTimeoutStateRef.current = { timeoutTeam, isTimeoutActive };
+    const matchData = { ..._match, timeoutTeam, isTimeoutActive };
+
+    const state = computeAutoEventState(_match, overlayOptionsRef.current, config);
+    if (!state) return;
+    if (lastEventSignatureRef.current !== state.eventSignature) {
+      autoSyncLastRunRef.current = 0;
+      lastEventSignatureRef.current = state.eventSignature;
+    }
+
+    /** Оверлеи, на которых мы показываем авто-инпуты — их нельзя скрывать (hide скрывает весь оверлей) */
+    const overlaysWithAutoToShow = new Set(
+      [...state.toShow].map((k) => getOverlayByKey(inputs, k, defaultOverlay)).filter((o) => o !== scoreOverlay)
+    );
+
+    async function runAutoOverlaySync() {
+      if (autoSyncInProgressRef.current) return;
+      if (Date.now() - autoSyncLastRunRef.current < AUTO_SYNC_MIN_INTERVAL_MS) return;
+      autoSyncInProgressRef.current = true;
+      autoSyncLastRunRef.current = Date.now();
+      try {
+        for (const key of autoKeys) {
+          if (key === scoreInputKey) continue;
+          // Авто-инпут на оверлее со счётом: hide снял бы весь оверлей, поэтому при окончании события переключаем оверлей обратно на счёт.
+          // Переключаем только если сейчас в эфире именно авто-инпут (таймаут и т.д.), а не счёт — иначе отменяли бы ручное скрытие счёта (опрос ещё возвращает старый активный инпут).
+          if (getOverlayByKey(inputs, key, defaultOverlay) === scoreOverlay && !state.toShow.has(key)) {
+            if (isOverlayActive(key) && !isOverlayActive(scoreInputKey)) {
+              const sentAt = autoHideSentAtRef.current[key];
+              if (sentAt == null || Date.now() - sentAt >= AUTO_HIDE_COOLDOWN_MS) {
+                await showOverlay(scoreInputKey);
+                await updateSingleDynamicInput(scoreInputKey, matchData, true);
+                autoHideSentAtRef.current[key] = Date.now();
+              }
+            }
+            continue;
+          }
+          if (state.toShow.has(key)) {
+            // При выключенном счёте новые авто-оверлеи не показываем; скрытие по окончании события обрабатывается в ветке else
+            if (!scoreActive) continue;
+            // Оверлей уже неактивен — сбрасываем кулдаун hide, чтобы не блокировать будущие скрытия
+            if (!isOverlayActive(key)) {
+              delete autoHideSentAtRef.current[key];
+            }
+            // Обновляем и показываем только если оверлей ещё не показывает этот инпут — иначе не дергаем vMix каждые 2.5 с
+            if (!isOverlayActive(key)) {
+              const sentHideAt = autoHideSentAtRef.current[key];
+              if (
+                sentHideAt != null &&
+                Date.now() - sentHideAt < MIN_MS_AFTER_HIDE_BEFORE_SHOW
+              ) {
+                continue;
+              }
+              const types = inputs[key]?.autoEventTypes || [];
+              const eventType =
+                state.mainSlotEventType && types.includes(state.mainSlotEventType)
+                  ? state.mainSlotEventType
+                  : types.find((et) => state.activeTypes.includes(et)) ?? null;
+              if (eventType) {
+                await showOverlay(key);
+                await updateSingleDynamicInput(key, matchData, true, { eventType });
+              }
+            }
+          } else {
+            // Оверлей уже неактивен — не слать hide (нет смысла), сбросить кулдаун
+            if (!isOverlayActive(key)) {
+              delete autoHideSentAtRef.current[key];
+              continue;
+            }
+            // Не скрываем оверлей, на котором показан другой авто-инпут из toShow
+            if (overlaysWithAutoToShow.has(getOverlayByKey(inputs, key, defaultOverlay))) continue;
+            // Не отправлять hide повторно, пока не истёк кулдаун (vMix может ещё проигрывать анимацию скрытия)
+            const sentAt = autoHideSentAtRef.current[key];
+            if (sentAt != null && Date.now() - sentAt < AUTO_HIDE_COOLDOWN_MS) continue;
+            await window.electronAPI?.hideVMixOverlay?.(key)?.catch(() => {});
+            autoHideSentAtRef.current[key] = Date.now();
+          }
+        }
+        // Не вызываем scheduleOverlayUpdate — опрос раз в 2 с обновит состояние, лишний запрос даёт цикл и ECONNRESET
+      } finally {
+        autoSyncInProgressRef.current = false;
+      }
+    }
+    runAutoOverlaySync();
+  }, [
+    connectionStatus.connected,
+    vmixConfig,
+    overlayStates,
+    _match,
+    overlayOptions?.timeoutTeam,
+    overlayOptions?.isTimeoutActive,
+    isOverlayActive,
+    showOverlay,
+    updateSingleDynamicInput,
+  ]);
 
   return {
     vmixConfig,

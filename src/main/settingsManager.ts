@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { app } from 'electron';
 import { getSettingsPath, getDefaultSettingsPath } from './utils/pathUtils.ts';
+import { AUTO_EVENT_TYPES } from '../shared/eventOverlayTypes';
 
 // Используем единую утилиту для определения путей
 function getSettingsFilePath() {
@@ -98,6 +99,8 @@ async function loadSettings() {
     const data = await fs.readFile(settingsPath, 'utf-8');
     const settings = JSON.parse(data);
     
+    let changed = false;
+
     // Оставляем только динамические инпуты (с displayName и vmixTitle)
     if (settings.vmix && settings.vmix.inputs && typeof settings.vmix.inputs === 'object') {
       const inputs = settings.vmix.inputs;
@@ -108,13 +111,61 @@ async function loadSettings() {
             typeof inp.displayName === 'string' && inp.displayName.trim() !== '' &&
             typeof inp.vmixTitle === 'string' && inp.vmixTitle.trim() !== '') {
           filteredInputs[key] = input;
+        } else {
+          changed = true;
         }
       }
       const inputOrder = Array.isArray(settings.vmix.inputOrder) 
         ? settings.vmix.inputOrder.filter((id: string) => id in filteredInputs) 
         : [];
-      if (Object.keys(filteredInputs).length !== Object.keys(inputs).length || 
-          JSON.stringify(inputOrder) !== JSON.stringify(settings.vmix.inputOrder || [])) {
+      if (JSON.stringify(inputOrder) !== JSON.stringify(settings.vmix.inputOrder || [])) {
+        changed = true;
+      }
+
+      // Нормализация: только один isScoreInput и один autoEventType = один инпут.
+      // Это защищает от старых/поврежденных настроек, которые могли сохраниться без валидации.
+      const order = inputOrder.length ? inputOrder : Object.keys(filteredInputs);
+      const allowedTypes = new Set<string>(AUTO_EVENT_TYPES);
+      const typeOwner: Record<string, string> = {};
+
+      let scoreOwner: string | null = null;
+      for (const id of order) {
+        const raw = filteredInputs[id] as any;
+        if (!raw || typeof raw !== 'object') continue;
+
+        // 1) isScoreInput: оставляем только первый по порядку
+        if (raw.isScoreInput === true) {
+          if (!scoreOwner) {
+            scoreOwner = id;
+          } else if (scoreOwner !== id) {
+            raw.isScoreInput = false;
+            changed = true;
+          }
+        }
+
+        // 2) autoEventTypes: убираем дубликаты между инпутами (сохраняем за первым по порядку)
+        const types = raw.autoEventTypes;
+        if (!Array.isArray(types)) continue;
+
+        const nextTypes: string[] = [];
+        for (const t of types) {
+          if (typeof t !== 'string' || !allowedTypes.has(t)) continue;
+          const owner = typeOwner[t];
+          if (owner && owner !== id) {
+            changed = true;
+            continue;
+          }
+          typeOwner[t] = id;
+          nextTypes.push(t);
+        }
+        // Если массив поменялся (фильтрация/удаление), сохраняем
+        if (nextTypes.length !== types.length || nextTypes.some((v, i) => v !== types[i])) {
+          raw.autoEventTypes = nextTypes;
+          changed = true;
+        }
+      }
+
+      if (changed) {
         const cleanedSettings = {
           ...settings,
           vmix: {

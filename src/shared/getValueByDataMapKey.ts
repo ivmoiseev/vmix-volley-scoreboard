@@ -4,6 +4,7 @@
  */
 
 import { getPositionAbbreviation } from './playerPositions';
+import { AUTO_EVENT_LABELS } from './eventOverlayTypes';
 
 /** Матч для извлечения значений (минимальная структура для getValueByDataMapKey) */
 export interface MatchForDataMap {
@@ -48,14 +49,32 @@ export function formatMatchDate(dateStr: string | null | undefined, timeStr?: st
   return time ? `${d[2]}.${d[1]}.${d[0]} ${time}` : `${d[2]}.${d[1]}.${d[0]}`;
 }
 
+/** Опции для извлечения значения (контекст для ключей вроде event.autoLabel) */
+export interface GetValueByDataMapKeyOptions {
+  eventType?: string;
+}
+
 /**
  * Возвращает значение из матча по ключу справочника dataMapCatalog.
+ * Для ключа event.autoLabel при передаче options.eventType возвращается метка события (Сетбол/Матчбол/Таймаут).
  */
-export function getValueByDataMapKey(match: MatchForDataMap | null | undefined, dataMapKey: string): string | boolean | undefined {
+export function getValueByDataMapKey(
+  match: MatchForDataMap | null | undefined,
+  dataMapKey: string,
+  options?: GetValueByDataMapKeyOptions
+): string | boolean | undefined {
   if (!match || !dataMapKey || typeof dataMapKey !== 'string') return undefined;
 
   const key = dataMapKey.trim();
   if (!key) return undefined;
+
+  if (key === 'event.autoLabel') {
+    const eventType = options?.eventType;
+    if (eventType && (AUTO_EVENT_LABELS as Record<string, string>)[eventType] !== undefined) {
+      return (AUTO_EVENT_LABELS as Record<string, string>)[eventType];
+    }
+    return '';
+  }
 
   if (key === 'visibility.pointA') {
     return (match.currentSet?.servingTeam ?? '') === 'A';

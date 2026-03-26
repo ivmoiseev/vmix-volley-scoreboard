@@ -350,4 +350,24 @@ describe('getValueByDataMapKey', () => {
       expect(getValueByDataMapKey(baseMatch, 'statistics.teamA.attack')).toBe('');
     });
   });
+
+  describe('event.autoLabel (автособытие с контекстом eventType)', () => {
+    test('с eventType setballA возвращает «Сетбол»', () => {
+      expect(getValueByDataMapKey(baseMatch, 'event.autoLabel', { eventType: 'setballA' })).toBe('Сетбол');
+    });
+    test('с eventType timeoutB возвращает «Таймаут»', () => {
+      expect(getValueByDataMapKey(baseMatch, 'event.autoLabel', { eventType: 'timeoutB' })).toBe('Таймаут');
+    });
+    test('все шесть eventType возвращают соответствующие метки', () => {
+      expect(getValueByDataMapKey(baseMatch, 'event.autoLabel', { eventType: 'setballA' })).toBe('Сетбол');
+      expect(getValueByDataMapKey(baseMatch, 'event.autoLabel', { eventType: 'setballB' })).toBe('Сетбол');
+      expect(getValueByDataMapKey(baseMatch, 'event.autoLabel', { eventType: 'matchballA' })).toBe('Матчбол');
+      expect(getValueByDataMapKey(baseMatch, 'event.autoLabel', { eventType: 'matchballB' })).toBe('Матчбол');
+      expect(getValueByDataMapKey(baseMatch, 'event.autoLabel', { eventType: 'timeoutA' })).toBe('Таймаут');
+      expect(getValueByDataMapKey(baseMatch, 'event.autoLabel', { eventType: 'timeoutB' })).toBe('Таймаут');
+    });
+    test('без контекста возвращает пустую строку', () => {
+      expect(getValueByDataMapKey(baseMatch, 'event.autoLabel')).toBe('');
+    });
+  });
 });

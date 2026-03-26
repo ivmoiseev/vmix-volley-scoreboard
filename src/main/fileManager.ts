@@ -4,8 +4,8 @@ import { dialog } from 'electron';
 import { validateMatch, createNewMatch } from '../shared/matchUtils';
 import errorHandler from '../shared/errorHandler';
 import { migrateRosterPositions } from '../shared/playerPositions';
-import * as logoManager from './logoManager.ts';
-import { getMatchesDir } from './utils/pathUtils.ts';
+import * as logoManager from './logoManager';
+import { getMatchesDir } from './utils/pathUtils';
 
 /**
  * Убеждается, что папка matches существует
@@ -23,7 +23,7 @@ async function ensureMatchesDir() {
 /**
  * Создает новый матч
  */
-async function createMatch() {
+async function createMatch(): Promise<any> {
   const match = createNewMatch();
   return match;
 }
@@ -31,7 +31,7 @@ async function createMatch() {
 /**
  * Сохраняет матч в файл
  */
-async function saveMatch(match, filePath = null) {
+async function saveMatch(match: any, filePath: string | null = null): Promise<string> {
   const matchesDir = await ensureMatchesDir();
 
   if (!validateMatch(match)) {

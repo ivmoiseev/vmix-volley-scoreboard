@@ -3,6 +3,9 @@
  * Проверяет структуру и типы данных в settings.json
  */
 
+import { AUTO_EVENT_TYPES } from '../../shared/eventOverlayTypes';
+import type { AutoEventType } from '../../shared/eventOverlayTypes';
+
 /**
  * Результат валидации
  */
@@ -34,6 +37,14 @@ export interface VMixInput {
   vmixTitle: string;
   overlay: number;
   fields: Record<string, DynamicInputField>;
+  /** Использовать как инпут со счётом (только один в конфиге) */
+  isScoreInput?: boolean;
+  /** Автоматически показывать при событиях (сетбол/матчбол/таймаут) */
+  autoEvent?: boolean;
+  /** Выбранные типы событий для авто-показа */
+  autoEventTypes?: AutoEventType[];
+  /** Показывать совместно с другими событийными плашками */
+  autoEventShowAlongside?: boolean;
 }
 
 /**
@@ -216,6 +227,25 @@ export function validateVMixSettings(vmix: any): ValidationResult {
           errors.push(`inputs.${inputKey}: ${inputResult.errors.join(', ')}`);
         }
       }
+      // Только один инпут со счётом
+      const scoreInputKeys = Object.entries(vmix.inputs).filter(([, v]) => v && (v as any).isScoreInput === true).map(([k]) => k);
+      if (scoreInputKeys.length > 1) {
+        errors.push('Только один инпут может быть инпутом со счётом');
+      }
+      // Один тип события = один инпут
+      const typeToInputKey: Record<string, string> = {};
+      for (const [inputKey, inputValue] of Object.entries(vmix.inputs)) {
+        const types = (inputValue as any)?.autoEventTypes;
+        if (!Array.isArray(types)) continue;
+        for (const t of types) {
+          if (typeof t !== 'string') continue;
+          if (typeToInputKey[t] !== undefined && typeToInputKey[t] !== inputKey) {
+            errors.push(`Тип события ${t} уже выбран у другого инпута`);
+          } else {
+            typeToInputKey[t] = inputKey;
+          }
+        }
+      }
     }
   }
 
@@ -254,6 +284,30 @@ export function validateVMixInput(inputKey: string, input: any): ValidationResul
   }
   if (typeof input.vmixTitle !== 'string' || input.vmixTitle.trim() === '') {
     errors.push('vmixTitle должен быть непустой строкой');
+  }
+
+  // Опциональные поля автособытий
+  if (input.isScoreInput !== undefined && typeof input.isScoreInput !== 'boolean') {
+    errors.push('isScoreInput должен быть boolean');
+  }
+  if (input.autoEvent !== undefined && typeof input.autoEvent !== 'boolean') {
+    errors.push('autoEvent должен быть boolean');
+  }
+  if (input.autoEventTypes !== undefined) {
+    if (!Array.isArray(input.autoEventTypes)) {
+      errors.push('autoEventTypes должен быть массивом');
+    } else {
+      const allowed = new Set<string>(AUTO_EVENT_TYPES);
+      for (const t of input.autoEventTypes) {
+        if (typeof t !== 'string' || !allowed.has(t)) {
+          errors.push(`autoEventTypes должен содержать только значения из набора: ${AUTO_EVENT_TYPES.join(', ')}`);
+          break;
+        }
+      }
+    }
+  }
+  if (input.autoEventShowAlongside !== undefined && typeof input.autoEventShowAlongside !== 'boolean') {
+    errors.push('autoEventShowAlongside должен быть boolean');
   }
 
   // Проверяем fields

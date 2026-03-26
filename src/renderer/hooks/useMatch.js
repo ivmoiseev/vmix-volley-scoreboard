@@ -16,6 +16,10 @@ export function useMatch(initialMatch) {
         category: null,
         timestamp: 0,
     });
+    const [timeoutState, setTimeoutState] = useState({
+        team: null,
+        active: false,
+    });
     useEffect(() => {
         if (initialMatch) {
             const prevMatch = prevInitialMatchRef.current;
@@ -234,6 +238,17 @@ export function useMatch(initialMatch) {
             return newMatch;
         });
     }, []);
+    const toggleTimeout = useCallback((team) => {
+        setTimeoutState((prev) => {
+            if (!prev.active) {
+                return { team, active: true };
+            }
+            if (prev.team === team) {
+                return { team: null, active: false };
+            }
+            return { team, active: true };
+        });
+    }, []);
     const toggleStatistics = useCallback((enabled) => {
         setMatch((prevMatch) => {
             if (!prevMatch)
@@ -271,6 +286,7 @@ export function useMatch(initialMatch) {
         changeStatistics,
         toggleStatistics,
         undoLastAction,
+        toggleTimeout,
         isSetballNow: setballInfo.isSetball,
         setballTeam: setballInfo.team,
         isMatchballNow: matchballInfo.isMatchball,
@@ -278,5 +294,7 @@ export function useMatch(initialMatch) {
         canFinish,
         hasHistory,
         currentSetStatus: match?.currentSet?.status || SET_STATUS.PENDING,
+        timeoutTeam: timeoutState.team,
+        isTimeoutActive: timeoutState.active,
     };
 }

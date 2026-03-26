@@ -320,6 +320,70 @@ describe('settingsValidator', () => {
       });
       expect(result.valid).toBe(true);
     });
+
+    test('инпут с isScoreInput и autoEvent валиден', () => {
+      const result = validateVMixInput('uuid-1', {
+        enabled: true,
+        displayName: 'Счёт',
+        vmixTitle: 'SCORE',
+        overlay: 1,
+        isScoreInput: true,
+        autoEvent: true,
+        autoEventTypes: ['setballA', 'matchballA'],
+        autoEventShowAlongside: false,
+        fields: {},
+      });
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe('validateVMixSettings — isScoreInput и autoEventTypes', () => {
+    const baseVMix = {
+      host: 'localhost',
+      port: 8088,
+    };
+    const baseInput = {
+      enabled: true,
+      displayName: 'Инпут',
+      vmixTitle: 'TITLE',
+      overlay: 1,
+      fields: {},
+    };
+
+    test('два инпута с isScoreInput: true — ошибка', () => {
+      const result = validateVMixSettings({
+        ...baseVMix,
+        inputs: {
+          a: { ...baseInput, displayName: 'A', vmixTitle: 'A', isScoreInput: true },
+          b: { ...baseInput, displayName: 'B', vmixTitle: 'B', isScoreInput: true },
+        },
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some(e => e.includes('инпутом со счётом'))).toBe(true);
+    });
+
+    test('два инпута с одинаковым типом события (setballA) — ошибка', () => {
+      const result = validateVMixSettings({
+        ...baseVMix,
+        inputs: {
+          a: { ...baseInput, displayName: 'A', vmixTitle: 'A', autoEvent: true, autoEventTypes: ['setballA'] },
+          b: { ...baseInput, displayName: 'B', vmixTitle: 'B', autoEvent: true, autoEventTypes: ['setballA', 'timeoutB'] },
+        },
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some(e => e.includes('setballA') && e.includes('другого инпута'))).toBe(true);
+    });
+
+    test('один инпут setballA, другой timeoutA — валидно', () => {
+      const result = validateVMixSettings({
+        ...baseVMix,
+        inputs: {
+          a: { ...baseInput, displayName: 'A', vmixTitle: 'A', autoEvent: true, autoEventTypes: ['setballA'] },
+          b: { ...baseInput, displayName: 'B', vmixTitle: 'B', autoEvent: true, autoEventTypes: ['timeoutA'] },
+        },
+      });
+      expect(result.valid).toBe(true);
+    });
   });
 
   describe('validateMobileSettings', () => {

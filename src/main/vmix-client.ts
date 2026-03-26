@@ -56,7 +56,16 @@ class VMixClient {
 
       // vMix API работает с /api/ и /api, используем /api/ для совместимости с рабочей ссылкой
       const url = `${this.baseURL}/?${queryParams.toString()}`;
-      
+
+      // Логирование каждой команды vMix API
+      const logParams = Object.entries(params)
+        .map(([k, v]) => {
+          const s = String(v);
+          return `${k}=${s.length > 80 ? s.slice(0, 80) + '…' : s}`;
+        })
+        .join(' ');
+      console.log(`[vMix API] ${functionName} ${logParams || ''}`.trim());
+
       // Подробное логирование только для команды SetImage
       if (functionName === 'SetImage') {
         // Создаем читаемую версию URL для логирования (декодированную)
@@ -315,33 +324,31 @@ class VMixClient {
           const number = parseInt(overlay.$.number);
           if (number >= 1 && number <= 8) {
             // В реальном XML vMix номер инпута находится внутри элемента как текст
-            // Например: <overlay number="1">13</overlay> означает, что в оверлее 1 находится инпут номер 13
-            // Если элемент пустой или не содержит текста - оверлей неактивен
-            
+            // Например: <overlay number="1">13</overlay> — в оверлее 1 инпут 13
+            // preview="True" означает, что инпут в шине предпросмотра, а не в эфире — не считаем активным
+            const isPreview = overlay.$.preview === 'True' || overlay.$.preview === true;
+
             let inputValue = null;
             let isActive = false;
-            
-            // Получаем текстовое содержимое элемента
+
             if (overlay._) {
-              // xml2js помещает текстовое содержимое в свойство _
               const textContent = overlay._.trim();
               if (textContent && !isNaN(textContent)) {
                 inputValue = textContent;
-                isActive = true;
+                isActive = !isPreview;
               }
             } else if (typeof overlay === 'string') {
-              // Если overlay сам по себе строка (при explicitArray: false)
               const textContent = overlay.trim();
               if (textContent && !isNaN(textContent)) {
                 inputValue = textContent;
-                isActive = true;
+                isActive = !isPreview;
               }
             }
-            
+
             overlayState[number] = {
               active: isActive,
               input: inputValue,
-              preview: overlay.$.preview === 'True' || overlay.$.preview === true,
+              preview: isPreview,
             };
           }
         });

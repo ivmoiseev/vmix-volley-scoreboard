@@ -74,6 +74,7 @@ const DATA_MAP_GROUPS: DataMapGroup[] = [
       { key: 'servingTeam', label: 'Команда на подаче (A/B)', type: 'text' },
       { key: 'visibility.pointA', label: 'Индикатор подачи команды A', type: 'visibility' },
       { key: 'visibility.pointB', label: 'Индикатор подачи команды B', type: 'visibility' },
+      { key: 'event.autoLabel', label: 'Автособытие', type: 'text' },
     ],
   },
   {
